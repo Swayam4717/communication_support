@@ -1,150 +1,138 @@
-import { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  SafeAreaView,
-} from "react-native";
+import React, { useState } from "react";
+import { SessionIntro } from "../../components/SessionIntro";
+import { ChoiceScreen } from "../../components/ChoiceScreen";
+import { ConfirmationScreen } from "../../components/ConfirmationScreen";
+import type { Session, SessionOption, ScreenState } from "../../types/session";
 
+/**
+ * Sample Sessions - Reusable session objects
+ * These define the flow, questions, and options for different communication scenarios
+ */
+
+// Food choice session
+const FOOD_SESSION: Session = {
+  id: "food",
+  type: "choice",
+  intro: {
+    title: "Mom wants to ask you something",
+    subtitle: "Take your time",
+  },
+  question: "What would you like to eat?",
+  options: [
+    { id: "1", label: "Pizza", emoji: "🍕" },
+    { id: "2", label: "Rice", emoji: "🍚" },
+    { id: "3", label: "Noodles", emoji: "🍜" },
+    { id: "4", label: "Sandwich", emoji: "🥪" },
+  ],
+};
+
+// Emotion check session
+const EMOTION_SESSION: Session = {
+  id: "emotion",
+  type: "emotion",
+  intro: {
+    title: "How are you feeling today?",
+    subtitle: "Take your time",
+  },
+  question: "How are you feeling?",
+  options: [
+    { id: "1", label: "Happy", emoji: "😀" },
+    { id: "2", label: "Sad", emoji: "😔" },
+    { id: "3", label: "Angry", emoji: "😡" },
+    { id: "4", label: "Tired", emoji: "😴" },
+  ],
+};
+
+/**
+ * Main App Component
+ * Orchestrates the session-based architecture
+ * Manages screen flow and session switching for testing
+ */
 export default function HomeScreen() {
-  const [selectedFood, setSelectedFood] = useState<string | null>(null);
+  // Current screen in the flow
+  const [screen, setScreen] = useState<ScreenState>("intro");
 
-  const foods = [
-    { emoji: "🍕", name: "Pizza" },
-    { emoji: "🍚", name: "Rice" },
-    { emoji: "🍜", name: "Noodles" },
-    { emoji: "🥪", name: "Sandwich" },
-  ];
+  // Currently active session
+  const [activeSession, setActiveSession] = useState<Session>(FOOD_SESSION);
 
-  if (selectedFood) {
+  // User's selected option
+  const [selectedOption, setSelectedOption] = useState<SessionOption | null>(
+    null
+  );
+
+  /**
+   * Handle user pressing Start button
+   * Transitions from intro to choice screen
+   */
+  const handleStartSession = () => {
+    setScreen("choice");
+  };
+
+  /**
+   * Handle user selecting an option
+   * Stores selection and shows confirmation
+   */
+  const handleOptionSelect = (option: SessionOption) => {
+    setSelectedOption(option);
+    setScreen("confirmation");
+  };
+
+  /**
+   * Handle user pressing Done on confirmation
+   * Resets state and returns to intro for next session
+   */
+  const handleDone = () => {
+    setSelectedOption(null);
+    setScreen("intro");
+  };
+
+  /**
+   * Toggle between food and emotion sessions
+   * Useful for testing different session types
+   */
+  const handleToggleSession = () => {
+    const newSession =
+      activeSession.id === "food" ? EMOTION_SESSION : FOOD_SESSION;
+    setActiveSession(newSession);
+    setSelectedOption(null);
+    setScreen("intro");
+  };
+
+  // Screen 1: Intro / Waiting screen
+  if (screen === "intro") {
     return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.title}>Great Choice!</Text>
-
-        <Text style={styles.choiceEmoji}>
-          {foods.find((f) => f.name === selectedFood)?.emoji}
-        </Text>
-
-        <Text style={styles.choiceText}>
-          You selected {selectedFood}
-        </Text>
-
-        <TouchableOpacity
-          style={styles.resetButton}
-          onPress={() => setSelectedFood(null)}
-        >
-          <Text style={styles.resetButtonText}>Back</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
+      <SessionIntro
+        title={activeSession.intro.title}
+        subtitle={activeSession.intro.subtitle}
+        onStart={handleStartSession}
+        onToggleSession={handleToggleSession}
+        sessionName={activeSession.id}
+      />
     );
   }
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>
-        Mom wants to ask you something
-      </Text>
+  // Screen 2: Choice screen (dynamic options from session)
+  if (screen === "choice") {
+    return (
+      <ChoiceScreen
+        question={activeSession.question}
+        options={activeSession.options}
+        onOptionSelected={handleOptionSelect}
+      />
+    );
+  }
 
-      <Text style={styles.question}>
-        What would you like to eat?
-      </Text>
+  // Screen 3: Confirmation screen
+  if (screen === "confirmation" && selectedOption) {
+    return (
+      <ConfirmationScreen
+        selectedEmoji={selectedOption.emoji}
+        selectedLabel={selectedOption.label}
+        onDone={handleDone}
+      />
+    );
+  }
 
-      <View style={styles.optionsContainer}>
-        {foods.map((food) => (
-          <TouchableOpacity
-            key={food.name}
-            style={styles.card}
-            onPress={() => setSelectedFood(food.name)}
-          >
-            <Text style={styles.emoji}>{food.emoji}</Text>
-            <Text style={styles.foodText}>{food.name}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </SafeAreaView>
-  );
+  // Fallback (should not reach here)
+  return <SessionIntro title="Loading..." subtitle="" onStart={() => {}} />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F7F9FC",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-  },
-
-  header: {
-    fontSize: 20,
-    color: "#5A6A85",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-
-  question: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#1E2A3A",
-    marginBottom: 40,
-    textAlign: "center",
-  },
-
-  optionsContainer: {
-    width: "100%",
-    gap: 20,
-  },
-
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    paddingVertical: 24,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-
-  emoji: {
-    fontSize: 48,
-    marginBottom: 10,
-  },
-
-  foodText: {
-    fontSize: 22,
-    fontWeight: "600",
-    color: "#1E2A3A",
-  },
-
-  title: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: "#1E2A3A",
-    marginBottom: 30,
-  },
-
-  choiceEmoji: {
-    fontSize: 80,
-    marginBottom: 20,
-  },
-
-  choiceText: {
-    fontSize: 28,
-    color: "#5A6A85",
-    marginBottom: 40,
-  },
-
-  resetButton: {
-    backgroundColor: "#4A90E2",
-    paddingHorizontal: 30,
-    paddingVertical: 14,
-    borderRadius: 16,
-  },
-
-  resetButtonText: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-});

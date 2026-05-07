@@ -1,157 +1,138 @@
-import { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useState } from "react";
+import { SessionIntro } from "../components/SessionIntro";
+import { ChoiceScreen } from "../components/ChoiceScreen";
+import { ConfirmationScreen } from "../components/ConfirmationScreen";
+import type { Session, SessionOption, ScreenState } from "../types/session";
 
-type Screen = "incoming" | "options" | "done";
+/**
+ * Sample Sessions - Reusable session objects
+ * These define the flow, questions, and options for different communication scenarios
+ */
 
+// Food choice session
+const FOOD_SESSION: Session = {
+  id: "food",
+  type: "choice",
+  intro: {
+    title: "Mom wants to ask you something",
+    subtitle: "Take your time",
+  },
+  question: "What would you like to eat?",
+  options: [
+    { id: "1", label: "Pizza", emoji: "🍕" },
+    { id: "2", label: "Rice", emoji: "🍚" },
+    { id: "3", label: "Noodles", emoji: "🍜" },
+    { id: "4", label: "Sandwich", emoji: "🥪" },
+  ],
+};
+
+// Emotion check session
+const EMOTION_SESSION: Session = {
+  id: "emotion",
+  type: "emotion",
+  intro: {
+    title: "How are you feeling today?",
+    subtitle: "Take your time",
+  },
+  question: "How are you feeling?",
+  options: [
+    { id: "1", label: "Happy", emoji: "😀" },
+    { id: "2", label: "Sad", emoji: "😔" },
+    { id: "3", label: "Angry", emoji: "😡" },
+    { id: "4", label: "Tired", emoji: "😴" },
+  ],
+};
+
+/**
+ * Main App Component
+ * Orchestrates the session-based architecture
+ * Manages screen flow and session switching for testing
+ */
 export default function ChildSessionScreen() {
-  const [screen, setScreen] = useState<Screen>("incoming");
-  const [selected, setSelected] = useState<string | null>(null);
+  // Current screen in the flow
+  const [screen, setScreen] = useState<ScreenState>("intro");
 
-  const foods = [
-    { emoji: "🍕", label: "Pizza" },
-    { emoji: "🍚", label: "Rice" },
-    { emoji: "🍜", label: "Noodles" },
-    { emoji: "🥪", label: "Sandwich" },
-  ];
+  // Currently active session
+  const [activeSession, setActiveSession] = useState<Session>(FOOD_SESSION);
 
-  if (screen === "incoming") {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.smallText}>Mom wants to ask you something</Text>
-        <Text style={styles.bigText}>Are you ready?</Text>
-
-        <TouchableOpacity style={styles.primaryButton} onPress={() => setScreen("options")}>
-          <Text style={styles.primaryButtonText}>Start</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (screen === "done") {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.bigText}>You chose</Text>
-        <Text style={styles.resultEmoji}>{foods.find((f) => f.label === selected)?.emoji}</Text>
-        <Text style={styles.resultText}>{selected}</Text>
-
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => {
-            setSelected(null);
-            setScreen("incoming");
-          }}
-        >
-          <Text style={styles.secondaryButtonText}>New Session</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      <Text style={styles.smallText}>Mom asks:</Text>
-      <Text style={styles.question}>What would you like to eat?</Text>
-
-      <View style={styles.grid}>
-        {foods.map((food) => (
-          <TouchableOpacity
-            key={food.label}
-            style={styles.card}
-            onPress={() => {
-              setSelected(food.label);
-              setScreen("done");
-            }}
-          >
-            <Text style={styles.emoji}>{food.emoji}</Text>
-            <Text style={styles.cardText}>{food.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
+  // User's selected option
+  const [selectedOption, setSelectedOption] = useState<SessionOption | null>(
+    null
   );
-}
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F7F9FC",
-    padding: 24,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  smallText: {
-    fontSize: 20,
-    color: "#667085",
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  bigText: {
-    fontSize: 34,
-    fontWeight: "700",
-    color: "#1D2939",
-    textAlign: "center",
-    marginBottom: 40,
-  },
-  question: {
-    fontSize: 30,
-    fontWeight: "700",
-    color: "#1D2939",
-    textAlign: "center",
-    marginBottom: 32,
-  },
-  primaryButton: {
-    backgroundColor: "#2F80ED",
-    paddingVertical: 20,
-    paddingHorizontal: 60,
-    borderRadius: 24,
-  },
-  primaryButtonText: {
-    color: "white",
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  secondaryButton: {
-    backgroundColor: "#E4E7EC",
-    paddingVertical: 16,
-    paddingHorizontal: 36,
-    borderRadius: 20,
-    marginTop: 32,
-  },
-  secondaryButtonText: {
-    color: "#1D2939",
-    fontSize: 20,
-    fontWeight: "600",
-  },
-  grid: {
-    width: "100%",
-    gap: 18,
-  },
-  card: {
-    backgroundColor: "white",
-    borderRadius: 28,
-    paddingVertical: 24,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  emoji: {
-    fontSize: 52,
-    marginBottom: 8,
-  },
-  cardText: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#1D2939",
-  },
-  resultEmoji: {
-    fontSize: 96,
-    marginBottom: 16,
-  },
-  resultText: {
-    fontSize: 36,
-    fontWeight: "700",
-    color: "#1D2939",
-  },
-});
+  /**
+   * Handle user pressing Start button
+   * Transitions from intro to choice screen
+   */
+  const handleStartSession = () => {
+    setScreen("choice");
+  };
+
+  /**
+   * Handle user selecting an option
+   * Stores selection and shows confirmation
+   */
+  const handleOptionSelect = (option: SessionOption) => {
+    setSelectedOption(option);
+    setScreen("confirmation");
+  };
+
+  /**
+   * Handle user pressing Done on confirmation
+   * Resets state and returns to intro for next session
+   */
+  const handleDone = () => {
+    setSelectedOption(null);
+    setScreen("intro");
+  };
+
+  /**
+   * Toggle between food and emotion sessions
+   * Useful for testing different session types
+   */
+  const handleToggleSession = () => {
+    const newSession =
+      activeSession.id === "food" ? EMOTION_SESSION : FOOD_SESSION;
+    setActiveSession(newSession);
+    setSelectedOption(null);
+    setScreen("intro");
+  };
+
+  // Screen 1: Intro / Waiting screen
+  if (screen === "intro") {
+    return (
+      <SessionIntro
+        title={activeSession.intro.title}
+        subtitle={activeSession.intro.subtitle}
+        onStart={handleStartSession}
+        onToggleSession={handleToggleSession}
+        sessionName={activeSession.id}
+      />
+    );
+  }
+
+  // Screen 2: Choice screen (dynamic options from session)
+  if (screen === "choice") {
+    return (
+      <ChoiceScreen
+        question={activeSession.question}
+        options={activeSession.options}
+        onOptionSelected={handleOptionSelect}
+      />
+    );
+  }
+
+  // Screen 3: Confirmation screen
+  if (screen === "confirmation" && selectedOption) {
+    return (
+      <ConfirmationScreen
+        selectedEmoji={selectedOption.emoji}
+        selectedLabel={selectedOption.label}
+        onDone={handleDone}
+      />
+    );
+  }
+
+  // Fallback (should not reach here)
+  return <SessionIntro title="Loading..." subtitle="" onStart={() => {}} />;
+}

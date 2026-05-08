@@ -8,16 +8,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import type { SentSession, SessionOption } from "./communicationHelpers";
-import { createSession } from "./communicationHelpers";
+import type { SessionOption, CommunicationSession } from "./communicationHelpers";
+import { createSession, sendSession, subscribeToSession, resetSession } from "./communicationHelpers";
 import { OptionCard, Header } from "./communicationUI";
 import { styles } from "./communicationCommon";
 
 interface ParentModeScreenProps {
   question: string;
   optionLabels: string[];
-  sentSession: SentSession | null;
-  childAnswer: SessionOption | null;
+  sentSession: CommunicationSession | null;
   showPreview: boolean;
   onQuestionChange: (value: string) => void;
   onOptionLabelChange: (index: number, value: string) => void;
@@ -30,7 +29,6 @@ export default function ParentModeScreen({
   question,
   optionLabels,
   sentSession,
-  childAnswer,
   showPreview,
   onQuestionChange,
   onOptionLabelChange,
@@ -38,12 +36,16 @@ export default function ParentModeScreen({
   onSendToChild,
   onBackToSelect,
 }: ParentModeScreenProps) {
-  const currentSession = sentSession ?? createSession(question, optionLabels);
-  const parentStatusTitle = !sentSession
-    ? "No session sent yet"
-    : childAnswer
-    ? `Child chose: ${childAnswer.label}`
-    : "Waiting for child response";
+  const [fireSession, setFireSession] = React.useState<CommunicationSession | null>(null);
+
+  React.useEffect(() => {
+    const unsub = subscribeToSession((s) => setFireSession(s));
+    return () => unsub();
+  }, []);
+
+  const currentSession = fireSession ?? sentSession ?? createSession(question, optionLabels);
+  const selectedAnswer = currentSession && fireSession?.selectedAnswer ? currentSession.options.find((o) => o.id === fireSession.selectedAnswer) ?? null : null;
+  const parentStatusTitle = !sentSession ? "No session sent yet" : selectedAnswer ? `Child chose: ${selectedAnswer.label}` : "Waiting for child response";
   const scrollRef = useRef<ScrollView | null>(null);
   const [optionRowPositions, setOptionRowPositions] = useState<number[]>([]);
 
@@ -60,6 +62,25 @@ export default function ParentModeScreen({
         animated: true,
       });
     });
+  };
+
+  const handleSend = async () => {
+    const session = createSession(question, optionLabels);
+    try {
+      await sendSession(session);
+      onSendToChild?.();
+    } catch (e) {
+      console.warn("sendSession failed", e);
+    }
+  };
+
+  const handleReset = async () => {
+    try {
+      await resetSession();
+      setFireSession(null);
+    } catch (e) {
+      console.warn("resetSession failed", e);
+    }
   };
 
   return (
@@ -81,13 +102,11 @@ export default function ParentModeScreen({
         <View style={styles.statusCard}>
           <Text style={styles.sectionLabel}>Session status</Text>
           <Text style={styles.statusTitle}>{parentStatusTitle}</Text>
-          <Text style={styles.statusBody}>
-            {sentSession ? sentSession.question : "Create a question and send it when you are ready."}
-          </Text>
-          {childAnswer ? (
+          <Text style={styles.statusBody}>{currentSession.title}</Text>
+          {selectedAnswer ? (
             <View style={styles.answerBadge}>
-              <Text style={styles.answerBadgeEmoji}>{childAnswer.emoji}</Text>
-              <Text style={styles.answerBadgeText}>{childAnswer.label}</Text>
+              <Text style={styles.answerBadgeEmoji}>{selectedAnswer.emoji}</Text>
+              <Text style={styles.answerBadgeText}>{selectedAnswer.label}</Text>
             </View>
           ) : null}
         </View>
@@ -142,8 +161,13 @@ export default function ParentModeScreen({
               <Text style={styles.secondaryButtonText}>{showPreview ? "Hide preview" : "Preview Child Session"}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.primaryButton} onPress={onSendToChild}>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleSend}>
               <Text style={styles.primaryButtonText}>Send to Child</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ marginTop: 12 }}>
+            <TouchableOpacity style={styles.secondaryButton} onPress={handleReset}>
+              <Text style={styles.secondaryButtonText}>Reset Session</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -151,7 +175,7 @@ export default function ParentModeScreen({
         {showPreview ? (
           <View style={styles.previewCard}>
             <Text style={styles.sectionLabel}>Child preview</Text>
-            <Text style={styles.previewQuestion}>{currentSession.question}</Text>
+            <Text style={styles.previewQuestion}>{currentSession.title}</Text>
             <View style={styles.previewGrid}>
               {currentSession.options.map((option) => (
                 <OptionCard key={option.id} option={option} compact disabled />

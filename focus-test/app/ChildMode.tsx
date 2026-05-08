@@ -1,32 +1,36 @@
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
-import type { SentSession, SessionOption, ChildStage } from "./communicationHelpers";
+import type { CommunicationSession, SessionOption } from "./communicationHelpers";
+import { subscribeToSession, submitAnswer } from "./communicationHelpers";
 import { Header, OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
 
 interface ChildModeScreenProps {
-  session: SentSession | null;
-  stage: ChildStage;
-  selectedOptionId: string | null;
-  onStart: () => void;
-  onSelectOption: (option: SessionOption) => void;
-  onSendAnswer: () => void;
-  onDone: () => void;
   onBackToSelect: () => void;
 }
 
-export default function ChildModeScreen({
-  session,
-  stage,
-  selectedOptionId,
-  onStart,
-  onSelectOption,
-  onSendAnswer,
-  onDone,
-  onBackToSelect,
-}: ChildModeScreenProps) {
-  const selectedOption =
-    session?.options.find((option) => option.id === selectedOptionId) ?? null;
+export default function ChildModeScreen({ onBackToSelect }: ChildModeScreenProps) {
+  const [session, setSession] = React.useState<CommunicationSession | null>(null);
+  const [stage, setStage] = React.useState<"idle" | "incoming" | "choice" | "confirmation">("idle");
+  const [selectedOptionId, setSelectedOptionId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const unsub = subscribeToSession((s) => {
+      setSession(s);
+      if (!s || s.status === "idle") {
+        setStage("idle");
+        setSelectedOptionId(null);
+      } else if (s.status === "sent") {
+        setStage("incoming");
+      } else if (s.status === "answered") {
+        setStage("confirmation");
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
+  const selectedOption = session?.options.find((o) => o.id === selectedOptionId) ?? null;
 
   return (
     <ScrollView
@@ -49,9 +53,9 @@ export default function ChildModeScreen({
       {session && stage === "incoming" ? (
         <View style={styles.heroCard}>
           <Text style={styles.heroEmoji}>📩</Text>
-          <Text style={styles.heroTitle}>Mum wants to ask you something</Text>
+          <Text style={styles.heroTitle}>New message</Text>
           <Text style={styles.heroSubtitle}>You can answer when ready</Text>
-          <TouchableOpacity style={styles.primaryButton} onPress={onStart}>
+          <TouchableOpacity style={styles.primaryButton} onPress={() => setStage("choice")}>
             <Text style={styles.primaryButtonText}>Start</Text>
           </TouchableOpacity>
         </View>
@@ -59,7 +63,7 @@ export default function ChildModeScreen({
 
       {session && stage === "choice" ? (
         <View style={styles.choiceCard}>
-          <Text style={styles.questionTitle}>{session.question}</Text>
+          <Text style={styles.questionTitle}>{session.title}</Text>
 
           <View style={styles.choiceList}>
             {session.options.map((option) => (
@@ -67,7 +71,7 @@ export default function ChildModeScreen({
                 key={option.id}
                 option={option}
                 selected={option.id === selectedOptionId}
-                onPress={onSelectOption}
+                onPress={() => setSelectedOptionId(option.id)}
               />
             ))}
           </View>
@@ -78,21 +82,30 @@ export default function ChildModeScreen({
               styles.primaryButton,
               !selectedOption && styles.primaryButtonDisabled,
             ]}
-            onPress={onSendAnswer}
+            onPress={async () => {
+              if (!selectedOption) return;
+              try {
+                await submitAnswer(selectedOption.id);
+              } catch (e) {
+                console.warn("submitAnswer failed", e);
+              }
+            }}
           >
             <Text style={styles.primaryButtonText}>Send Answer</Text>
           </TouchableOpacity>
         </View>
       ) : null}
 
-      {session && stage === "confirmation" && selectedOption ? (
+      {session && stage === "confirmation" && (session.selectedAnswer || selectedOption) ? (
         <View style={styles.heroCard}>
           <Text style={styles.heroEmoji}>✓</Text>
           <Text style={styles.heroTitle}>Sent to Mum</Text>
-          <Text style={styles.heroSubtitle}>You chose {selectedOption.label}</Text>
-          <Text style={styles.confirmationEmoji}>{selectedOption.emoji}</Text>
+          <Text style={styles.heroSubtitle}>
+            You chose {session?.options.find((o) => o.id === session.selectedAnswer)?.label ?? selectedOption?.label}
+          </Text>
+          <Text style={styles.confirmationEmoji}>{session?.options.find((o) => o.id === session.selectedAnswer)?.emoji ?? selectedOption?.emoji}</Text>
 
-          <TouchableOpacity style={styles.primaryButton} onPress={onDone}>
+          <TouchableOpacity style={styles.primaryButton} onPress={() => setStage("idle")}>
             <Text style={styles.primaryButtonText}>Done</Text>
           </TouchableOpacity>
         </View>

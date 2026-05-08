@@ -6,8 +6,7 @@ import {
   DEFAULT_QUESTION,
   DEFAULT_OPTIONS,
   createSession,
-  SentSession,
-  SessionOption,
+  CommunicationSession,
 } from "./communicationHelpers";
 import { styles } from "./communicationCommon";
 
@@ -47,10 +46,7 @@ export default function CommunicationMvpApp() {
   const [draftQuestion, setDraftQuestion] = useState(DEFAULT_QUESTION);
   const [draftOptions, setDraftOptions] = useState<string[]>(DEFAULT_OPTIONS);
   const [showPreview, setShowPreview] = useState(false);
-  const [sentSession, setSentSession] = useState<SentSession | null>(null);
-  const [childStage, setChildStage] = useState<"idle" | "incoming" | "choice" | "confirmation">("idle");
-  const [childSelectedOptionId, setChildSelectedOptionId] = useState<string | null>(null);
-  const [childAnswer, setChildAnswer] = useState<SessionOption | null>(null);
+  const [sentSession, setSentSession] = useState<CommunicationSession | null>(null);
 
   const handleQuestionChange = (value: string) => setDraftQuestion(value);
 
@@ -68,31 +64,11 @@ export default function CommunicationMvpApp() {
     const nextSession = createSession(draftQuestion, draftOptions);
 
     setSentSession(nextSession);
-    setChildStage("incoming");
-    setChildSelectedOptionId(null);
-    setChildAnswer(null);
     setShowPreview(false);
     setMode("parent");
   };
 
-  const handleStartChildSession = () => setChildStage("choice");
-
-  const handleSelectChildOption = (option: SessionOption) => setChildSelectedOptionId(option.id);
-
-  const handleSendChildAnswer = () => {
-    if (!sentSession) return;
-
-    const selected = sentSession.options.find((o) => o.id === childSelectedOptionId);
-    if (!selected) return;
-
-    setChildAnswer(selected);
-    setChildStage("confirmation");
-  };
-
-  const handleDoneChildFlow = () => {
-    setChildStage("idle");
-    setChildSelectedOptionId(null);
-  };
+  // Child/parent realtime behavior handled inside ParentMode and ChildMode via Firestore subscriptions
 
   const handleBackToSelect = () => setMode("select");
 
@@ -103,7 +79,6 @@ export default function CommunicationMvpApp() {
           question={draftQuestion}
           optionLabels={draftOptions}
           sentSession={sentSession}
-          childAnswer={childAnswer}
           showPreview={showPreview}
           onQuestionChange={handleQuestionChange}
           onOptionLabelChange={handleOptionLabelChange}
@@ -116,16 +91,7 @@ export default function CommunicationMvpApp() {
 
     if (mode === "child") {
       return (
-        <ChildModeScreen
-          session={sentSession}
-          stage={childStage}
-          selectedOptionId={childSelectedOptionId}
-          onStart={handleStartChildSession}
-          onSelectOption={handleSelectChildOption}
-          onSendAnswer={handleSendChildAnswer}
-          onDone={handleDoneChildFlow}
-          onBackToSelect={handleBackToSelect}
-        />
+        <ChildModeScreen onBackToSelect={handleBackToSelect} />
       );
     }
 

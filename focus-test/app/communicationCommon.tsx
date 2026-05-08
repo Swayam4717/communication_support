@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export type ChildStage = "idle" | "incoming" | "choice" | "confirmation";
 
@@ -192,7 +192,7 @@ export const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingTop: Platform.OS === "android" ? 32 : 24,
     paddingBottom: 28,
     gap: 16,
   },

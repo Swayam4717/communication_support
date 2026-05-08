@@ -29,4 +29,3 @@ Recent notes
 - The large `CommunicationMvp` implementation was split into helpers and UI files to improve maintainability.
 - Parent mode includes keyboard avoidance and auto-scroll for focused inputs (uses `onLayout` caching).
 
-If you want me to commit these changes, run the git commands locally or ask me to create the commit for you.

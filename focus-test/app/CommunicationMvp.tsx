@@ -3,6 +3,7 @@ import { SafeAreaView } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ParentModeScreen from "./ParentMode";
 import ChildModeScreen from "./ChildMode";
+import WelcomeScreen from "./WelcomeScreen";
 import DeviceSetupScreen from "./DeviceSetup";
 import {
   DEFAULT_QUESTION,
@@ -13,7 +14,7 @@ import {
 } from "./communicationHelpers";
 import { styles } from "./communicationCommon";
 
-type AppState = "loading" | "setup" | "parent" | "child";
+type AppState = "loading" | "welcome" | "setup" | "parent" | "child";
 
 export default function CommunicationMvpApp() {
   const [appState, setAppState] = useState<AppState>("loading");
@@ -36,16 +37,20 @@ export default function CommunicationMvpApp() {
           setRoomId(savedRoomId);
           setAppState(savedRole === "parent" ? "parent" : "child");
         } else {
-          setAppState("setup");
+          setAppState("welcome");
         }
       } catch (error) {
         console.warn("Failed to load setup from AsyncStorage", error);
-        setAppState("setup");
+        setAppState("welcome");
       }
     };
 
     loadSetup();
   }, []);
+
+  const handleProceedToSetup = () => {
+    setAppState("setup");
+  };
 
   const handleSetupComplete = async (role: "parent" | "child", room: string) => {
     try {
@@ -65,7 +70,7 @@ export default function CommunicationMvpApp() {
       await AsyncStorage.removeItem("roomId");
       setDeviceRole(null);
       setRoomId(DEFAULT_ROOM_ID);
-      setAppState("setup");
+      setAppState("welcome");
       setSentSession(null);
     } catch (error) {
       console.warn("Failed to reset setup", error);
@@ -92,6 +97,14 @@ export default function CommunicationMvpApp() {
 
   if (appState === "loading") {
     return <SafeAreaView style={styles.appShell} />;
+  }
+
+  if (appState === "welcome") {
+    return (
+      <SafeAreaView style={styles.appShell}>
+        <WelcomeScreen onGetStarted={handleProceedToSetup} />
+      </SafeAreaView>
+    );
   }
 
   if (appState === "setup") {

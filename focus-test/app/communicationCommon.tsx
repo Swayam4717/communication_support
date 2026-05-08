@@ -493,6 +493,96 @@ export const styles = StyleSheet.create({
     backgroundColor: "#CFA87A",
     marginLeft: 8,
   },
+  setupContainer: {
+    gap: 20,
+  },
+  setupHeroCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 28,
+    paddingVertical: 36,
+    paddingHorizontal: 28,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  setupHeroEmoji: {
+    fontSize: 54,
+    marginBottom: 16,
+  },
+  setupHeroTitle: {
+    fontSize: 30,
+    fontWeight: "700",
+    color: "#2B1D18",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  setupHeroSubtitle: {
+    fontSize: 16,
+    color: "#7E6F67",
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  roleButtonsContainer: {
+    gap: 12,
+  },
+  roleButton: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    paddingVertical: 24,
+    paddingHorizontal: 24,
+    borderWidth: 2,
+    borderColor: "#E7DED6",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 1,
+  },
+  roleButtonSelected: {
+    borderColor: "#CFA87A",
+    backgroundColor: "#F5EBDD",
+  },
+  roleButtonEmoji: {
+    fontSize: 36,
+    marginBottom: 10,
+  },
+  roleButtonTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#2B1D18",
+    marginBottom: 6,
+  },
+  roleButtonSubtitle: {
+    fontSize: 14,
+    color: "#7E6F67",
+  },
+  setupActionRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  inputHint: {
+    fontSize: 12,
+    color: "#9B8A7E",
+    marginTop: 8,
+  },
+  settingsButton: {
+    alignItems: "flex-end",
+    marginBottom: 8,
+  },
+  resetButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: "#FFE4D6",
+    borderWidth: 1,
+    borderColor: "#E7BFA8",
+  },
+  resetButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#8B4513",
+  },
 });
 
 export default null;

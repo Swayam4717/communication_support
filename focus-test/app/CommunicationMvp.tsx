@@ -1,52 +1,76 @@
-import React, { useState } from "react";
-import { SafeAreaView, View, Text, TouchableOpacity } from "react-native";
+import React, { useEffect, useState } from "react";
+import { SafeAreaView } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import ParentModeScreen from "./ParentMode";
 import ChildModeScreen from "./ChildMode";
+import DeviceSetupScreen from "./DeviceSetup";
 import {
   DEFAULT_QUESTION,
   DEFAULT_OPTIONS,
   createSession,
   CommunicationSession,
+  DEFAULT_ROOM_ID,
 } from "./communicationHelpers";
 import { styles } from "./communicationCommon";
 
-type AppMode = "select" | "parent" | "child";
-
-interface ModeSelectScreenProps {
-  onParentMode: () => void;
-  onChildMode: () => void;
-}
-
-function ModeSelectScreen({ onParentMode, onChildMode }: ModeSelectScreenProps) {
-  return (
-    <View style={styles.modeSelectContainer}>
-      <View style={styles.modeHeroCard}>
-        <Text style={styles.modeHeroEmoji}>☁️</Text>
-        <Text style={styles.modeHeroTitle}>Communication MVP</Text>
-        <Text style={styles.modeHeroSubtitle}>Choose how you want to test the flow.</Text>
-      </View>
-
-      <TouchableOpacity style={styles.modeButton} onPress={onParentMode}>
-        <Text style={styles.modeButtonEmoji}>🧑‍🧒</Text>
-        <Text style={styles.modeButtonTitle}>Parent Mode</Text>
-        <Text style={styles.modeButtonSubtitle}>Create a calm structured session</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.modeButton} onPress={onChildMode}>
-        <Text style={styles.modeButtonEmoji}>👦</Text>
-        <Text style={styles.modeButtonTitle}>Child Mode</Text>
-        <Text style={styles.modeButtonSubtitle}>Answer with simple visual choices</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
+type AppState = "loading" | "setup" | "parent" | "child";
 
 export default function CommunicationMvpApp() {
-  const [mode, setMode] = useState<AppMode>("select");
+  const [appState, setAppState] = useState<AppState>("loading");
+  const [deviceRole, setDeviceRole] = useState<"parent" | "child" | null>(null);
+  const [roomId, setRoomId] = useState<string>(DEFAULT_ROOM_ID);
   const [draftQuestion, setDraftQuestion] = useState(DEFAULT_QUESTION);
   const [draftOptions, setDraftOptions] = useState<string[]>(DEFAULT_OPTIONS);
   const [showPreview, setShowPreview] = useState(false);
   const [sentSession, setSentSession] = useState<CommunicationSession | null>(null);
+
+  // Load persisted setup on app launch
+  useEffect(() => {
+    const loadSetup = async () => {
+      try {
+        const savedRole = await AsyncStorage.getItem("deviceRole");
+        const savedRoomId = await AsyncStorage.getItem("roomId");
+
+        if (savedRole && savedRoomId) {
+          setDeviceRole(savedRole as "parent" | "child");
+          setRoomId(savedRoomId);
+          setAppState(savedRole === "parent" ? "parent" : "child");
+        } else {
+          setAppState("setup");
+        }
+      } catch (error) {
+        console.warn("Failed to load setup from AsyncStorage", error);
+        setAppState("setup");
+      }
+    };
+
+    loadSetup();
+  }, []);
+
+  const handleSetupComplete = async (role: "parent" | "child", room: string) => {
+    try {
+      await AsyncStorage.setItem("deviceRole", role);
+      await AsyncStorage.setItem("roomId", room);
+      setDeviceRole(role);
+      setRoomId(room);
+      setAppState(role === "parent" ? "parent" : "child");
+    } catch (error) {
+      console.warn("Failed to save setup to AsyncStorage", error);
+    }
+  };
+
+  const handleResetSetup = async () => {
+    try {
+      await AsyncStorage.removeItem("deviceRole");
+      await AsyncStorage.removeItem("roomId");
+      setDeviceRole(null);
+      setRoomId(DEFAULT_ROOM_ID);
+      setAppState("setup");
+      setSentSession(null);
+    } catch (error) {
+      console.warn("Failed to reset setup", error);
+    }
+  };
 
   const handleQuestionChange = (value: string) => setDraftQuestion(value);
 
@@ -62,49 +86,49 @@ export default function CommunicationMvpApp() {
 
   const handleSendToChild = () => {
     const nextSession = createSession(draftQuestion, draftOptions);
-
     setSentSession(nextSession);
     setShowPreview(false);
-    setMode("parent");
   };
 
-  // Child/parent realtime behavior handled inside ParentMode and ChildMode via Firestore subscriptions
+  if (appState === "loading") {
+    return <SafeAreaView style={styles.appShell} />;
+  }
 
-  const handleBackToSelect = () => setMode("select");
+  if (appState === "setup") {
+    return (
+      <SafeAreaView style={styles.appShell}>
+        <DeviceSetupScreen onSetupComplete={handleSetupComplete} />
+      </SafeAreaView>
+    );
+  }
 
-  const renderCurrentMode = () => {
-    if (mode === "parent") {
-      return (
+  if (appState === "parent" && deviceRole === "parent") {
+    return (
+      <SafeAreaView style={styles.appShell}>
         <ParentModeScreen
           question={draftQuestion}
           optionLabels={draftOptions}
           sentSession={sentSession}
           showPreview={showPreview}
+          roomId={roomId}
           onQuestionChange={handleQuestionChange}
           onOptionLabelChange={handleOptionLabelChange}
           onPreviewToggle={handlePreviewToggle}
           onSendToChild={handleSendToChild}
-          onBackToSelect={handleBackToSelect}
+          onResetSetup={handleResetSetup}
         />
-      );
-    }
-
-    if (mode === "child") {
-      return (
-        <ChildModeScreen onBackToSelect={handleBackToSelect} />
-      );
-    }
-
-    return (
-      <View style={styles.selectScreenWrapper}>
-        <ModeSelectScreen
-          onParentMode={() => setMode("parent")}
-          onChildMode={() => setMode("child")}
-        />
-      </View>
+      </SafeAreaView>
     );
-  };
+  }
 
-  return <SafeAreaView style={styles.appShell}>{renderCurrentMode()}</SafeAreaView>;
+  if (appState === "child" && deviceRole === "child") {
+    return (
+      <SafeAreaView style={styles.appShell}>
+        <ChildModeScreen roomId={roomId} onResetSetup={handleResetSetup} />
+      </SafeAreaView>
+    );
+  }
+
+  return <SafeAreaView style={styles.appShell} />;
 }
 

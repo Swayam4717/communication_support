@@ -41,7 +41,7 @@ export interface CommunicationSession {
   createdAt: number;
 }
 
-export const ROOM_ID = "demo-room";
+export const DEFAULT_ROOM_ID = "demo-room";
 
 export const DEFAULT_QUESTION = "What would you like to eat?";
 export const DEFAULT_OPTIONS = ["Rice", "Noodles", "Pizza", "Sandwich"];
@@ -87,16 +87,17 @@ export function createSession(question: string, optionLabels: string[]): Communi
   } as CommunicationSession;
 }
 
-const roomsDoc = () => doc(db, "rooms", ROOM_ID);
+const getRoomsDoc = (roomId: string) => doc(db, "rooms", roomId);
 
-export async function sendSession(session: CommunicationSession) {
-  await setDoc(roomsDoc(), session);
+export async function sendSession(session: CommunicationSession, roomId: string) {
+  await setDoc(getRoomsDoc(roomId), session);
 }
 
 export function subscribeToSession(
-  cb: (session: CommunicationSession | null) => void
+  cb: (session: CommunicationSession | null) => void,
+  roomId: string
 ) {
-  const unsub = onSnapshot(roomsDoc(), (snap) => {
+  const unsub = onSnapshot(getRoomsDoc(roomId), (snap) => {
     if (!snap.exists()) {
       cb(null);
       return;
@@ -108,15 +109,15 @@ export function subscribeToSession(
   return unsub;
 }
 
-export async function submitAnswer(selectedAnswerId: string) {
-  const d = roomsDoc();
+export async function submitAnswer(selectedAnswerId: string, roomId: string) {
+  const d = getRoomsDoc(roomId);
   await updateDoc(d, {
     selectedAnswer: selectedAnswerId,
     status: "answered",
   });
 }
 
-export async function resetSession() {
+export async function resetSession(roomId: string) {
   const empty: CommunicationSession = {
     id: "",
     type: "communication",
@@ -127,5 +128,5 @@ export async function resetSession() {
     createdAt: Date.now(),
   };
 
-  await setDoc(roomsDoc(), empty);
+  await setDoc(getRoomsDoc(roomId), empty);
 }

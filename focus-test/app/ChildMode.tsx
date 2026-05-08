@@ -1,15 +1,24 @@
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
-import type { CommunicationSession, SessionOption } from "./communicationHelpers";
+import type { CommunicationSession } from "./communicationHelpers";
 import { subscribeToSession, submitAnswer } from "./communicationHelpers";
 import { Header, OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
 
 interface ChildModeScreenProps {
-  onBackToSelect: () => void;
+  roomId: string;
+  onResetSetup: () => void;
 }
-
-export default function ChildModeScreen({ onBackToSelect }: ChildModeScreenProps) {
+/**
+ * ChildModeScreen - Simulates the child's experience
+ * Listens for incoming sessions and updates UI based on session status
+ * Provides simple visual choices for the child to select and submit
+ * 
+ * Handles multiple stages: idle (no session), incoming (new session), choice (selecting an option), confirmation (answer sent)
+ * Uses subscribeToSession to listen for session updates and submitAnswer to send the selected option back to the parent
+ * Designed to be simple and calm, with clear prompts and feedback for the child user
+ */
+export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScreenProps) {
   const [session, setSession] = React.useState<CommunicationSession | null>(null);
   const [stage, setStage] = React.useState<"idle" | "incoming" | "choice" | "confirmation">("idle");
   const [selectedOptionId, setSelectedOptionId] = React.useState<string | null>(null);
@@ -25,10 +34,10 @@ export default function ChildModeScreen({ onBackToSelect }: ChildModeScreenProps
       } else if (s.status === "answered") {
         setStage("confirmation");
       }
-    });
+    }, roomId);
 
     return () => unsub();
-  }, []);
+  }, [roomId]);
 
   const selectedOption = session?.options.find((o) => o.id === selectedOptionId) ?? null;
 
@@ -38,7 +47,13 @@ export default function ChildModeScreen({ onBackToSelect }: ChildModeScreenProps
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <Header title="Child Mode" subtitle="Simple and calm" onBack={onBackToSelect} />
+      <Header title="Child Mode" subtitle={`Room: ${roomId}`} onBack={undefined} />
+
+      <View style={styles.settingsButton}>
+        <TouchableOpacity style={styles.resetButton} onPress={onResetSetup}>
+          <Text style={styles.resetButtonText}>Reset Device Setup</Text>
+        </TouchableOpacity>
+      </View>
 
       {!session || stage === "idle" ? (
         <View style={styles.heroCard}>
@@ -85,7 +100,7 @@ export default function ChildModeScreen({ onBackToSelect }: ChildModeScreenProps
             onPress={async () => {
               if (!selectedOption) return;
               try {
-                await submitAnswer(selectedOption.id);
+                await submitAnswer(selectedOption.id, roomId);
               } catch (e) {
                 console.warn("submitAnswer failed", e);
               }

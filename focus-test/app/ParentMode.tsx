@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import type { SessionOption, CommunicationSession } from "./communicationHelpers";
+import type { CommunicationSession } from "./communicationHelpers";
 import { createSession, sendSession, subscribeToSession, resetSession } from "./communicationHelpers";
 import { OptionCard, Header } from "./communicationUI";
 import { styles } from "./communicationCommon";
@@ -18,11 +18,12 @@ interface ParentModeScreenProps {
   optionLabels: string[];
   sentSession: CommunicationSession | null;
   showPreview: boolean;
+  roomId: string;
   onQuestionChange: (value: string) => void;
   onOptionLabelChange: (index: number, value: string) => void;
   onPreviewToggle: () => void;
   onSendToChild: () => void;
-  onBackToSelect: () => void;
+  onResetSetup: () => void;
 }
 
 export default function ParentModeScreen({
@@ -30,18 +31,19 @@ export default function ParentModeScreen({
   optionLabels,
   sentSession,
   showPreview,
+  roomId,
   onQuestionChange,
   onOptionLabelChange,
   onPreviewToggle,
   onSendToChild,
-  onBackToSelect,
+  onResetSetup,
 }: ParentModeScreenProps) {
   const [fireSession, setFireSession] = React.useState<CommunicationSession | null>(null);
 
   React.useEffect(() => {
-    const unsub = subscribeToSession((s) => setFireSession(s));
+    const unsub = subscribeToSession((s) => setFireSession(s), roomId);
     return () => unsub();
-  }, []);
+  }, [roomId]);
 
   const currentSession = fireSession ?? sentSession ?? createSession(question, optionLabels);
   const selectedAnswer = currentSession && fireSession?.selectedAnswer ? currentSession.options.find((o) => o.id === fireSession.selectedAnswer) ?? null : null;
@@ -67,7 +69,7 @@ export default function ParentModeScreen({
   const handleSend = async () => {
     const session = createSession(question, optionLabels);
     try {
-      await sendSession(session);
+      await sendSession(session, roomId);
       onSendToChild?.();
     } catch (e) {
       console.warn("sendSession failed", e);
@@ -76,7 +78,7 @@ export default function ParentModeScreen({
 
   const handleReset = async () => {
     try {
-      await resetSession();
+      await resetSession(roomId);
       setFireSession(null);
     } catch (e) {
       console.warn("resetSession failed", e);
@@ -97,7 +99,13 @@ export default function ParentModeScreen({
         nestedScrollEnabled
         showsVerticalScrollIndicator={false}
       >
-        <Header title="Parent Mode" subtitle="Build a gentle session" onBack={onBackToSelect} />
+        <Header title="Parent Mode" subtitle={`Room: ${roomId}`} onBack={undefined} />
+
+        <View style={styles.settingsButton}>
+          <TouchableOpacity style={styles.resetButton} onPress={onResetSetup}>
+            <Text style={styles.resetButtonText}>Reset Device Setup</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.statusCard}>
           <Text style={styles.sectionLabel}>Session status</Text>

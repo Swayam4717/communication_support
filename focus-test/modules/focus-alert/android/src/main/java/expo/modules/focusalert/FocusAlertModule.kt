@@ -13,6 +13,8 @@ import android.os.Build
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import android.app.PendingIntent
+import android.content.Intent
 
 class FocusAlertModule : Module() {
 
@@ -54,11 +56,22 @@ class FocusAlertModule : Module() {
         }
       }
 
+      val intent = Intent(context, AlertActivity::class.java).apply {
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+      }
+
+      val pendingIntent = PendingIntent.getActivity(
+        context,
+        0,
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      )
       val notification = NotificationCompat.Builder(context, channelId)
         .setContentTitle("Focus Alert")
         .setContentText("This is a native Android notification test.")
         .setSmallIcon(android.R.drawable.ic_dialog_alert)
         .setPriority(NotificationCompat.PRIORITY_HIGH)
+        .setContentIntent(pendingIntent)
         .setAutoCancel(true)
         .build()
 

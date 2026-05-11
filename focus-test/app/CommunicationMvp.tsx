@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { SafeAreaView } from "react-native";
+import { SafeAreaView, Button } from "react-native";
+import FocusAlert from "focus-alert";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ParentModeScreen from "./ParentMode";
 import ChildModeScreen from "./ChildMode";
@@ -13,7 +14,6 @@ import {
   DEFAULT_ROOM_ID,
 } from "./communicationHelpers";
 import { styles } from "./communicationCommon";
-
 type AppState = "loading" | "welcome" | "setup" | "parent" | "child";
 
 export default function CommunicationMvpApp() {
@@ -118,6 +118,7 @@ export default function CommunicationMvpApp() {
   if (appState === "parent" && deviceRole === "parent") {
     return (
       <SafeAreaView style={styles.appShell}>
+        
         <ParentModeScreen
           question={draftQuestion}
           optionLabels={draftOptions}
@@ -130,6 +131,13 @@ export default function CommunicationMvpApp() {
           onSendToChild={handleSendToChild}
           onResetSetup={handleResetSetup}
         />
+        <Button
+          title = "Test Native Notification"
+          onPress={() => {
+            console.log("Button Pressed")
+            FocusAlert.showTestNotification();
+          }}
+          />
       </SafeAreaView>
     );
   }

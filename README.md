@@ -62,7 +62,7 @@ npx expo start
 2. On first launch, follow the Welcome -> Setup flow to choose Parent/Child and enter a room code (e.g. `demo-room`).
 3. On the Parent device: compose a question, edit options, preview, then "Send to Child".
 4. On the Child device: receive the session in realtime and submit an answer; Parent should see the response live.
-5. When ready, commit the changes:
+5. When ready, commit the changes
 
 
 

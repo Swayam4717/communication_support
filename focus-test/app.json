@@ -20,7 +20,14 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.focustest"
+      "package": "com.anonymous.focustest",
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "INTERNET",
+        "VIBRATE",
+        "USE_FULL_SCREEN_INTENT",
+        "WAKE_LOCK",
+      ]
     },
     "web": {
       "output": "static",

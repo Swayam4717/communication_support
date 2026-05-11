@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["FocusAlertModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.focusalert.FocusAlertModule"]
+  }
+}

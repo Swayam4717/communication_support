@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { SafeAreaView, Button } from "react-native";
+import { SafeAreaView, Button , Linking} from "react-native";
 import FocusAlert from "focus-alert";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ParentModeScreen from "./ParentMode";
 import ChildModeScreen from "./ChildMode";
 import WelcomeScreen from "./WelcomeScreen";
 import DeviceSetupScreen from "./DeviceSetup";
+
+
 import {
   DEFAULT_QUESTION,
   DEFAULT_OPTIONS,
@@ -47,7 +49,28 @@ export default function CommunicationMvpApp() {
 
     loadSetup();
   }, []);
+  useEffect(() => {
+  const handleUrl = (url: string) => {
+    console.log("Deep link received:", url);
 
+    if (url.includes("child-alert")) {
+      setDeviceRole("child");
+      setAppState("child");
+    }
+  };
+
+  const subscription = Linking.addEventListener("url", (event) => {
+    handleUrl(event.url);
+  });
+
+  Linking.getInitialURL().then((url) => {
+    if (url) handleUrl(url);
+  });
+
+  return () => {
+    subscription.remove();
+  };
+}, []);
   const handleProceedToSetup = () => {
     setAppState("setup");
   };

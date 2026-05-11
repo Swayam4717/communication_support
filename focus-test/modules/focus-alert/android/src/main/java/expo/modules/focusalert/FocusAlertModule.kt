@@ -56,7 +56,10 @@ class FocusAlertModule : Module() {
         }
       }
 
-      val intent = Intent(context, AlertActivity::class.java).apply {
+      val intent = Intent(
+        Intent.ACTION_VIEW,
+        android.net.Uri.parse("focustest://?alert=child-alert")
+      ).apply {
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
       }
 

@@ -74,7 +74,10 @@ class FocusAlertModule : Module() {
         .setContentText("This is a native Android notification test.")
         .setSmallIcon(android.R.drawable.ic_dialog_alert)
         .setPriority(NotificationCompat.PRIORITY_HIGH)
+        .setCategory(NotificationCompat.CATEGORY_ALARM)
+        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
         .setContentIntent(pendingIntent)
+        .setFullScreenIntent(pendingIntent, true)
         .setAutoCancel(true)
         .build()
 

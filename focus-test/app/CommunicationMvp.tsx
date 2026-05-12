@@ -154,6 +154,12 @@ export default function CommunicationMvpApp() {
           onSendToChild={handleSendToChild}
           onResetSetup={handleResetSetup}
         />
+        <Button
+          title= "Get FCM Token"
+          onPress={() => {
+            FocusAlert.getFcmToken();
+          }}
+        />
       </SafeAreaView>
     );
   }

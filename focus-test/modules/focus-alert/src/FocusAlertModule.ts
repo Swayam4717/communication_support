@@ -8,7 +8,7 @@ declare class FocusAlertModule extends NativeModule<FocusAlertModuleEvents> {
   requestOverlayPermission(): void;
   showOverlayAlert(): void;
   triggerFocusAlert(): void;
-
+  getFcmToken(): string;
 }
 
 // This call loads the native module object from the JSI.

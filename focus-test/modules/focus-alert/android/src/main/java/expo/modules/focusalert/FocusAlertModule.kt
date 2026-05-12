@@ -24,6 +24,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import com.google.firebase.messaging.FirebaseMessaging
+import android.util.Log
+
 
 class FocusAlertModule : Module() {
 
@@ -197,7 +200,20 @@ class FocusAlertModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("FocusAlert")
+    Function("getFcmToken") {
+  FirebaseMessaging.getInstance().token
+    .addOnCompleteListener { task ->
+      if (!task.isSuccessful) {
+        Log.d("FOCUS_FCM", "Fetching FCM token failed")
+        
+      } else{
+        val token = task.result
+        Log.d("FOCUS_FCM", "FCM TOKEN: $token")
+      }
+    }
 
+  return@Function null
+}
     Function("showTestNotification") {
       val context = appContext.reactContext ?: return@Function null
       Toast.makeText(context, "Native notification called", Toast.LENGTH_SHORT).show()

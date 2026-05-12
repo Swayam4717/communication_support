@@ -28,7 +28,7 @@ import androidx.core.app.NotificationCompat
 class FocusAlertModule : Module() {
 
   private val channelId = "focus_alerts"
-
+  private var activeOverlay: android.view.View? = null
   private fun openChildAlert(context: Context) {
     val intent = Intent(
       Intent.ACTION_VIEW,
@@ -107,6 +107,11 @@ class FocusAlertModule : Module() {
 
     val windowManager =
       context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+    
+    if(activeOverlay != null){
+      android.util.Log.d("FOCUS_ALERT", "Overlay already active, skipping creation")
+      return
+    }
 
     val layout = LinearLayout(context).apply {
       orientation = LinearLayout.VERTICAL
@@ -157,8 +162,12 @@ class FocusAlertModule : Module() {
 
     fun removeOverlay() {
       try {
-        windowManager.removeView(layout)
+        activeOverlay?.let{
+          windowManager.removeView(it)
+        }
       } catch (_: Exception) {
+      }finally {
+        activeOverlay = null
       }
     }
 
@@ -169,6 +178,7 @@ class FocusAlertModule : Module() {
 
     try {
       windowManager.addView(layout, params)
+      activeOverlay = layout
     } catch (e: Exception) {
       Toast.makeText(context, "Error showing overlay: ${e.message}", Toast.LENGTH_SHORT).show()
     }
@@ -231,9 +241,8 @@ class FocusAlertModule : Module() {
     Function("triggerFocusAlert") {
   val context = appContext.reactContext ?: return@Function null
 
-  Toast.makeText(context, "Triggering alert in 5 seconds", Toast.LENGTH_SHORT).show()
-
-  android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+  
+ 
     val keyguardManager =
       context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
 
@@ -255,8 +264,6 @@ class FocusAlertModule : Module() {
     } else {
       showOverlay(context)
     }
-  }, 5000)
-
   return@Function null
 }
 

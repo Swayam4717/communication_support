@@ -4,6 +4,7 @@ import type { CommunicationSession } from "./communicationHelpers";
 import { subscribeToSession, submitAnswer } from "./communicationHelpers";
 import { Header, OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
+import FocusAlert from "focus-alert";
 
 interface ChildModeScreenProps {
   roomId: string;
@@ -22,22 +23,36 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   const [session, setSession] = React.useState<CommunicationSession | null>(null);
   const [stage, setStage] = React.useState<"idle" | "incoming" | "choice" | "confirmation">("idle");
   const [selectedOptionId, setSelectedOptionId] = React.useState<string | null>(null);
+  const alertedSessionIds= React.useRef<Set<string>>(new Set());
 
-  React.useEffect(() => {
-    const unsub = subscribeToSession((s) => {
-      setSession(s);
-      if (!s || s.status === "idle") {
-        setStage("idle");
-        setSelectedOptionId(null);
-      } else if (s.status === "sent") {
-        setStage("incoming");
-      } else if (s.status === "answered") {
-        setStage("confirmation");
+ React.useEffect(() => {
+  const unsub = subscribeToSession((s) => {
+    setSession(s);
+
+    if (!s || s.status === "idle") {
+      setStage("idle");
+      setSelectedOptionId(null);
+      return;
+    }
+
+    if (s.status === "sent") {
+      setStage("incoming");
+
+      if (s.id && !alertedSessionIds.current.has(s.id)) {
+        alertedSessionIds.current.add(s.id);
+        FocusAlert.triggerFocusAlert();
       }
-    }, roomId);
 
-    return () => unsub();
-  }, [roomId]);
+      return;
+    }
+
+    if (s.status === "answered") {
+      setStage("confirmation");
+    }
+  }, roomId);
+
+  return () => unsub();
+}, [roomId]);
 
   const selectedOption = session?.options.find((o) => o.id === selectedOptionId) ?? null;
 

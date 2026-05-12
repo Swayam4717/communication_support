@@ -10,6 +10,8 @@ class FocusFirebaseMessagingService : FirebaseMessagingService() {
         Log.d("FOCUS_FCM", "FCM Received")
         Log.d("FOCUS_FCM", "Message data: ${remoteMessage.data}")
         Log.d("FOCUS_FCM", "Message From: ${remoteMessage.from}")
+
+        FocusAlertManager.triggerFocusAlert(applicationContext)
     }
     override fun onNewToken(token: String) {
         super.onNewToken(token)

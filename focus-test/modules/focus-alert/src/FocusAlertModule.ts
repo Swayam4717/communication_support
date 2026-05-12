@@ -7,6 +7,7 @@ declare class FocusAlertModule extends NativeModule<FocusAlertModuleEvents> {
   canDrawOverlays(): boolean;
   requestOverlayPermission(): void;
   showOverlayAlert(): void;
+  triggerFocusAlert(): void;
 
 }
 

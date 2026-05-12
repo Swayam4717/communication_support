@@ -155,6 +155,13 @@ export default function CommunicationMvpApp() {
           onResetSetup={handleResetSetup}
         />
         <Button
+          title = "Trigger Focus Alert"
+          onPress = {() => {
+            FocusAlert.triggerFocusAlert();
+          }}
+        
+        />
+        <Button
           title = "Check Overlay Permission"
           onPress= {() => {
             const result = FocusAlert.canDrawOverlays();

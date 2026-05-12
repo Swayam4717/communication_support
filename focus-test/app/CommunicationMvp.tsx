@@ -154,40 +154,6 @@ export default function CommunicationMvpApp() {
           onSendToChild={handleSendToChild}
           onResetSetup={handleResetSetup}
         />
-        <Button
-          title = "Trigger Focus Alert"
-          onPress = {() => {
-            FocusAlert.triggerFocusAlert();
-          }}
-        
-        />
-        <Button
-          title = "Check Overlay Permission"
-          onPress= {() => {
-            const result = FocusAlert.canDrawOverlays();
-            console.log("Can draw Overlays:", result);
-            alert(`Can draw overlays: ${result}`);
-          }}
-        />
-        <Button
-          title = "Request Overlay Permission"
-          onPress = {() => {
-            FocusAlert.requestOverlayPermission();
-          }}
-        />
-        <Button
-          title = "Show Overlay Alert"
-          onPress = {() => {
-            FocusAlert.showOverlayAlert();
-          }}
-        />
-        <Button
-          title = "Test Native Notification"
-          onPress={() => {
-            console.log("Button Pressed")
-            FocusAlert.showTestNotification();
-          }}
-          />
       </SafeAreaView>
     );
   }

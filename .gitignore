@@ -1,2 +1,8 @@
 firebaseConfig.ts
 package-lock.json
+node_modules/
+android/.gradle/
+android/build/
+android/app/build/
+.expo/
+dist/

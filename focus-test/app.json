@@ -27,6 +27,7 @@
         "VIBRATE",
         "USE_FULL_SCREEN_INTENT",
         "WAKE_LOCK",
+        "SYSTEM_ALERT_WINDOW"
       ]
     },
     "web": {

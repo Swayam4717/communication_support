@@ -39,6 +39,8 @@ export interface CommunicationSession {
   status: SessionStatus;
   selectedAnswer?: string | null;
   createdAt: number;
+  childFcmToken?: string | null;
+  tokenSavedAt?: number | null;
 }
 
 export const DEFAULT_ROOM_ID = "demo-room";

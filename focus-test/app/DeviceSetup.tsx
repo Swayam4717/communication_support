@@ -7,13 +7,14 @@ interface DeviceSetupProps {
 }
 
 type SetupStage = "role-select" | "room-setup";
-const ROOM_WORDS = ["CALM", "BLUE", "STAR", "MOON", "RICE", "WAVE", "TREE", "SOFT"];
+const ROOM_WORDS = ["CALM", "BLUE", "STAR", "MOON", "RICE", "WAVE", "TREE", "SOFT"]; 
 
 function generateRoomCode() {
   const word = ROOM_WORDS[Math.floor(Math.random() * ROOM_WORDS.length)];
-  const number = Math.floor(100 + Math.random() * 900);
+  const number = Math.floor(10000 + Math.random() * 90000); // 5 digit number, can be changed as the users increase
   return `${word}-${number}`;
-}
+}// 720000 possible combinations with current setup 
+
 
 export default function DeviceSetupScreen({onSetupComplete}: DeviceSetupProps){
   const [stage, setStage] = useState<SetupStage>("role-select");

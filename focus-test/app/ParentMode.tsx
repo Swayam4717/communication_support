@@ -49,6 +49,7 @@ export default function ParentModeScreen({
   const currentSession = fireSession ?? sentSession ?? draftSession;
   const previewSession = draftSession;
   const selectedAnswer = currentSession && fireSession?.selectedAnswer ? currentSession.options.find((o) => o.id === fireSession.selectedAnswer) ?? null : null;
+  const isChildConnected = !!fireSession?.childFcmToken;
   const scrollRef = useRef<ScrollView | null>(null);
   const [optionRowPositions, setOptionRowPositions] = useState<number[]>([]);
 
@@ -104,6 +105,9 @@ export default function ParentModeScreen({
           <View>
             <Text style={styles.parentHeaderTitle}>Parent Mode</Text>
             <Text style={styles.parentHeaderRoom}>Room: {roomId}</Text>
+            <Text style={styles.parentHeaderRoom}>
+              Child: {isChildConnected? "Connected" : "Not Connected"}
+            </Text>
           </View>
           <TouchableOpacity style={styles.resetButton} onPress={onResetSetup}>
             <Text style={styles.resetButtonText}>Reset</Text>

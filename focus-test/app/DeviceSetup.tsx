@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import React, {useState, useEffect} from "react";
+import {ScrollView, Text, TextInput, TouchableOpacity, View} from "react-native";
 import { styles } from "./communicationCommon";
 
 interface DeviceSetupProps {
@@ -7,25 +7,37 @@ interface DeviceSetupProps {
 }
 
 type SetupStage = "role-select" | "room-setup";
+const ROOM_WORDS = ["CALM", "BLUE", "STAR", "MOON", "RICE", "WAVE", "TREE", "SOFT"];
 
-export default function DeviceSetupScreen({ onSetupComplete }: DeviceSetupProps) {
+function generateRoomCode() {
+  const word = ROOM_WORDS[Math.floor(Math.random() * ROOM_WORDS.length)];
+  const number = Math.floor(100 + Math.random() * 900);
+  return `${word}-${number}`;
+}
+
+export default function DeviceSetupScreen({onSetupComplete}: DeviceSetupProps){
   const [stage, setStage] = useState<SetupStage>("role-select");
   const [selectedRole, setSelectedRole] = useState<"parent" | "child" | null>(null);
-  const [roomCode, setRoomCode] = useState("demo-room");
-
+  const [roomCode, setRoomCode] = useState("");
   const handleContinueToRoom = () => {
-    if (selectedRole) {
-      setStage("room-setup");
+    if(!selectedRole)return;
+    if(selectedRole === "parent"){
+      setRoomCode(generateRoomCode());
+    }else{
+      setRoomCode("");
+    }
+    setStage("room-setup");
+  };
+  const handleRoomCodeChange = (value: string) => {
+    setRoomCode(value.trim().toUpperCase());
+  };
+  const handleCompleteSetup =() =>{
+    const normalizedRoomCode = roomCode.trim().toUpperCase();
+    if (selectedRole && normalizedRoomCode){
+      onSetupComplete(selectedRole, normalizedRoomCode);
     }
   };
-
-  const handleCompleteSetup = () => {
-    if (selectedRole && roomCode.trim()) {
-      onSetupComplete(selectedRole, roomCode.trim());
-    }
-  };
-
-  return (
+    return (
     <ScrollView
       contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
@@ -88,29 +100,36 @@ export default function DeviceSetupScreen({ onSetupComplete }: DeviceSetupProps)
         <View style={styles.setupContainer}>
           <View style={styles.setupHeroCard}>
             <Text style={styles.setupHeroEmoji}>🔑</Text>
-            <Text style={styles.setupHeroTitle}>Room Code</Text>
+            <Text style={styles.setupHeroTitle}>
+              {selectedRole === "parent" ? "Your Room Code" : "Join Room"}
+            </Text>
             <Text style={styles.setupHeroSubtitle}>
               {selectedRole === "parent"
-                ? "This is your communication space"
-                : "Enter the code from the parent device"}
+                ? "Share this code with the child device"
+                : "Enter the code shown on the parent device"}
             </Text>
           </View>
 
           <View style={styles.panelCard}>
             <Text style={styles.sectionLabel}>Room Code</Text>
+
             <TextInput
+              autoCapitalize="characters"
+              autoCorrect={false}
               cursorColor="#A97E57"
+              editable={selectedRole === "child"}
               placeholder="Enter room code"
               placeholderTextColor="#AA9C94"
               selectionColor="#D8B48F"
               style={styles.textInput}
               value={roomCode}
-              onChangeText={setRoomCode}
+              onChangeText={handleRoomCodeChange}
             />
+
             <Text style={styles.inputHint}>
               {selectedRole === "parent"
-                ? "Share this with the child device"
-                : "Ask the parent device for this code"}
+                ? "Use this same code on the child device."
+                : "Ask the parent for their room code."}
             </Text>
           </View>
 

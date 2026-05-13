@@ -2,119 +2,306 @@
 
 A React Native + Expo prototype for calm, structured parent-child communication, with realtime sync and Android focus alerts.
 
-<!-- This README summarizes the app as a two-device parent/child communication tool with Firestore sync and native Android focus alerts. -->
+---
 
-## Project Purpose
+# Project Purpose
 
-This repository is building a two-device communication experience:
+This repository is building a two-device communication experience designed to support communication between parents and autistic children through calm, structured interaction.
 
-- Parent device creates a short question with visual answer options.
-- Child device receives the prompt in realtime and selects one answer.
-- Parent sees the selected answer immediately.
-- Child Device can display a native Android focus alert when a new communication session arrives
+The system works through a parent device and a child device:
 
-The core goal is to support the calm, low-pressure communication through structured visual interaction and attention support mechanisms.
+* Parent creates a short question with visual answer options
+* Child receives the prompt in realtime
+* Child selects one answer visually
+* Parent receives the selected answer immediately
+* Android devices can trigger focus alerts and overlays to capture attention even while other applications are open
 
-## Repository Structure
+The core goal is to support low-pressure communication through structured visual interaction and attention support mechanisms.
 
-- Active app: `focus-test/` (Expo app, this is where current product work is happening)
-- Placeholder/empty folders: `backend/`, `docs/`, `mobile-app/`
-- Legacy file at root: `firebaseConfig.ts` (contains Firebase init, but active app uses env-based Firebase config inside `focus-test/app/communicationHelpers.ts`)
+---
 
-## Architecture overview
+# Current Features
 
-<!-- The active app lives in focus-test and the core flow is welcome -> setup -> parent or child mode. -->
+* Realtime parent-child communication
+* Dynamic room-code pairing
+* Collision-safe room generation
+* Firebase Firestore synchronization
+* Android overlay attention alerts
+* Firebase Cloud Messaging integration
+* Persistent device setup using AsyncStorage
+* Child connection status tracking
+* Native Android attention routing
+* Background Firebase messaging support
 
-### 1. App shell and role flow
+---
 
-In `focus-test/app/CommunicationMvp.tsx`:
+# Current Platform Support
 
-- Startup loads persisted `deviceRole` and `roomId` from AsyncStorage.
-- First-time flow is: Welcome -> Device Setup -> Parent Mode or Child Mode.
-- Device setup persists role + room code for later launches.
-- Deep links with `focustest://?alert=child-alert` can force navigation to child flow.
+| Feature                         | Android | iOS        |
+| ------------------------------- | ------- | ---------- |
+| Parent Mode                     | ✅       | ✅          |
+| Child Mode                      | ✅       | ⚠️ Limited |
+| Realtime Communication          | ✅       | ✅          |
+| Overlay Attention Alerts        | ✅       | ❌          |
+| Full Attention Capture          | ✅       | ❌          |
+| Background Native Alert Routing | ✅       | ❌          |
 
-### 2. Realtime communication
+---
 
-In `focus-test/app/communicationHelpers.ts`:
+# Repository Structure
 
-- Firebase app + Firestore are initialized from Expo public env vars.
-- Room document path is `rooms/{roomId}`.
-- Parent sends a `CommunicationSession` document.
-- Child subscribes via Firestore `onSnapshot`.
-- Child answer writes `selectedAnswer` and updates status to `answered`.
+* Active app: `focus-test/`
+* Placeholder folders: `backend/`, `docs/`, `mobile-app/`
+* Legacy file at root: `firebaseConfig.ts`
 
-Session statuses in use: `idle`, `sent`, `answered`.
+The active application currently lives entirely inside:
 
-### 3. Parent and child UX
+```text
+focus-test/
+```
 
-- Parent screen (`focus-test/app/ParentMode.tsx`):
-  - Composes question + options.
-  - Optional preview.
-  - Sends session to Firestore.
-  - Watches for child response.
-- Child screen (`focus-test/app/ChildMode.tsx`):
-  - Waits in `idle`.
-  - Moves to `incoming` when a session arrives.
-  - Enters `choice` and submits answer.
-  - Shows `confirmation` after submit.
+---
 
-### 4. Native focus alert module
+# Architecture Overview
 
-Local Expo module: `focus-test/modules/focus-alert` (linked via `file:modules/focus-alert`).
+## 1. App Shell and Role Flow
 
-Android implementation includes:
+In:
 
-- Firebase Messaging service (`FocusFirebaseMessagingService.kt`) to receive FCM data messages.
-- Alert manager (`FocusAlertManager.kt`) to trigger overlay routing.
-- Native module bridge (`FocusAlertModule.kt`) exposing methods to JS:
-  - `triggerFocusAlert()`
-  - `showTestNotification()`
-  - `canDrawOverlays()`
-  - `requestOverlayPermission()`
-  - `getFcmToken()`
+```text
+focus-test/app/CommunicationMvp.tsx
+```
 
-The app invokes this module from child and parent flows.
+The application:
 
-### 5. Test FCM sender utility
+* Loads persisted `deviceRole` and `roomId` from AsyncStorage
+* Handles first-time setup flow
+* Routes user into Parent or Child mode
+* Supports deep linking using:
 
-`focus-test/fcm-sender/sender.js` sends Firebase HTTP v1 messages using a service account.
-This appears to be a development helper to trigger focus alerts on a device token.
+```text
+focustest://?alert=child-alert
+```
 
-⚠️ The Firebase service account JSON used by the HTTP v1 sender must never be committed to version control.
+Flow:
 
-## Tech stack
+```text
+Welcome
+→ Device Setup
+→ Parent or Child Mode
+```
 
-- Expo SDK 54
-- React Native 0.81
-- React 19
-- TypeScript
-- Expo Router
-- Firebase Firestore (web SDK in app layer)
-- Firebase Cloud Messaging (Android native layer)
-- Local Expo native module (`focus-alert`)
+---
 
-## Setup
+## 2. Realtime Communication
+
+In:
+
+```text
+focus-test/app/communicationHelpers.ts
+```
+
+Firebase app + Firestore are initialized from Expo environment variables.
+
+Room structure:
+
+```text
+rooms/{roomId}
+```
+
+Flow:
+
+```text
+Parent sends session
+→ Firestore updates
+→ Child receives realtime update
+→ Child submits answer
+→ Parent receives answer instantly
+```
+
+Session statuses currently used:
+
+```text
+idle
+sent
+answered
+```
+
+---
+
+## 3. Parent and Child UX
+
+### Parent Screen
+
+File:
+
+```text
+focus-test/app/ParentMode.tsx
+```
+
+Responsibilities:
+
+* Create communication session
+* Enter question/options
+* Preview session
+* Send session
+* View child response
+* View child connection status
+
+### Child Screen
+
+File:
+
+```text
+focus-test/app/ChildMode.tsx
+```
+
+Responsibilities:
+
+* Wait for incoming session
+* Display visual options
+* Submit selected answer
+* Show confirmation state
+
+---
+
+## 4. Native Android Focus Alert Module
+
+Local Expo module:
+
+```text
+focus-test/modules/focus-alert
+```
+
+Android native components include:
+
+### Firebase Messaging Service
+
+```text
+FocusFirebaseMessagingService.kt
+```
+
+Receives Firebase Cloud Messaging data messages.
+
+### Alert Manager
+
+```text
+FocusAlertManager.kt
+```
+
+Responsibilities:
+
+* Determine device lock state
+* Trigger overlays
+* Prevent duplicate overlays
+* Route attention behavior
+
+### Native Module Bridge
+
+```text
+FocusAlertModule.kt
+```
+
+Exposes native Android methods to React Native.
+
+Available methods:
+
+```text
+triggerFocusAlert()
+showTestNotification()
+canDrawOverlays()
+requestOverlayPermission()
+getFcmToken()
+```
+
+---
+
+## 5. Overlay Attention System
+
+The Android implementation supports:
+
+* Heads-up notifications
+* Full Screen Intents
+* Overlay alerts over external applications
+* Wake/attention behavior
+* Background Firebase message handling
+
+Validated against:
+
+* YouTube
+* Browser
+* Android settings
+* External applications
+
+The overlay currently covers approximately 80–90% of the device screen.
+
+---
+
+## 6. Dynamic Room Pairing
+
+Parent devices automatically generate room codes.
+
+Example:
+
+```text
+BLUE-48271
+```
+
+Features:
+
+* Human-readable room codes
+* Collision prevention
+* Firestore uniqueness validation
+* Persistent room storage
+
+---
+
+# Tech Stack
+
+* Expo SDK 54
+* React Native 0.81
+* React 19
+* TypeScript
+* Expo Router
+* Firebase Firestore
+* Firebase Cloud Messaging
+* Kotlin
+* Android SDK
+* Expo Native Modules API
+
+---
+
+# Setup
 
 ## Prerequisites
 
-- Node.js 18+
-- npm
-- Android Studio + Android SDK (for native Android testing)
-- A Firebase project
+* Node.js 18+
+* npm
+* Android Studio + Android SDK
+* Firebase project
+
+---
 
 ## Install
 
-From the app folder:
+From app folder:
 
 ```bash
 cd focus-test
 npm install
 ```
 
-## Firebase env config
+---
 
-Create `focus-test/.env` from `focus-test/.env.example`:
+## Firebase Environment Config
+
+Create:
+
+```text
+focus-test/.env
+```
+
+Using:
 
 ```env
 EXPO_PUBLIC_FIREBASE_API_KEY=...
@@ -125,51 +312,104 @@ EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
 EXPO_PUBLIC_FIREBASE_APP_ID=...
 ```
 
-Restart Expo after changing env values.
+Restart Expo after changing environment variables.
 
-## Run
+---
 
-From `focus-test/`:
+# Run
+
+From:
+
+```text
+focus-test/
+```
+
+Run:
 
 ```bash
 npm run start
 ```
 
-For native module behavior (overlay/notifications), use a native build:
+For native Android overlay behavior:
 
 ```bash
 npm run android
 ```
 
-## Recommended testing flow
+---
 
-1. Launch two app instances/devices.
-2. Device A: choose Parent role and set room code (example: `demo-room`).
-3. Device B: choose Child role with same room code.
-4. Parent sends a session.
-5. Child receives and submits answer.
-6. Parent sees answer update in realtime.
+# Recommended Testing Flow
 
-## Android alert/FCM notes
+1. Launch two devices/emulators
+2. Parent creates room
+3. Child joins same room
+4. Parent sends session
+5. Child receives overlay/notification
+6. Child answers visually
+7. Parent receives answer in realtime
 
-- App scheme is `focustest` (configured in `focus-test/app.json`).
-- Android permissions include notifications and overlay-related permissions.
-- Native alert behavior depends on runtime permissions (notifications and draw-over-apps).
-- Development FCM sender is under `focus-test/fcm-sender/`.
+---
 
-## Known gaps and cleanup opportunities
+# Android Alert / FCM Notes
 
-- Root README was previously outdated/duplicated (now replaced).
-- `focus-test/modules/focus-alert/README.md` is still the Expo module template and does not describe actual implemented behavior.
-- Template Expo screens still exist (for example `focus-test/app/modal.tsx` and `focus-test/app/(tabs)/explore.tsx`) while primary UX lives in `CommunicationMvp` flow.
-- Root `firebaseConfig.ts` likely should be removed or clearly marked as legacy to avoid confusion.
+* App scheme:
 
-## Useful commands
+```text
+focustest
+```
 
-From `focus-test/`:
+* Overlay behavior depends on:
 
-- `npm run start` - start Expo dev server
-- `npm run android` - build/run Android native app
-- `npm run ios` - build/run iOS native app (macOS only)
-- `npm run web` - run web target
-- `npm run lint` - run lint
+  * notification permission
+  * draw-over-apps permission
+
+* Development FCM sender utility:
+
+```text
+focus-test/fcm-sender/
+```
+
+⚠️ Firebase service account files must never be committed to version control.
+
+---
+
+# Known Limitations
+
+* iOS does not support Android-style overlays
+* Full attention capture currently Android-only
+* UI is still prototype-level and unpolished
+* Expo template files still exist in repository
+* Root `firebaseConfig.ts` is legacy and should eventually be removed
+
+---
+
+# Planned Next Steps
+
+* AI-generated visual answer options
+* Accessibility-focused UI refinement
+* Improved visual communication aids
+* Better session history and analytics
+* Multi-device real-world testing
+* Improved onboarding flow
+* Stronger overlay customization
+* Production-ready backend security rules
+
+---
+
+# Useful Commands
+
+From:
+
+```text
+focus-test/
+```
+
+Commands:
+
+```bash
+npm run start
+npm run android
+npm run ios
+npm run web
+npm run lint
+```

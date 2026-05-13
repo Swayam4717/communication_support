@@ -90,7 +90,7 @@ export function createSession(question: string, optionLabels: string[]): Communi
 const getRoomsDoc = (roomId: string) => doc(db, "rooms", roomId);
 
 export async function sendSession(session: CommunicationSession, roomId: string) {
-  await setDoc(getRoomsDoc(roomId), session);
+  await setDoc(getRoomsDoc(roomId), session, { merge: true });
 }
 
 export function subscribeToSession(
@@ -128,5 +128,5 @@ export async function resetSession(roomId: string) {
     createdAt: Date.now(),
   };
 
-  await setDoc(getRoomsDoc(roomId), empty);
+  await setDoc(getRoomsDoc(roomId), empty, { merge: true });
 }

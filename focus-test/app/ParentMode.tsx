@@ -38,6 +38,7 @@ export default function ParentModeScreen({
   onSendToChild,
   onResetSetup,
 }: ParentModeScreenProps) {
+  // This screen lets the parent compose a prompt, watch for the child response, and clear the room state.
   const [fireSession, setFireSession] = React.useState<CommunicationSession | null>(null);
 
   React.useEffect(() => {
@@ -69,6 +70,7 @@ export default function ParentModeScreen({
   };
 
   const handleSend = async () => {
+    // Publish the current draft session to Firestore so the child device can receive it.
     const session = createSession(question, optionLabels);
     try {
       await sendSession(session, roomId);
@@ -79,6 +81,7 @@ export default function ParentModeScreen({
   };
 
   const handleReset = async () => {
+    // Reset the room document back to an idle state.
     try {
       await resetSession(roomId);
       setFireSession(null);

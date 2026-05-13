@@ -8,6 +8,8 @@ export type ThemedTextProps = TextProps & {
   type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link';
 };
 
+// Themed text primitive used across the Expo starter screens.
+
 export function ThemedText({
   style,
   lightColor,

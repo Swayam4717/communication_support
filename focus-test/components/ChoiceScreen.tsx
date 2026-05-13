@@ -14,6 +14,7 @@ interface ChoiceScreenProps {
  * Dynamically renders options from the session object
  * Displays question and provides multiple choice options
  */
+// Older child-flow choice screen that renders the question and available options.
 export function ChoiceScreen({
   question,
   options,

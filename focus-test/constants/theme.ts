@@ -3,6 +3,8 @@
  * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
  */
 
+// Shared colors and font choices used by the Expo starter screens.
+
 import { Platform } from 'react-native';
 
 const tintColorLight = '#0a7ea4';

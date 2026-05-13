@@ -2,6 +2,8 @@ import { useEvent } from 'expo';
 import FocusAlert, { FocusAlertView } from 'focus-alert';
 import { Button, SafeAreaView, ScrollView, Text, View } from 'react-native';
 
+// Example app used to exercise the local native module API.
+
 export default function App() {
   const onChangePayload = useEvent(FocusAlert, 'onChange');
 

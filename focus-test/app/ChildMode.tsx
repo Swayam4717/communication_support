@@ -20,15 +20,17 @@ interface ChildModeScreenProps {
  * Designed to be simple and calm, with clear prompts and feedback for the child user
  */
 export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScreenProps) {
+  // This screen mirrors the room document, steps through the child flow, and triggers the focus alert when a new session arrives.
   const [session, setSession] = React.useState<CommunicationSession | null>(null);
   const [stage, setStage] = React.useState<"idle" | "incoming" | "choice" | "confirmation">("idle");
   const [selectedOptionId, setSelectedOptionId] = React.useState<string | null>(null);
   const alertedSessionIds= React.useRef<Set<string>>(new Set());
-
+// Subscribe to session updates for the given roomId and update local state accordingly
  React.useEffect(() => {
   const unsub = subscribeToSession((s) => {
     setSession(s);
-
+// Update the child stage based on the current room status.
+// Handle session status changes to update the UI stage and trigger alerts
     if (!s || s.status === "idle") {
       setStage("idle");
       setSelectedOptionId(null);

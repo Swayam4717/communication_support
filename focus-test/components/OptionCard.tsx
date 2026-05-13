@@ -11,6 +11,7 @@ interface OptionCardProps {
  * OptionCard - A single large, easy-to-tap choice option
  * Displays emoji + label in a calm, accessible format
  */
+// Shared option card used by the older prototype screens.
 export function OptionCard({ option, onPress }: OptionCardProps) {
   return (
     <TouchableOpacity

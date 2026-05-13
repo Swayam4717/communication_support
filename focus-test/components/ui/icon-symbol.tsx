@@ -1,5 +1,7 @@
 // Fallback for using MaterialIcons on Android and web.
 
+// Android and web fallback for the starter app's SF Symbols-based icon abstraction.
+
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SymbolWeight, SymbolViewProps } from 'expo-symbols';
 import { ComponentProps } from 'react';

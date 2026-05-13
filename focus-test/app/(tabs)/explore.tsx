@@ -9,6 +9,8 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Fonts } from '@/constants/theme';
 
+// Starter Expo content lives here and is not part of the parent/child workflow.
+
 export default function TabTwoScreen() {
   return (
     <ParallaxScrollView

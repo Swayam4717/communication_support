@@ -21,6 +21,7 @@ import { styles } from "./communicationCommon";
 type AppState = "loading" | "welcome" | "setup" | "parent" | "child";
 console.log("App Running");
 export default function CommunicationMvpApp() {
+  // This component owns the top-level app state and decides which screen to show.
   const [appState, setAppState] = useState<AppState>("loading");
   const [deviceRole, setDeviceRole] = useState<"parent" | "child" | null>(null);
   const [roomId, setRoomId] = useState<string>(DEFAULT_ROOM_ID);
@@ -52,6 +53,7 @@ export default function CommunicationMvpApp() {
     loadSetup();
   }, []);
   useEffect(() => {
+  // Listen for the deep link used by the native focus alert path and switch into child mode.
   const handleUrl = (url: string) => {
     console.log("Deep link received:", url);
 
@@ -82,7 +84,7 @@ export default function CommunicationMvpApp() {
       console.log("Setup complete with role:", role, "and room:", room);
       await AsyncStorage.setItem("deviceRole", role);
       await AsyncStorage.setItem("roomId", room);
-      //Register Child FCM
+      // If this is a child device, fetch its FCM token and store it in the room document.
       if (role === "child") {
   try {
     console.log("CHILD TOKEN SAVE STARTED");
@@ -141,6 +143,7 @@ export default function CommunicationMvpApp() {
   const handlePreviewToggle = () => setShowPreview((v) => !v);
 
   const handleSendToChild = () => {
+    // Build a new session draft and keep it in local state until the parent actually sends it.
     const nextSession = createSession(draftQuestion, draftOptions);
     setSentSession(nextSession);
     setShowPreview(false);

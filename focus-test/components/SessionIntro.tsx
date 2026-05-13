@@ -14,6 +14,7 @@ interface SessionIntroProps {
  * Shows the user they're about to start a session
  * Includes optional toggle button for testing different sessions
  */
+// Intro screen for the older prototype flow before the choice screen appears.
 export function SessionIntro({
   title,
   subtitle,

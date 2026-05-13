@@ -1,5 +1,7 @@
 import Animated from 'react-native-reanimated';
 
+// Tiny animated waving hand used by the starter template screens.
+
 export function HelloWave() {
   return (
     <Animated.Text

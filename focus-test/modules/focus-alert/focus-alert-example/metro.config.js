@@ -4,6 +4,8 @@ const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
+// Metro is pointed back at the sibling module package for the example app.
+
 // npm v7+ will install ../node_modules/react and ../node_modules/react-native because of peerDependencies.
 // To prevent the incompatible react-native between ./node_modules/react-native and ../node_modules/react-native,
 // excludes the one from the parent folder when bundling.

@@ -27,6 +27,8 @@ import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessaging
 import android.util.Log
 
+// JS bridge for notifications, overlays, and FCM token access.
+
 
 class FocusAlertModule : Module() {
 

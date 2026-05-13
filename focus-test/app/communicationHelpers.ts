@@ -19,6 +19,8 @@ for (const [key, value] of Object.entries(firebaseConfig)) {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
+// Shared session types and helpers below define the Firestore room document used by both devices.
+
 export type ChildStage = "idle" | "incoming" | "choice" | "confirmation";
 
 export type SessionStatus = "idle" | "sent" | "answered";
@@ -90,6 +92,8 @@ export function createSession(question: string, optionLabels: string[]): Communi
 }
 
 const getRoomsDoc = (roomId: string) => doc(db, "rooms", roomId);
+
+// Each room is stored as a single Firestore document keyed by the shared room code.
 
 export async function sendSession(session: CommunicationSession, roomId: string) {
   await setDoc(getRoomsDoc(roomId), session, { merge: true });

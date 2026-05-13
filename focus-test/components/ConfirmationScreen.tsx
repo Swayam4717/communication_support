@@ -12,6 +12,7 @@ interface ConfirmationScreenProps {
  * Shows user confirmation of their choice
  * Returns to intro screen on "Done"
  */
+// Older child-flow confirmation screen used to show that the choice was sent.
 export function ConfirmationScreen({
   selectedEmoji,
   selectedLabel,

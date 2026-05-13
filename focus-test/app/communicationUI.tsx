@@ -18,6 +18,7 @@ export function OptionCard({
   disabled = false,
   onPress,
 }: OptionCardProps) {
+  // Shared choice card used both in the parent preview and in the child's answer picker.
   return (
     <TouchableOpacity
       activeOpacity={disabled ? 1 : 0.85}
@@ -47,6 +48,7 @@ interface HeaderProps {
 }
 
 export function Header({ title, subtitle, onBack }: HeaderProps) {
+  // Reusable header that shows the current screen title and optional mode-switch action.
   return (
     <View style={styles.headerRow}>
       <View style={styles.headerTextBlock}>

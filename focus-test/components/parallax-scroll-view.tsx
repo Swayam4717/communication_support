@@ -18,6 +18,8 @@ type Props = PropsWithChildren<{
   headerBackgroundColor: { dark: string; light: string };
 }>;
 
+// Shared parallax wrapper used by the starter tab example screens.
+
 export default function ParallaxScrollView({
   children,
   headerImage,

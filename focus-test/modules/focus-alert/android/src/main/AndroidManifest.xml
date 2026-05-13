@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application>
+        <!-- Firebase Messaging service entry point for the local focus-alert module. -->
         <service
             android:name=".FocusFirebaseMessagingService"
             android:exported="false">

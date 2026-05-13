@@ -2,6 +2,8 @@
 
 A React Native + Expo prototype for calm, structured parent-child communication, with realtime sync and Android focus alerts.
 
+<!-- This README summarizes the app as a two-device parent/child communication tool with Firestore sync and native Android focus alerts. -->
+
 ## Project Purpose
 
 This repository is building a two-device communication experience:
@@ -20,6 +22,8 @@ The core goal is to support the calm, low-pressure communication through structu
 - Legacy file at root: `firebaseConfig.ts` (contains Firebase init, but active app uses env-based Firebase config inside `focus-test/app/communicationHelpers.ts`)
 
 ## Architecture overview
+
+<!-- The active app lives in focus-test and the core flow is welcome -> setup -> parent or child mode. -->
 
 ### 1. App shell and role flow
 

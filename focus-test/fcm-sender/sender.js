@@ -3,6 +3,8 @@ const axios = require('axios');
 const SERVICE_ACCOUNT_FILE = './service-account.json';
 const DEVICE_TOKEN = 'cD8vGksTQbS3k-OQA3bhtE:APA91bFiuXVtD2_97Qfo7vWBX94LUvEm0dKd76U9WEx90126g8cq8gpJoM8c32ri3OXGZ-XxjKSE3bU0aHrL1ZvrePZLDlCYcUho50adN9rrCnfBjjPhkb4';
 
+// Development-only script for sending a test FCM data message to one device token.
+
 async function getAccessToken() {
     const auth = new GoogleAuth({
         keyFile: SERVICE_ACCOUNT_FILE,

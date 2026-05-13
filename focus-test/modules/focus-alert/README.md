@@ -2,6 +2,8 @@
 
 My new module
 
+<!-- Placeholder README for the local native module; it should describe the actual JS bridge and Android behavior. -->
+
 # API documentation
 
 - [Documentation for the latest stable release](https://docs.expo.dev/versions/latest/sdk/focus-alert/)

@@ -2,6 +2,8 @@ import { NativeModule, requireNativeModule } from 'expo';
 
 import { FocusAlertModuleEvents } from './FocusAlert.types';
 
+// JS-facing native module contract for alert permissions, notifications, and token access.
+
 declare class FocusAlertModule extends NativeModule<FocusAlertModuleEvents> {
   showTestNotification():void;
   canDrawOverlays(): boolean;

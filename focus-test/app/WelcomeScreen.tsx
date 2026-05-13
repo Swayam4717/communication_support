@@ -7,6 +7,7 @@ interface WelcomeScreenProps {
 }
 
 export default function WelcomeScreen({ onGetStarted }: WelcomeScreenProps) {
+  // This screen introduces the calm parent-child communication flow before the setup step.
   return (
     <ScrollView
       contentContainerStyle={styles.scrollContent}

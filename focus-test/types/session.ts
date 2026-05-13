@@ -2,6 +2,8 @@
  * Session object structure for defining multi-screen communication flows
  */
 
+// Shared older-prototype session types used by the sample screens.
+
 export interface SessionOption {
   id: string;
   label: string;

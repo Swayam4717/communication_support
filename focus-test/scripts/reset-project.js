@@ -6,6 +6,8 @@
  * You can remove the `reset-project` script from package.json and safely delete this file after running it.
  */
 
+// Template cleanup helper for the Expo starter project.
+
 const fs = require("fs");
 const path = require("path");
 const readline = require("readline");

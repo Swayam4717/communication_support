@@ -1,7 +1,8 @@
 import React, {useState, useEffect} from "react";
 import {ScrollView, Text, TextInput, TouchableOpacity, View} from "react-native";
 import { styles } from "./communicationCommon";
-
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "./communicationHelpers";
 interface DeviceSetupProps {
   onSetupComplete: (role: "parent" | "child", roomId: string) => void;
 }
@@ -15,24 +16,44 @@ function generateRoomCode() {
   return `${word}-${number}`;
 }// 720000 possible combinations with current setup 
 
+async function generateUniqueRoomCode() {
+  for(let i = 0; i < 5; i++){
+    const code = generateRoomCode();
+    const roomSnap = await getDoc(doc(db, "rooms", code));
+    if(!roomSnap.exists()){
+      return code;
+    }
+  }
+  throw new Error("Failed to generate unique room code");
+}
 
 export default function DeviceSetupScreen({onSetupComplete}: DeviceSetupProps){
+  // This screen guides the initial device setup flow: pick a role, then join or create a room.
   const [stage, setStage] = useState<SetupStage>("role-select");
   const [selectedRole, setSelectedRole] = useState<"parent" | "child" | null>(null);
   const [roomCode, setRoomCode] = useState("");
-  const handleContinueToRoom = () => {
+  const handleContinueToRoom = async () => {
+    // Parent devices try to generate a unique room code; child devices move straight to the join step.
     if(!selectedRole)return;
     if(selectedRole === "parent"){
-      setRoomCode(generateRoomCode());
+      try {        
+      const uniqueCode = await generateUniqueRoomCode();
+      setRoomCode(uniqueCode);
+      }  catch (error) {
+        console.warn("Failed to generate unique room code:", error);
+        setRoomCode(generateRoomCode());
+      }
     }else{
       setRoomCode("");
     }
     setStage("room-setup");
   };
   const handleRoomCodeChange = (value: string) => {
+    // Normalize the room code as the user types so parent and child inputs stay consistent.
     setRoomCode(value.trim().toUpperCase());
   };
   const handleCompleteSetup =() =>{
+    // Persist the selected role and normalized room code through the parent callback.
     const normalizedRoomCode = roomCode.trim().toUpperCase();
     if (selectedRole && normalizedRoomCode){
       onSetupComplete(selectedRole, normalizedRoomCode);

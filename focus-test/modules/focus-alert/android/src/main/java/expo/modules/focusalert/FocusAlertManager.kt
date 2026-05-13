@@ -16,6 +16,8 @@ import android.widget.TextView
 import android.os.Handler
 import android.os.Looper
 
+// Owns the overlay and unlock-path logic for the native alert experience.
+
 
 object FocusAlertManager {
 

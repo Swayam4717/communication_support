@@ -3,6 +3,8 @@
  * https://docs.expo.dev/guides/color-schemes/
  */
 
+// Returns either an explicit color override or the shared theme palette color.
+
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 

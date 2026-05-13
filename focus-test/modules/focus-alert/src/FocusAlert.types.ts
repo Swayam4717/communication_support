@@ -1,5 +1,7 @@
 import type { StyleProp, ViewStyle } from 'react-native';
 
+// Type definitions for the local module's JS API and native view props.
+
 export type OnLoadEventPayload = {
   url: string;
 };

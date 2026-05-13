@@ -1,6 +1,8 @@
 import { SymbolView, SymbolViewProps, SymbolWeight } from 'expo-symbols';
 import { StyleProp, ViewStyle } from 'react-native';
 
+// iOS-native SF Symbols implementation for the starter app's shared icon abstraction.
+
 export function IconSymbol({
   name,
   size = 24,

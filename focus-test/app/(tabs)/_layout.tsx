@@ -6,6 +6,8 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+// These tabs are starter template screens and are separate from the main communication experience.
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
 

@@ -7,6 +7,8 @@ export type ThemedViewProps = ViewProps & {
   darkColor?: string;
 };
 
+// Themed container primitive used across the Expo starter screens.
+
 export function ThemedView({ style, lightColor, darkColor, ...otherProps }: ThemedViewProps) {
   const backgroundColor = useThemeColor({ light: lightColor, dark: darkColor }, 'background');
 

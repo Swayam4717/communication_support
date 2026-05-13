@@ -3,6 +3,8 @@ const admin = require("firebase-admin");
 
 admin.initializeApp();
 
+// Cloud Function that watches room updates and sends a push message when a new session is posted.
+
 exports.sendFocusAlertOnSessionUpdate = onDocumentUpdated(
   "rooms/{roomId}",
   async (event) => {

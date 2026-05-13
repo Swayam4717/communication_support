@@ -6,6 +6,7 @@ import ParentModeScreen from "./ParentMode";
 import ChildModeScreen from "./ChildMode";
 import WelcomeScreen from "./WelcomeScreen";
 import DeviceSetupScreen from "./DeviceSetup";
+import {doc , setDoc} from "firebase/firestore";
 
 
 import {
@@ -14,10 +15,11 @@ import {
   createSession,
   CommunicationSession,
   DEFAULT_ROOM_ID,
+  db,
 } from "./communicationHelpers";
 import { styles } from "./communicationCommon";
 type AppState = "loading" | "welcome" | "setup" | "parent" | "child";
-
+console.log("App Running");
 export default function CommunicationMvpApp() {
   const [appState, setAppState] = useState<AppState>("loading");
   const [deviceRole, setDeviceRole] = useState<"parent" | "child" | null>(null);
@@ -77,14 +79,40 @@ export default function CommunicationMvpApp() {
 
   const handleSetupComplete = async (role: "parent" | "child", room: string) => {
     try {
+      console.log("Setup complete with role:", role, "and room:", room);
       await AsyncStorage.setItem("deviceRole", role);
       await AsyncStorage.setItem("roomId", room);
+      //Register Child FCM
+      if (role === "child") {
+  try {
+    console.log("CHILD TOKEN SAVE STARTED");
+
+    const token = await FocusAlert.getFcmToken();
+
+    console.log("TOKEN FROM NATIVE:", token);
+
+    const roomRef = doc(db, "rooms", room);
+
+    await setDoc(
+      roomRef,
+      {
+        childFcmToken: token || "NO_TOKEN_RETURNED_TEST",
+        tokenSavedAt: Date.now(),
+      },
+      { merge: true }
+    );
+
+    console.log("FIRESTORE TOKEN WRITE COMPLETE");
+  } catch (tokenError) {
+    console.warn("Failed to get or save FCM token", tokenError);
+  }
+}
       setDeviceRole(role);
       setRoomId(room);
       setAppState(role === "parent" ? "parent" : "child");
     } catch (error) {
       console.warn("Failed to save setup to AsyncStorage", error);
-    }
+    } 
   };
 
   const handleResetSetup = async () => {

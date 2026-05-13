@@ -200,19 +200,18 @@ class FocusAlertModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("FocusAlert")
-    Function("getFcmToken") {
+   AsyncFunction("getFcmToken") { promise: expo.modules.kotlin.Promise ->
   FirebaseMessaging.getInstance().token
     .addOnCompleteListener { task ->
       if (!task.isSuccessful) {
         Log.d("FOCUS_FCM", "Fetching FCM token failed")
-        
-      } else{
+        promise.resolve(null)
+      } else {
         val token = task.result
         Log.d("FOCUS_FCM", "FCM TOKEN: $token")
+        promise.resolve(token)
       }
     }
-
-  return@Function null
 }
     Function("showTestNotification") {
       val context = appContext.reactContext ?: return@Function null

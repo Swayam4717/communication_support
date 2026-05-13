@@ -17,7 +17,7 @@ for (const [key, value] of Object.entries(firebaseConfig)) {
 }
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+export const db = getFirestore(app);
 
 export type ChildStage = "idle" | "incoming" | "choice" | "confirmation";
 

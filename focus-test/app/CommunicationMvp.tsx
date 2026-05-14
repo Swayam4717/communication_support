@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { SafeAreaView, Button , Linking} from "react-native";
+import { SafeAreaView, Button, Linking } from "react-native";
 import FocusAlert from "focus-alert";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ParentModeScreen from "./ParentMode";
 import ChildModeScreen from "./ChildMode";
 import WelcomeScreen from "./WelcomeScreen";
 import DeviceSetupScreen from "./DeviceSetup";
-import {doc , setDoc} from "firebase/firestore";
-
+import { doc, setDoc } from "firebase/firestore";
 
 import {
   DEFAULT_QUESTION,
@@ -18,8 +17,37 @@ import {
   db,
 } from "./communicationHelpers";
 import { styles } from "./communicationCommon";
+
 type AppState = "loading" | "welcome" | "setup" | "parent" | "child";
+type SessionTemplateId = "food" | "feelings" | "activities" | "yesNo";
+
+const SESSION_TEMPLATES: Record<
+  SessionTemplateId,
+  {
+    question: string;
+    options: string[];
+  }
+> = {
+  food: {
+    question: "What would you like to eat?",
+    options: ["Rice", "Noodles", "Pizza", "Sandwich"],
+  },
+  feelings: {
+    question: "How are you feeling?",
+    options: ["Happy", "Sad", "Angry", "Tired"],
+  },
+  activities: {
+    question: "What would you like to do?",
+    options: ["Rest", "Play", "Walk", "Read"],
+  },
+  yesNo: {
+    question: "Do you want this?",
+    options: ["Yes", "No", "Maybe", "Later"],
+  },
+};
+
 console.log("App Running");
+
 export default function CommunicationMvpApp() {
   // This component owns the top-level app state and decides which screen to show.
   const [appState, setAppState] = useState<AppState>("loading");
@@ -29,6 +57,7 @@ export default function CommunicationMvpApp() {
   const [draftOptions, setDraftOptions] = useState<string[]>(DEFAULT_OPTIONS);
   const [showPreview, setShowPreview] = useState(false);
   const [sentSession, setSentSession] = useState<CommunicationSession | null>(null);
+  const [templateVersion, setTemplateVersion] = useState(0);
 
   // Load persisted setup on app launch
   useEffect(() => {
@@ -52,29 +81,31 @@ export default function CommunicationMvpApp() {
 
     loadSetup();
   }, []);
+
   useEffect(() => {
-  // Listen for the deep link used by the native focus alert path and switch into child mode.
-  const handleUrl = (url: string) => {
-    console.log("Deep link received:", url);
+    // Listen for the deep link used by the native focus alert path and switch into child mode.
+    const handleUrl = (url: string) => {
+      console.log("Deep link received:", url);
 
-    if (url.includes("child-alert")) {
-      setDeviceRole("child");
-      setAppState("child");
-    }
-  };
+      if (url.includes("child-alert")) {
+        setDeviceRole("child");
+        setAppState("child");
+      }
+    };
 
-  const subscription = Linking.addEventListener("url", (event) => {
-    handleUrl(event.url);
-  });
+    const subscription = Linking.addEventListener("url", (event) => {
+      handleUrl(event.url);
+    });
 
-  Linking.getInitialURL().then((url) => {
-    if (url) handleUrl(url);
-  });
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl(url);
+    });
 
-  return () => {
-    subscription.remove();
-  };
-}, []);
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
   const handleProceedToSetup = () => {
     setAppState("setup");
   };
@@ -84,37 +115,39 @@ export default function CommunicationMvpApp() {
       console.log("Setup complete with role:", role, "and room:", room);
       await AsyncStorage.setItem("deviceRole", role);
       await AsyncStorage.setItem("roomId", room);
+
       // If this is a child device, fetch its FCM token and store it in the room document.
       if (role === "child") {
-  try {
-    console.log("CHILD TOKEN SAVE STARTED");
+        try {
+          console.log("CHILD TOKEN SAVE STARTED");
 
-    const token = await FocusAlert.getFcmToken();
+          const token = await FocusAlert.getFcmToken();
 
-    console.log("TOKEN FROM NATIVE:", token);
+          console.log("TOKEN FROM NATIVE:", token);
 
-    const roomRef = doc(db, "rooms", room);
+          const roomRef = doc(db, "rooms", room);
 
-    await setDoc(
-      roomRef,
-      {
-        childFcmToken: token || "NO_TOKEN_RETURNED_TEST",
-        tokenSavedAt: Date.now(),
-      },
-      { merge: true }
-    );
+          await setDoc(
+            roomRef,
+            {
+              childFcmToken: token || "NO_TOKEN_RETURNED_TEST",
+              tokenSavedAt: Date.now(),
+            },
+            { merge: true }
+          );
 
-    console.log("FIRESTORE TOKEN WRITE COMPLETE");
-  } catch (tokenError) {
-    console.warn("Failed to get or save FCM token", tokenError);
-  }
-}
+          console.log("FIRESTORE TOKEN WRITE COMPLETE");
+        } catch (tokenError) {
+          console.warn("Failed to get or save FCM token", tokenError);
+        }
+      }
+
       setDeviceRole(role);
       setRoomId(room);
       setAppState(role === "parent" ? "parent" : "child");
     } catch (error) {
       console.warn("Failed to save setup to AsyncStorage", error);
-    } 
+    }
   };
 
   const handleResetSetup = async () => {
@@ -125,6 +158,10 @@ export default function CommunicationMvpApp() {
       setRoomId(DEFAULT_ROOM_ID);
       setAppState("welcome");
       setSentSession(null);
+      setDraftQuestion(DEFAULT_QUESTION);
+      setDraftOptions(DEFAULT_OPTIONS);
+      setShowPreview(false);
+      setTemplateVersion((value) => value + 1);
     } catch (error) {
       console.warn("Failed to reset setup", error);
     }
@@ -138,6 +175,18 @@ export default function CommunicationMvpApp() {
       nextOptions[index] = value;
       return nextOptions;
     });
+  };
+
+  const handleApplyTemplate = (templateId: SessionTemplateId) => {
+    const template = SESSION_TEMPLATES[templateId];
+
+    setDraftQuestion(template.question);
+    setDraftOptions(template.options);
+    setSentSession(null);
+    setShowPreview(true);
+
+    // This tells ParentMode to clear any old image selections from the previous draft.
+    setTemplateVersion((value) => value + 1);
   };
 
   const handlePreviewToggle = () => setShowPreview((v) => !v);
@@ -172,24 +221,19 @@ export default function CommunicationMvpApp() {
   if (appState === "parent" && deviceRole === "parent") {
     return (
       <SafeAreaView style={styles.appShell}>
-        
         <ParentModeScreen
           question={draftQuestion}
           optionLabels={draftOptions}
           sentSession={sentSession}
           showPreview={showPreview}
           roomId={roomId}
+          templateVersion={templateVersion}
           onQuestionChange={handleQuestionChange}
           onOptionLabelChange={handleOptionLabelChange}
+          onApplyTemplate={handleApplyTemplate}
           onPreviewToggle={handlePreviewToggle}
           onSendToChild={handleSendToChild}
           onResetSetup={handleResetSetup}
-        />
-        <Button
-          title= "Get FCM Token"
-          onPress={() => {
-            FocusAlert.getFcmToken();
-          }}
         />
       </SafeAreaView>
     );
@@ -205,4 +249,3 @@ export default function CommunicationMvpApp() {
 
   return <SafeAreaView style={styles.appShell} />;
 }
-

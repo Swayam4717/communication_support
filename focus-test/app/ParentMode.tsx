@@ -21,17 +21,21 @@ import {
 import { OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
 
+type sessionTemplateId = "food" | "feelings" | "activities" | "yesNo";
+
 interface ParentModeScreenProps {
   question: string;
   optionLabels: string[];
   sentSession: CommunicationSession | null;
   showPreview: boolean;
   roomId: string;
+  templateVersion: number;
   onQuestionChange: (value: string) => void;
   onOptionLabelChange: (index: number, value: string) => void;
   onPreviewToggle: () => void;
   onSendToChild: () => void;
   onResetSetup: () => void;
+  onApplyTemplate: (templateId: sessionTemplateId) => void;
 }
 
 export default function ParentModeScreen({
@@ -40,17 +44,22 @@ export default function ParentModeScreen({
   sentSession,
   showPreview,
   roomId,
+  templateVersion,
   onQuestionChange,
   onOptionLabelChange,
   onPreviewToggle,
   onSendToChild,
   onResetSetup,
+  onApplyTemplate,
 }: ParentModeScreenProps) {
-  const [fireSession, setFireSession] = React.useState<CommunicationSession | null>(null);
+  const [fireSession, setFireSession] =
+    React.useState<CommunicationSession | null>(null);
   const [optionImageUrls, setOptionImageUrls] = useState<string[]>(
-    optionLabels.map(() => "")
+    optionLabels.map(() => ""),
   );
-  const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(null);
+  const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(
+    null,
+  );
 
   React.useEffect(() => {
     const unsub = subscribeToSession((s) => setFireSession(s), roomId);
@@ -59,9 +68,12 @@ export default function ParentModeScreen({
 
   React.useEffect(() => {
     setOptionImageUrls((currentUrls) =>
-      optionLabels.map((_, index) => currentUrls[index] ?? "")
+      optionLabels.map((_, index) => currentUrls[index] ?? ""),
     );
   }, [optionLabels]);
+  React.useEffect(() => {
+    setOptionImageUrls(optionLabels.map(() => ""));
+  }, [templateVersion]);
 
   const draftSession = createSession(question, optionLabels, optionImageUrls);
   const currentSession = fireSession ?? sentSession ?? draftSession;
@@ -69,7 +81,9 @@ export default function ParentModeScreen({
 
   const selectedAnswer =
     currentSession && fireSession?.selectedAnswer
-      ? currentSession.options.find((o) => o.id === fireSession.selectedAnswer) ?? null
+      ? (currentSession.options.find(
+          (o) => o.id === fireSession.selectedAnswer,
+        ) ?? null)
       : null;
 
   const isChildConnected = !!fireSession?.childFcmToken;
@@ -101,7 +115,7 @@ export default function ParentModeScreen({
 
   const uploadPickedAsset = async (
     index: number,
-    asset: ImagePicker.ImagePickerAsset
+    asset: ImagePicker.ImagePickerAsset,
   ) => {
     setUploadingImageIndex(index);
 
@@ -109,7 +123,7 @@ export default function ParentModeScreen({
       asset.uri,
       roomId,
       index,
-      asset.mimeType
+      asset.mimeType,
     );
 
     setOptionImageUrl(index, downloadUrl);
@@ -117,12 +131,13 @@ export default function ParentModeScreen({
 
   const handleChooseFromGallery = async (index: number) => {
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted) {
         Alert.alert(
           "Permission needed",
-          "Please allow photo access so you can choose an image from your gallery."
+          "Please allow photo access so you can choose an image from your gallery.",
         );
         return;
       }
@@ -142,7 +157,7 @@ export default function ParentModeScreen({
       console.warn("Gallery image upload failed", error);
       Alert.alert(
         "Image upload failed",
-        "The gallery image could not be uploaded. Please try again."
+        "The gallery image could not be uploaded. Please try again.",
       );
     } finally {
       setUploadingImageIndex(null);
@@ -156,7 +171,7 @@ export default function ParentModeScreen({
       if (!permission.granted) {
         Alert.alert(
           "Permission needed",
-          "Please allow camera access so you can take a photo for this option."
+          "Please allow camera access so you can take a photo for this option.",
         );
         return;
       }
@@ -176,7 +191,7 @@ export default function ParentModeScreen({
       console.warn("Camera image upload failed", error);
       Alert.alert(
         "Image upload failed",
-        "The camera photo could not be uploaded. Please try again."
+        "The camera photo could not be uploaded. Please try again.",
       );
     } finally {
       setUploadingImageIndex(null);
@@ -222,7 +237,7 @@ export default function ParentModeScreen({
               text: "Cancel",
               style: "cancel",
             },
-          ]
+          ],
     );
   };
 
@@ -253,7 +268,10 @@ export default function ParentModeScreen({
     >
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={[styles.scrollContent, styles.parentScrollContent]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          styles.parentScrollContent,
+        ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         nestedScrollEnabled
@@ -276,14 +294,20 @@ export default function ParentModeScreen({
           <Text style={styles.parentStatusLabel}>Child&apos;s response</Text>
           {selectedAnswer ? (
             <View style={styles.parentStatusActive}>
-              <Text style={styles.parentStatusEmoji}>{selectedAnswer.emoji}</Text>
+              <Text style={styles.parentStatusEmoji}>
+                {selectedAnswer.emoji}
+              </Text>
               <View style={styles.parentStatusContent}>
-                <Text style={styles.parentStatusValue}>{selectedAnswer.label}</Text>
+                <Text style={styles.parentStatusValue}>
+                  {selectedAnswer.label}
+                </Text>
               </View>
             </View>
           ) : (
             <View style={styles.parentStatusInactive}>
-              <Text style={styles.parentStatusPlaceholder}>Waiting for response...</Text>
+              <Text style={styles.parentStatusPlaceholder}>
+                Waiting for response...
+              </Text>
             </View>
           )}
         </View>
@@ -292,6 +316,40 @@ export default function ParentModeScreen({
           <View style={styles.parentSectionHeader}>
             <Text style={styles.parentSectionTitle}>Create a session</Text>
             {sentSession && <Text style={styles.parentSectionBadge}>Live</Text>}
+          </View>
+
+          <View style={styles.parentInputGroup}>
+            <Text style={styles.parentInputLabel}>Quick templates</Text>
+
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              <TouchableOpacity
+                style={styles.previewToggleButton}
+                onPress={() => onApplyTemplate("food")}
+              >
+                <Text style={styles.previewToggleText}>Food</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.previewToggleButton}
+                onPress={() => onApplyTemplate("feelings")}
+              >
+                <Text style={styles.previewToggleText}>Feelings</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.previewToggleButton}
+                onPress={() => onApplyTemplate("activities")}
+              >
+                <Text style={styles.previewToggleText}>Activities</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.previewToggleButton}
+                onPress={() => onApplyTemplate("yesNo")}
+              >
+                <Text style={styles.previewToggleText}>Yes / No</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.parentInputGroup}>
@@ -331,7 +389,9 @@ export default function ParentModeScreen({
                   >
                     <View style={styles.parentOptionIndexBadge}>
                       <View style={styles.parentOptionIndexInner}>
-                        <Text style={styles.parentOptionIndexText}>{index + 1}</Text>
+                        <Text style={styles.parentOptionIndexText}>
+                          {index + 1}
+                        </Text>
                       </View>
                     </View>
 
@@ -344,7 +404,9 @@ export default function ParentModeScreen({
                         selectionColor="#D8B48F"
                         style={styles.parentOptionInput}
                         value={label}
-                        onChangeText={(value) => onOptionLabelChange(index, value)}
+                        onChangeText={(value) =>
+                          onOptionLabelChange(index, value)
+                        }
                         onFocus={() => scrollFieldIntoView(index)}
                       />
 
@@ -377,7 +439,10 @@ export default function ParentModeScreen({
           </View>
 
           <View style={styles.parentPreviewToggle}>
-            <TouchableOpacity style={styles.previewToggleButton} onPress={onPreviewToggle}>
+            <TouchableOpacity
+              style={styles.previewToggleButton}
+              onPress={onPreviewToggle}
+            >
               <Text style={styles.previewToggleText}>
                 {showPreview ? "Hide preview" : "Preview"}
               </Text>
@@ -391,7 +456,12 @@ export default function ParentModeScreen({
               </Text>
               <View style={styles.parentPreviewGrid}>
                 {previewSession.options.map((option) => (
-                  <OptionCard key={option.id} option={option} compact disabled />
+                  <OptionCard
+                    key={option.id}
+                    option={option}
+                    compact
+                    disabled
+                  />
                 ))}
               </View>
             </View>
@@ -403,7 +473,10 @@ export default function ParentModeScreen({
             <Text style={styles.primaryButtonText}>Send to Child</Text>
           </TouchableOpacity>
           {sentSession && (
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleReset}>
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={handleReset}
+            >
               <Text style={styles.secondaryButtonText}>Clear session</Text>
             </TouchableOpacity>
           )}

@@ -197,6 +197,10 @@ export default function CommunicationMvpApp() {
     setSentSession(nextSession);
     setShowPreview(false);
   };
+  const handleClearSession = () => {
+    setSentSession(null);
+    setShowPreview(false);
+  }
 
   if (appState === "loading") {
     return <SafeAreaView style={styles.appShell} />;
@@ -234,6 +238,7 @@ export default function CommunicationMvpApp() {
           onPreviewToggle={handlePreviewToggle}
           onSendToChild={handleSendToChild}
           onResetSetup={handleResetSetup}
+          onClearSession={handleClearSession}
         />
       </SafeAreaView>
     );

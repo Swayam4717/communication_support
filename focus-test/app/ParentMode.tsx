@@ -46,7 +46,6 @@ export default function ParentModeScreen({
   onSendToChild,
   onResetSetup,
 }: ParentModeScreenProps) {
-  // This screen lets the parent compose a prompt, watch for the child response, and clear the room state.
   const [fireSession, setFireSession] = React.useState<CommunicationSession | null>(null);
   const [optionImageUrls, setOptionImageUrls] = useState<string[]>(
     optionLabels.map(() => "")
@@ -67,10 +66,12 @@ export default function ParentModeScreen({
   const draftSession = createSession(question, optionLabels, optionImageUrls);
   const currentSession = fireSession ?? sentSession ?? draftSession;
   const previewSession = draftSession;
+
   const selectedAnswer =
     currentSession && fireSession?.selectedAnswer
       ? currentSession.options.find((o) => o.id === fireSession.selectedAnswer) ?? null
       : null;
+
   const isChildConnected = !!fireSession?.childFcmToken;
   const scrollRef = useRef<ScrollView | null>(null);
   const [optionRowPositions, setOptionRowPositions] = useState<number[]>([]);
@@ -98,14 +99,30 @@ export default function ParentModeScreen({
     });
   };
 
-  const handleChooseImage = async (index: number) => {
+  const uploadPickedAsset = async (
+    index: number,
+    asset: ImagePicker.ImagePickerAsset
+  ) => {
+    setUploadingImageIndex(index);
+
+    const downloadUrl = await uploadOptionImage(
+      asset.uri,
+      roomId,
+      index,
+      asset.mimeType
+    );
+
+    setOptionImageUrl(index, downloadUrl);
+  };
+
+  const handleChooseFromGallery = async (index: number) => {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted) {
         Alert.alert(
           "Permission needed",
-          "Please allow photo access so you can choose an image for this option."
+          "Please allow photo access so you can choose an image from your gallery."
         );
         return;
       }
@@ -120,23 +137,46 @@ export default function ParentModeScreen({
         return;
       }
 
-      const asset = result.assets[0];
-
-      setUploadingImageIndex(index);
-
-      const downloadUrl = await uploadOptionImage(
-        asset.uri,
-        roomId,
-        index,
-        asset.mimeType
-      );
-
-      setOptionImageUrl(index, downloadUrl);
+      await uploadPickedAsset(index, result.assets[0]);
     } catch (error) {
-      console.warn("Image upload failed", error);
+      console.warn("Gallery image upload failed", error);
       Alert.alert(
         "Image upload failed",
-        "The image could not be uploaded. Please try again."
+        "The gallery image could not be uploaded. Please try again."
+      );
+    } finally {
+      setUploadingImageIndex(null);
+    }
+  };
+
+  const handleTakePhoto = async (index: number) => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          "Permission needed",
+          "Please allow camera access so you can take a photo for this option."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.75,
+      });
+
+      if (result.canceled || !result.assets?.[0]) {
+        return;
+      }
+
+      await uploadPickedAsset(index, result.assets[0]);
+    } catch (error) {
+      console.warn("Camera image upload failed", error);
+      Alert.alert(
+        "Image upload failed",
+        "The camera photo could not be uploaded. Please try again."
       );
     } finally {
       setUploadingImageIndex(null);
@@ -147,8 +187,46 @@ export default function ParentModeScreen({
     setOptionImageUrl(index, "");
   };
 
+  const showImageSourceMenu = (index: number) => {
+    const hasImage = !!optionImageUrls[index];
+
+    Alert.alert(
+      hasImage ? "Change option image" : "Add option image",
+      "Choose how you want to add the image.",
+      hasImage
+        ? [
+            {
+              text: "Take photo",
+              onPress: () => handleTakePhoto(index),
+            },
+            {
+              text: "Choose from gallery",
+              onPress: () => handleChooseFromGallery(index),
+            },
+            {
+              text: "Remove image",
+              style: "destructive",
+              onPress: () => handleRemoveImage(index),
+            },
+          ]
+        : [
+            {
+              text: "Take photo",
+              onPress: () => handleTakePhoto(index),
+            },
+            {
+              text: "Choose from gallery",
+              onPress: () => handleChooseFromGallery(index),
+            },
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+          ]
+    );
+  };
+
   const handleSend = async () => {
-    // Publish the current draft session to Firestore so the child device can receive it.
     const session = createSession(question, optionLabels, optionImageUrls);
     try {
       await sendSession(session, roomId);
@@ -159,7 +237,6 @@ export default function ParentModeScreen({
   };
 
   const handleReset = async () => {
-    // Reset the room document back to an idle state.
     try {
       await resetSession(roomId);
       setFireSession(null);
@@ -274,7 +351,7 @@ export default function ParentModeScreen({
                       <View style={styles.parentImageActionRow}>
                         <TouchableOpacity
                           style={styles.parentImageButton}
-                          onPress={() => handleChooseImage(index)}
+                          onPress={() => showImageSourceMenu(index)}
                           disabled={isUploading}
                         >
                           <Text style={styles.parentImageButtonText}>
@@ -282,25 +359,15 @@ export default function ParentModeScreen({
                               ? "Uploading..."
                               : hasImage
                                 ? "Change image"
-                                : "Choose image"}
+                                : "Add image"}
                           </Text>
                         </TouchableOpacity>
-
-                        {hasImage ? (
-                          <TouchableOpacity
-                            style={styles.parentRemoveImageButton}
-                            onPress={() => handleRemoveImage(index)}
-                            disabled={isUploading}
-                          >
-                            <Text style={styles.parentRemoveImageButtonText}>Remove</Text>
-                          </TouchableOpacity>
-                        ) : null}
                       </View>
 
                       <Text style={styles.parentImageStatusText}>
                         {hasImage
                           ? "Image ready"
-                          : "No image selected. Emoji fallback will be used."}
+                          : "Tap Add image to use camera or gallery. Emoji fallback will be used."}
                       </Text>
                     </View>
                   </View>

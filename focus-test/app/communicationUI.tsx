@@ -18,7 +18,14 @@ export function OptionCard({
   disabled = false,
   onPress,
 }: OptionCardProps) {
-  // Shared choice card used both in the parent preview and in the child's answer picker.
+  const [imageFailed, setImageFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setImageFailed(false);
+  }, [option.imageUrl]);
+
+  const shouldShowImage = !!option.imageUrl && !imageFailed;
+
   return (
     <TouchableOpacity
       activeOpacity={disabled ? 1 : 0.85}
@@ -30,28 +37,29 @@ export function OptionCard({
         selected && styles.optionCardSelected,
       ]}
     >
-      {option.imageUrl ? (
+      {shouldShowImage ? (
         <Image
           source={{ uri: option.imageUrl }}
           style={[styles.optionImage, compact && styles.optionImageCompact]}
           resizeMode="cover"
+          onError={() => setImageFailed(true)}
         />
       ) : (
-        <Text
-          style={[styles.optionEmoji, compact && styles.optionEmojiCompact]}
-        >
-          {option.emoji}
+        <Text style={[styles.optionEmoji, compact && styles.optionEmojiCompact]}>
+          {option.emoji ?? "✨"}
         </Text>
       )}
 
-      <Text style={[styles.optionLabel, compact && styles.optionLabelCompact]}>
-        {option.label}
-      </Text>
-      {selected ? <View style={styles.selectionDot} /> : null}
+      <View style={styles.optionTextWrap}>
+        <Text style={[styles.optionLabel, compact && styles.optionLabelCompact]}>
+          {option.label}
+        </Text>
+      </View>
+
+      {selected && <View style={styles.selectedDot} />}
     </TouchableOpacity>
   );
 }
-
 interface HeaderProps {
   title: string;
   subtitle?: string;

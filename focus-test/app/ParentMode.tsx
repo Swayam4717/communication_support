@@ -36,6 +36,7 @@ interface ParentModeScreenProps {
   onSendToChild: () => void;
   onResetSetup: () => void;
   onApplyTemplate: (templateId: sessionTemplateId) => void;
+  onClearSession: () => void;
 }
 
 export default function ParentModeScreen({
@@ -51,6 +52,7 @@ export default function ParentModeScreen({
   onSendToChild,
   onResetSetup,
   onApplyTemplate,
+  onClearSession,
 }: ParentModeScreenProps) {
   const [fireSession, setFireSession] =
     React.useState<CommunicationSession | null>(null);
@@ -201,6 +203,7 @@ export default function ParentModeScreen({
   const handleRemoveImage = (index: number) => {
     setOptionImageUrl(index, "");
   };
+  const isUploadingImage = uploadingImageIndex !== null;
 
   const showImageSourceMenu = (index: number) => {
     const hasImage = !!optionImageUrls[index];
@@ -242,7 +245,16 @@ export default function ParentModeScreen({
   };
 
   const handleSend = async () => {
+    if (isUploadingImage) {
+      Alert.alert(
+        "Image still uploading",
+        "Please wait until the image is ready before sending this session.",
+      );
+      return;
+    }
+
     const session = createSession(question, optionLabels, optionImageUrls);
+
     try {
       await sendSession(session, roomId);
       onSendToChild?.();
@@ -255,6 +267,7 @@ export default function ParentModeScreen({
     try {
       await resetSession(roomId);
       setFireSession(null);
+      onClearSession();
     } catch (e) {
       console.warn("resetSession failed", e);
     }
@@ -469,8 +482,17 @@ export default function ParentModeScreen({
         </View>
 
         <View style={styles.parentActionSection}>
-          <TouchableOpacity style={styles.primaryButton} onPress={handleSend}>
-            <Text style={styles.primaryButtonText}>Send to Child</Text>
+          <TouchableOpacity
+            disabled={isUploadingImage}
+            style={[
+              styles.primaryButton,
+              isUploadingImage && styles.primaryButtonDisabled,
+            ]}
+            onPress={handleSend}
+          >
+            <Text style={styles.primaryButtonText}>
+              {isUploadingImage ? "Uploading image..." : "Send to Child"}
+            </Text>
           </TouchableOpacity>
           {sentSession && (
             <TouchableOpacity

@@ -828,16 +828,48 @@ export const styles = StyleSheet.create({
     paddingVertical: 4,
   },
 
-  parentOptionImageInput: {
+  parentImageActionRow: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+  },
+
+  parentImageButton: {
+    flex: 1,
+    backgroundColor: "#F1E8DD",
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#D4C4B8",
+  },
+
+  parentImageButtonText: {
     fontSize: 13,
-    color: "#2B1D18",
-    fontWeight: "500",
+    fontWeight: "700",
+    color: "#705642",
+  },
+
+  parentRemoveImageButton: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 10,
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    alignItems: "center",
     borderWidth: 1,
     borderColor: "#E4D8CC",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+  },
+
+  parentRemoveImageButtonText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#8A5A44",
+  },
+
+  parentImageStatusText: {
+    fontSize: 12,
+    color: "#7E6F67",
   },
   parentPreviewToggle: {
     alignItems: "center",

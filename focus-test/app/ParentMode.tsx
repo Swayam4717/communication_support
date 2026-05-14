@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -8,8 +9,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import type { CommunicationSession } from "./communicationHelpers";
-import { createSession, sendSession, subscribeToSession, resetSession } from "./communicationHelpers";
+import {
+  createSession,
+  resetSession,
+  sendSession,
+  subscribeToSession,
+  uploadOptionImage,
+} from "./communicationHelpers";
 import { OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
 
@@ -43,6 +51,7 @@ export default function ParentModeScreen({
   const [optionImageUrls, setOptionImageUrls] = useState<string[]>(
     optionLabels.map(() => "")
   );
+  const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(null);
 
   React.useEffect(() => {
     const unsub = subscribeToSession((s) => setFireSession(s), roomId);
@@ -81,12 +90,61 @@ export default function ParentModeScreen({
     });
   };
 
-  const handleOptionImageUrlChange = (index: number, value: string) => {
+  const setOptionImageUrl = (index: number, imageUrl: string) => {
     setOptionImageUrls((currentUrls) => {
       const nextUrls = [...currentUrls];
-      nextUrls[index] = value;
+      nextUrls[index] = imageUrl;
       return nextUrls;
     });
+  };
+
+  const handleChooseImage = async (index: number) => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert(
+          "Permission needed",
+          "Please allow photo access so you can choose an image for this option."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.75,
+      });
+
+      if (result.canceled || !result.assets?.[0]) {
+        return;
+      }
+
+      const asset = result.assets[0];
+
+      setUploadingImageIndex(index);
+
+      const downloadUrl = await uploadOptionImage(
+        asset.uri,
+        roomId,
+        index,
+        asset.mimeType
+      );
+
+      setOptionImageUrl(index, downloadUrl);
+    } catch (error) {
+      console.warn("Image upload failed", error);
+      Alert.alert(
+        "Image upload failed",
+        "The image could not be uploaded. Please try again."
+      );
+    } finally {
+      setUploadingImageIndex(null);
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setOptionImageUrl(index, "");
   };
 
   const handleSend = async () => {
@@ -177,54 +235,77 @@ export default function ParentModeScreen({
           <View style={styles.parentInputGroup}>
             <Text style={styles.parentInputLabel}>Answer options</Text>
             <View style={styles.parentOptionsList}>
-              {optionLabels.map((label, index) => (
-                <View
-                  key={`draft-${index}`}
-                  onLayout={(event) => {
-                    const rowY = event.nativeEvent.layout.y;
-                    setOptionRowPositions((currentPositions) => {
-                      const nextPositions = [...currentPositions];
-                      nextPositions[index] = rowY;
-                      return nextPositions;
-                    });
-                  }}
-                  style={styles.parentOptionRow}
-                >
-                  <View style={styles.parentOptionIndexBadge}>
-                    <View style={styles.parentOptionIndexInner}>
-                      <Text style={styles.parentOptionIndexText}>{index + 1}</Text>
+              {optionLabels.map((label, index) => {
+                const hasImage = !!optionImageUrls[index];
+                const isUploading = uploadingImageIndex === index;
+
+                return (
+                  <View
+                    key={`draft-${index}`}
+                    onLayout={(event) => {
+                      const rowY = event.nativeEvent.layout.y;
+                      setOptionRowPositions((currentPositions) => {
+                        const nextPositions = [...currentPositions];
+                        nextPositions[index] = rowY;
+                        return nextPositions;
+                      });
+                    }}
+                    style={styles.parentOptionRow}
+                  >
+                    <View style={styles.parentOptionIndexBadge}>
+                      <View style={styles.parentOptionIndexInner}>
+                        <Text style={styles.parentOptionIndexText}>{index + 1}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.parentOptionInputStack}>
+                      <TextInput
+                        accessibilityLabel={`Option ${index + 1} label`}
+                        cursorColor="#A97E57"
+                        placeholder={`Option ${index + 1}`}
+                        placeholderTextColor="#D4C4B8"
+                        selectionColor="#D8B48F"
+                        style={styles.parentOptionInput}
+                        value={label}
+                        onChangeText={(value) => onOptionLabelChange(index, value)}
+                        onFocus={() => scrollFieldIntoView(index)}
+                      />
+
+                      <View style={styles.parentImageActionRow}>
+                        <TouchableOpacity
+                          style={styles.parentImageButton}
+                          onPress={() => handleChooseImage(index)}
+                          disabled={isUploading}
+                        >
+                          <Text style={styles.parentImageButtonText}>
+                            {isUploading
+                              ? "Uploading..."
+                              : hasImage
+                                ? "Change image"
+                                : "Choose image"}
+                          </Text>
+                        </TouchableOpacity>
+
+                        {hasImage ? (
+                          <TouchableOpacity
+                            style={styles.parentRemoveImageButton}
+                            onPress={() => handleRemoveImage(index)}
+                            disabled={isUploading}
+                          >
+                            <Text style={styles.parentRemoveImageButtonText}>Remove</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
+
+                      <Text style={styles.parentImageStatusText}>
+                        {hasImage
+                          ? "Image ready"
+                          : "No image selected. Emoji fallback will be used."}
+                      </Text>
                     </View>
                   </View>
-
-                  <View style={styles.parentOptionInputStack}>
-                    <TextInput
-                      accessibilityLabel={`Option ${index + 1} label`}
-                      cursorColor="#A97E57"
-                      placeholder={`Option ${index + 1}`}
-                      placeholderTextColor="#D4C4B8"
-                      selectionColor="#D8B48F"
-                      style={styles.parentOptionInput}
-                      value={label}
-                      onChangeText={(value) => onOptionLabelChange(index, value)}
-                      onFocus={() => scrollFieldIntoView(index)}
-                    />
-
-                    <TextInput
-                      accessibilityLabel={`Option ${index + 1} image URL`}
-                      cursorColor="#A97E57"
-                      placeholder="Image URL optional"
-                      placeholderTextColor="#D4C4B8"
-                      selectionColor="#D8B48F"
-                      style={styles.parentOptionImageInput}
-                      value={optionImageUrls[index] ?? ""}
-                      onChangeText={(value) => handleOptionImageUrlChange(index, value)}
-                      onFocus={() => scrollFieldIntoView(index)}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
-                  </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           </View>
 

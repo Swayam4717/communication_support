@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { doc, getFirestore, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY ?? "",
@@ -18,6 +19,7 @@ for (const [key, value] of Object.entries(firebaseConfig)) {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 
 // Shared session types and helpers below define the Firestore room document used by both devices.
 
@@ -98,6 +100,31 @@ export function createSession(
     selectedAnswer: null,
     createdAt: Date.now(),
   } as CommunicationSession;
+}
+
+function getSafeRoomId(roomId: string) {
+  return roomId.replace(/[^a-zA-Z0-9-_]/g, "_") || DEFAULT_ROOM_ID;
+}
+
+export async function uploadOptionImage(
+  imageUri: string,
+  roomId: string,
+  optionIndex: number,
+  mimeType?: string | null
+) {
+  const response = await fetch(imageUri);
+  const imageBlob = await response.blob();
+
+  const safeRoomId = getSafeRoomId(roomId);
+  const extension = mimeType?.split("/")[1] || "jpg";
+  const imagePath = `option-images/${safeRoomId}/${Date.now()}-option-${optionIndex + 1}.${extension}`;
+  const imageRef = ref(storage, imagePath);
+
+  await uploadBytes(imageRef, imageBlob, {
+    contentType: mimeType || "image/jpeg",
+  });
+
+  return getDownloadURL(imageRef);
 }
 
 const getRoomsDoc = (roomId: string) => doc(db, "rooms", roomId);

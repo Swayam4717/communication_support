@@ -4,7 +4,6 @@ import type { CommunicationSession } from "./communicationHelpers";
 import { subscribeToSession, submitAnswer } from "./communicationHelpers";
 import { Header, OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
-import FocusAlert from "focus-alert";
 
 interface ChildModeScreenProps {
   roomId: string;
@@ -24,7 +23,6 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   const [session, setSession] = React.useState<CommunicationSession | null>(null);
   const [stage, setStage] = React.useState<"idle" | "incoming" | "choice" | "confirmation">("idle");
   const [selectedOptionId, setSelectedOptionId] = React.useState<string | null>(null);
-  const alertedSessionIds= React.useRef<Set<string>>(new Set());
 // Subscribe to session updates for the given roomId and update local state accordingly
  React.useEffect(() => {
   const unsub = subscribeToSession((s) => {
@@ -39,12 +37,6 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
 
     if (s.status === "sent") {
       setStage("incoming");
-
-      if (s.id && !alertedSessionIds.current.has(s.id)) {
-        alertedSessionIds.current.add(s.id);
-        FocusAlert.triggerFocusAlert();
-      }
-
       return;
     }
 

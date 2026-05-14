@@ -1,5 +1,5 @@
 import React from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { Image, Text, TouchableOpacity, View } from "react-native";
 import type { SessionOption } from "./communicationHelpers";
 import { styles } from "./communicationCommon";
 
@@ -30,9 +30,20 @@ export function OptionCard({
         selected && styles.optionCardSelected,
       ]}
     >
-      <Text style={[styles.optionEmoji, compact && styles.optionEmojiCompact]}>
-        {option.emoji}
-      </Text>
+      {option.imageUrl ? (
+        <Image
+          source={{ uri: option.imageUrl }}
+          style={[styles.optionImage, compact && styles.optionImageCompact]}
+          resizeMode="cover"
+        />
+      ) : (
+        <Text
+          style={[styles.optionEmoji, compact && styles.optionEmojiCompact]}
+        >
+          {option.emoji}
+        </Text>
+      )}
+
       <Text style={[styles.optionLabel, compact && styles.optionLabelCompact]}>
         {option.label}
       </Text>
@@ -53,7 +64,9 @@ export function Header({ title, subtitle, onBack }: HeaderProps) {
     <View style={styles.headerRow}>
       <View style={styles.headerTextBlock}>
         <Text style={styles.headerTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
+        {subtitle ? (
+          <Text style={styles.headerSubtitle}>{subtitle}</Text>
+        ) : null}
       </View>
       {onBack ? (
         <TouchableOpacity style={styles.textButton} onPress={onBack}>

@@ -1,65 +1,135 @@
-import React, {useState, useEffect} from "react";
-import {ScrollView, Text, TextInput, TouchableOpacity, View} from "react-native";
+import React, { useState } from "react";
+import {
+  Alert,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { styles } from "./communicationCommon";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "./communicationHelpers";
+
 interface DeviceSetupProps {
   onSetupComplete: (role: "parent" | "child", roomId: string) => void;
 }
 
 type SetupStage = "role-select" | "room-setup";
-const ROOM_WORDS = ["CALM", "BLUE", "STAR", "MOON", "RICE", "WAVE", "TREE", "SOFT"]; 
+
+const ROOM_WORDS = ["CALM", "BLUE", "STAR", "MOON", "RICE", "WAVE", "TREE", "SOFT"];
 
 function generateRoomCode() {
   const word = ROOM_WORDS[Math.floor(Math.random() * ROOM_WORDS.length)];
-  const number = Math.floor(10000 + Math.random() * 90000); // 5 digit number, can be changed as the users increase
+  const number = Math.floor(10000 + Math.random() * 90000);
   return `${word}-${number}`;
-}// 720000 possible combinations with current setup 
+}
 
 async function generateUniqueRoomCode() {
-  for(let i = 0; i < 5; i++){
+  for (let i = 0; i < 5; i++) {
     const code = generateRoomCode();
     const roomSnap = await getDoc(doc(db, "rooms", code));
-    if(!roomSnap.exists()){
+
+    if (!roomSnap.exists()) {
       return code;
     }
   }
+
   throw new Error("Failed to generate unique room code");
 }
 
-export default function DeviceSetupScreen({onSetupComplete}: DeviceSetupProps){
-  // This screen guides the initial device setup flow: pick a role, then join or create a room.
+export default function DeviceSetupScreen({ onSetupComplete }: DeviceSetupProps) {
   const [stage, setStage] = useState<SetupStage>("role-select");
   const [selectedRole, setSelectedRole] = useState<"parent" | "child" | null>(null);
   const [roomCode, setRoomCode] = useState("");
+  const [isCheckingRoom, setIsCheckingRoom] = useState(false);
+
   const handleContinueToRoom = async () => {
-    // Parent devices try to generate a unique room code; child devices move straight to the join step.
-    if(!selectedRole)return;
-    if(selectedRole === "parent"){
-      try {        
-      const uniqueCode = await generateUniqueRoomCode();
-      setRoomCode(uniqueCode);
-      }  catch (error) {
+    if (!selectedRole) return;
+
+    if (selectedRole === "parent") {
+      try {
+        const uniqueCode = await generateUniqueRoomCode();
+        setRoomCode(uniqueCode);
+      } catch (error) {
         console.warn("Failed to generate unique room code:", error);
         setRoomCode(generateRoomCode());
       }
-    }else{
+    } else {
       setRoomCode("");
     }
+
     setStage("room-setup");
   };
+
   const handleRoomCodeChange = (value: string) => {
-    // Normalize the room code as the user types so parent and child inputs stay consistent.
     setRoomCode(value.trim().toUpperCase());
   };
-  const handleCompleteSetup =() =>{
-    // Persist the selected role and normalized room code through the parent callback.
+
+  const createParentRoomIfNeeded = async (normalizedRoomCode: string) => {
+    const roomRef = doc(db, "rooms", normalizedRoomCode);
+
+    await setDoc(
+      roomRef,
+      {
+        id: "",
+        type: "communication",
+        title: "",
+        options: [],
+        status: "idle",
+        selectedAnswer: null,
+        createdAt: Date.now(),
+        roomCreatedAt: Date.now(),
+      },
+      { merge: true }
+    );
+  };
+
+  const checkChildRoomExists = async (normalizedRoomCode: string) => {
+    const roomRef = doc(db, "rooms", normalizedRoomCode);
+    const roomSnap = await getDoc(roomRef);
+    return roomSnap.exists();
+  };
+
+  const handleCompleteSetup = async () => {
     const normalizedRoomCode = roomCode.trim().toUpperCase();
-    if (selectedRole && normalizedRoomCode){
+
+    if (!selectedRole || !normalizedRoomCode) {
+      return;
+    }
+
+    setIsCheckingRoom(true);
+
+    try {
+      if (selectedRole === "parent") {
+        await createParentRoomIfNeeded(normalizedRoomCode);
+        onSetupComplete(selectedRole, normalizedRoomCode);
+        return;
+      }
+
+      const roomExists = await checkChildRoomExists(normalizedRoomCode);
+
+      if (!roomExists) {
+        Alert.alert(
+          "Room not found",
+          "Please check the room code shown on the parent device and try again."
+        );
+        return;
+      }
+
       onSetupComplete(selectedRole, normalizedRoomCode);
+    } catch (error) {
+      console.warn("Room setup failed:", error);
+      Alert.alert(
+        "Setup failed",
+        "Something went wrong while checking the room. Please try again."
+      );
+    } finally {
+      setIsCheckingRoom(false);
     }
   };
-    return (
+
+  return (
     <ScrollView
       contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
@@ -159,19 +229,22 @@ export default function DeviceSetupScreen({onSetupComplete}: DeviceSetupProps){
             <TouchableOpacity
               style={styles.secondaryButton}
               onPress={() => setStage("role-select")}
+              disabled={isCheckingRoom}
             >
               <Text style={styles.secondaryButtonText}>Back</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              disabled={!roomCode.trim()}
+              disabled={!roomCode.trim() || isCheckingRoom}
               style={[
                 styles.primaryButton,
-                !roomCode.trim() && styles.primaryButtonDisabled,
+                (!roomCode.trim() || isCheckingRoom) && styles.primaryButtonDisabled,
               ]}
               onPress={handleCompleteSetup}
             >
-              <Text style={styles.primaryButtonText}>Set Up Device</Text>
+              <Text style={styles.primaryButtonText}>
+                {isCheckingRoom ? "Checking..." : "Set Up Device"}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>

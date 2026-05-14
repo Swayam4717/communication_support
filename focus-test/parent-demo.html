@@ -1,0 +1,199 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Focus-Test Parent Demo</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f7efe5;
+        margin: 0;
+        padding: 32px;
+        color: #2f241d;
+      }
+
+      .container {
+        max-width: 680px;
+        margin: 0 auto;
+        background: #fffaf4;
+        border-radius: 24px;
+        padding: 28px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      }
+
+      h1 {
+        margin-top: 0;
+        font-size: 28px;
+      }
+
+      label {
+        display: block;
+        margin-top: 18px;
+        font-weight: 700;
+      }
+
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 8px;
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid #dcc7b4;
+        font-size: 16px;
+        background: #fff;
+      }
+
+      button {
+        width: 100%;
+        margin-top: 24px;
+        padding: 16px;
+        border: none;
+        border-radius: 18px;
+        background: #8f5f35;
+        color: white;
+        font-size: 18px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: #744923;
+      }
+
+      .status {
+        margin-top: 18px;
+        padding: 14px;
+        border-radius: 14px;
+        background: #efe4d8;
+        font-weight: 600;
+      }
+
+      .hint {
+        margin-top: 8px;
+        color: #6d5b4d;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <h1>Focus-Test Parent Demo</h1>
+
+      <label>Room Code</label>
+      <input id="roomId" value="demo-room" />
+
+      <label>Question</label>
+      <input id="question" value="What would you like to eat?" />
+
+      <label>Option 1</label>
+      <input id="option1" value="Rice" />
+
+      <label>Option 2</label>
+      <input id="option2" value="Noodles" />
+
+      <label>Option 3</label>
+      <input id="option3" value="Pizza" />
+
+      <label>Option 4</label>
+      <input id="option4" value="Sandwich" />
+
+      <button onclick="sendSession()">Send to Child</button>
+
+      <div id="status" class="status">Ready.</div>
+      <div class="hint">
+        Use this browser page as the parent device. Use the Android emulator as
+        the child device.
+      </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+    <script>
+      const firebaseConfig = {
+        apiKey: "AIzaSyDjNvOB39FYkdn4nXwwgsGBWs0NY1-jOaY",
+        authDomain: "communication-mvp-7b34d.firebaseapp.com",
+        projectId: "communication-mvp-7b34d",
+        storageBucket: "communication-mvp-7b34d.firebasestorage.app",
+        messagingSenderId: "476548938852",
+        appId: "1:476548938852:web:1e4698571671ed64497371",
+      };
+
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+
+      function getEmojiForLabel(label, index) {
+        const normalized = label.trim().toLowerCase();
+
+        const emojiMap = {
+          rice: "🍚",
+          noodles: "🍜",
+          pizza: "🍕",
+          sandwich: "🥪",
+          happy: "😀",
+          sad: "😔",
+          angry: "😡",
+          tired: "😴",
+        };
+
+        const fallbackEmojis = ["🌿", "☁️", "✨", "🫧"];
+        return (
+          emojiMap[normalized] || fallbackEmojis[index % fallbackEmojis.length]
+        );
+      }
+
+      function buildSessionOptions(optionLabels) {
+        return optionLabels.map((label, index) => {
+          const cleanedLabel = label.trim() || `Option ${index + 1}`;
+
+          return {
+            id: String(index + 1),
+            label: cleanedLabel,
+            emoji: getEmojiForLabel(cleanedLabel, index),
+          };
+        });
+      }
+
+      async function sendSession() {
+        const roomId =
+          document.getElementById("roomId").value.trim() || "demo-room";
+        const question =
+          document.getElementById("question").value.trim() ||
+          "What would you like to eat?";
+
+        const optionLabels = [
+          document.getElementById("option1").value,
+          document.getElementById("option2").value,
+          document.getElementById("option3").value,
+          document.getElementById("option4").value,
+        ];
+
+        const session = {
+          id: String(Date.now()),
+          type: "communication",
+          title: question,
+          options: buildSessionOptions(optionLabels),
+          status: "sent",
+          selectedAnswer: null,
+          createdAt: Date.now(),
+        };
+
+        document.getElementById("status").innerText = "Sending...";
+
+        try {
+          await db
+            .collection("rooms")
+            .doc(roomId)
+            .set(session, { merge: true });
+          document.getElementById("status").innerText =
+            `Sent to room "${roomId}" at ${new Date().toLocaleTimeString()}`;
+        } catch (error) {
+          console.error(error);
+          document.getElementById("status").innerText =
+            "Error sending session. Check console.";
+        }
+      }
+    </script>
+  </body>
+</html>

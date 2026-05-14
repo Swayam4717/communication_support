@@ -1,5 +1,11 @@
 import React from "react";
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export type ChildStage = "idle" | "incoming" | "choice" | "confirmation";
 
@@ -33,7 +39,9 @@ export function getEmojiForLabel(label: string, index: number) {
     tired: "😴",
   };
 
-  return emojiMap[normalized] ?? FALLBACK_EMOJIS[index % FALLBACK_EMOJIS.length];
+  return (
+    emojiMap[normalized] ?? FALLBACK_EMOJIS[index % FALLBACK_EMOJIS.length]
+  );
 }
 
 export function buildSessionOptions(optionLabels: string[]): SessionOption[] {
@@ -48,7 +56,10 @@ export function buildSessionOptions(optionLabels: string[]): SessionOption[] {
   });
 }
 
-export function createSession(question: string, optionLabels: string[]): SentSession {
+export function createSession(
+  question: string,
+  optionLabels: string[],
+): SentSession {
   return {
     id: String(Date.now()),
     question: question.trim() || DEFAULT_QUESTION,
@@ -105,7 +116,9 @@ export function Header({ title, subtitle, onBack }: HeaderProps) {
     <View style={styles.headerRow}>
       <View style={styles.headerTextBlock}>
         <Text style={styles.headerTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
+        {subtitle ? (
+          <Text style={styles.headerSubtitle}>{subtitle}</Text>
+        ) : null}
       </View>
       {onBack ? (
         <TouchableOpacity style={styles.textButton} onPress={onBack}>
@@ -473,7 +486,7 @@ export const styles = StyleSheet.create({
     width: 82,
     height: 82,
     borderRadius: 20,
-    marginRight:18,
+    marginRight: 18,
     backgroundColor: "#EFE7DE",
   },
   optionImageCompact: {
@@ -787,7 +800,7 @@ export const styles = StyleSheet.create({
   },
   parentOptionRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 10,
     backgroundColor: "#FBF9F6",
     borderRadius: 14,
@@ -803,12 +816,28 @@ export const styles = StyleSheet.create({
     includeFontPadding: false,
     textAlign: "center",
   },
-  parentOptionInput: {
+  parentOptionInputStack: {
     flex: 1,
+    gap: 8,
+  },
+
+  parentOptionInput: {
     fontSize: 15,
     color: "#2B1D18",
     fontWeight: "500",
     paddingVertical: 4,
+  },
+
+  parentOptionImageInput: {
+    fontSize: 13,
+    color: "#2B1D18",
+    fontWeight: "500",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E4D8CC",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   parentPreviewToggle: {
     alignItems: "center",

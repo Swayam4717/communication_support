@@ -67,24 +67,33 @@ export function getEmojiForLabel(label: string, index: number) {
   return emojiMap[normalized] ?? FALLBACK_EMOJIS[index % FALLBACK_EMOJIS.length];
 }
 
-export function buildSessionOptions(optionLabels: string[]): SessionOption[] {
+export function buildSessionOptions(
+  optionLabels: string[],
+  optionImageUrls: string[] = []
+): SessionOption[] {
   return optionLabels.map((label, index) => {
     const cleanedLabel = label.trim() || `Option ${index + 1}`;
+    const cleanedImageUrl = optionImageUrls[index]?.trim();
 
     return {
       id: String(index + 1),
       label: cleanedLabel,
       emoji: getEmojiForLabel(cleanedLabel, index),
+      ...(cleanedImageUrl ? { imageUrl: cleanedImageUrl } : {}),
     };
   });
 }
 
-export function createSession(question: string, optionLabels: string[]): CommunicationSession {
+export function createSession(
+  question: string,
+  optionLabels: string[],
+  optionImageUrls: string[] = []
+): CommunicationSession {
   return {
     id: String(Date.now()),
     type: "communication",
     title: question.trim() || DEFAULT_QUESTION,
-    options: buildSessionOptions(optionLabels),
+    options: buildSessionOptions(optionLabels, optionImageUrls),
     status: "sent",
     selectedAnswer: null,
     createdAt: Date.now(),

@@ -40,16 +40,28 @@ export default function ParentModeScreen({
 }: ParentModeScreenProps) {
   // This screen lets the parent compose a prompt, watch for the child response, and clear the room state.
   const [fireSession, setFireSession] = React.useState<CommunicationSession | null>(null);
+  const [optionImageUrls, setOptionImageUrls] = useState<string[]>(
+    optionLabels.map(() => "")
+  );
 
   React.useEffect(() => {
     const unsub = subscribeToSession((s) => setFireSession(s), roomId);
     return () => unsub();
   }, [roomId]);
 
-  const draftSession = createSession(question, optionLabels);
+  React.useEffect(() => {
+    setOptionImageUrls((currentUrls) =>
+      optionLabels.map((_, index) => currentUrls[index] ?? "")
+    );
+  }, [optionLabels]);
+
+  const draftSession = createSession(question, optionLabels, optionImageUrls);
   const currentSession = fireSession ?? sentSession ?? draftSession;
   const previewSession = draftSession;
-  const selectedAnswer = currentSession && fireSession?.selectedAnswer ? currentSession.options.find((o) => o.id === fireSession.selectedAnswer) ?? null : null;
+  const selectedAnswer =
+    currentSession && fireSession?.selectedAnswer
+      ? currentSession.options.find((o) => o.id === fireSession.selectedAnswer) ?? null
+      : null;
   const isChildConnected = !!fireSession?.childFcmToken;
   const scrollRef = useRef<ScrollView | null>(null);
   const [optionRowPositions, setOptionRowPositions] = useState<number[]>([]);
@@ -69,9 +81,17 @@ export default function ParentModeScreen({
     });
   };
 
+  const handleOptionImageUrlChange = (index: number, value: string) => {
+    setOptionImageUrls((currentUrls) => {
+      const nextUrls = [...currentUrls];
+      nextUrls[index] = value;
+      return nextUrls;
+    });
+  };
+
   const handleSend = async () => {
     // Publish the current draft session to Firestore so the child device can receive it.
-    const session = createSession(question, optionLabels);
+    const session = createSession(question, optionLabels, optionImageUrls);
     try {
       await sendSession(session, roomId);
       onSendToChild?.();
@@ -109,7 +129,7 @@ export default function ParentModeScreen({
             <Text style={styles.parentHeaderTitle}>Parent Mode</Text>
             <Text style={styles.parentHeaderRoom}>Room: {roomId}</Text>
             <Text style={styles.parentHeaderRoom}>
-              Child: {isChildConnected? "Connected" : "Not Connected"}
+              Child: {isChildConnected ? "Connected" : "Not Connected"}
             </Text>
           </View>
           <TouchableOpacity style={styles.resetButton} onPress={onResetSetup}>
@@ -175,17 +195,34 @@ export default function ParentModeScreen({
                       <Text style={styles.parentOptionIndexText}>{index + 1}</Text>
                     </View>
                   </View>
-                  <TextInput
-                    accessibilityLabel={`Option ${index + 1} label`}
-                    cursorColor="#A97E57"
-                    placeholder={`Option ${index + 1}`}
-                    placeholderTextColor="#D4C4B8"
-                    selectionColor="#D8B48F"
-                    style={styles.parentOptionInput}
-                    value={label}
-                    onChangeText={(value) => onOptionLabelChange(index, value)}
-                    onFocus={() => scrollFieldIntoView(index)}
-                  />
+
+                  <View style={styles.parentOptionInputStack}>
+                    <TextInput
+                      accessibilityLabel={`Option ${index + 1} label`}
+                      cursorColor="#A97E57"
+                      placeholder={`Option ${index + 1}`}
+                      placeholderTextColor="#D4C4B8"
+                      selectionColor="#D8B48F"
+                      style={styles.parentOptionInput}
+                      value={label}
+                      onChangeText={(value) => onOptionLabelChange(index, value)}
+                      onFocus={() => scrollFieldIntoView(index)}
+                    />
+
+                    <TextInput
+                      accessibilityLabel={`Option ${index + 1} image URL`}
+                      cursorColor="#A97E57"
+                      placeholder="Image URL optional"
+                      placeholderTextColor="#D4C4B8"
+                      selectionColor="#D8B48F"
+                      style={styles.parentOptionImageInput}
+                      value={optionImageUrls[index] ?? ""}
+                      onChangeText={(value) => handleOptionImageUrlChange(index, value)}
+                      onFocus={() => scrollFieldIntoView(index)}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
                 </View>
               ))}
             </View>
@@ -193,13 +230,17 @@ export default function ParentModeScreen({
 
           <View style={styles.parentPreviewToggle}>
             <TouchableOpacity style={styles.previewToggleButton} onPress={onPreviewToggle}>
-              <Text style={styles.previewToggleText}>{showPreview ? "Hide preview" : "Preview"}</Text>
+              <Text style={styles.previewToggleText}>
+                {showPreview ? "Hide preview" : "Preview"}
+              </Text>
             </TouchableOpacity>
           </View>
 
           {showPreview ? (
             <View style={styles.parentPreviewBox}>
-              <Text style={styles.parentPreviewTitle}>{previewSession.title || "Your question"}</Text>
+              <Text style={styles.parentPreviewTitle}>
+                {previewSession.title || "Your question"}
+              </Text>
               <View style={styles.parentPreviewGrid}>
                 {previewSession.options.map((option) => (
                   <OptionCard key={option.id} option={option} compact disabled />

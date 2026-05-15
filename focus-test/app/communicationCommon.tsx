@@ -509,9 +509,9 @@ export const styles = StyleSheet.create({
   },
   optionTextWrap: {
     flex: 1,
+    justifyContent: "center",
   },
   optionLabel: {
-    flex: 1,
     fontSize: 18,
     fontWeight: "700",
     color: "#2B1D18",

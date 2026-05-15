@@ -480,7 +480,8 @@ export const styles = StyleSheet.create({
   },
   optionCardSelected: {
     backgroundColor: "#F5EBDD",
-    borderColor: "#CFA87A",
+    borderColor: "#B9824F",
+    borderWidth:3,
   },
   optionImage: {
     width: 82,
@@ -506,6 +507,9 @@ export const styles = StyleSheet.create({
     marginRight: 12,
     width: 48,
   },
+  optionTextWrap: {
+    flex: 1,
+  },
   optionLabel: {
     flex: 1,
     fontSize: 18,
@@ -515,13 +519,22 @@ export const styles = StyleSheet.create({
   optionLabelCompact: {
     fontSize: 16,
   },
-  selectionDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#CFA87A",
-    marginLeft: 8,
-  },
+  selectedBadge: {
+  width: 34,
+  height: 34,
+  borderRadius: 17,
+  backgroundColor: "#B9824F",
+  alignItems: "center",
+  justifyContent: "center",
+  marginLeft: 12,
+},
+
+selectedBadgeText: {
+  color: "#FFFFFF",
+  fontSize: 20,
+  fontWeight: "800",
+  includeFontPadding: false,
+},
   setupContainer: {
     gap: 20,
   },

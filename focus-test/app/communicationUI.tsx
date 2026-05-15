@@ -56,7 +56,11 @@ export function OptionCard({
         </Text>
       </View>
 
-      {selected && <View style={styles.selectedDot} />}
+      {selected ? (
+        <View style = {styles.selectedBadge}>
+          <Text style={styles.selectedBadgeText}>✓</Text>
+        </View>
+      ): null }
     </TouchableOpacity>
   );
 }

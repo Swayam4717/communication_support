@@ -888,6 +888,21 @@ selectedBadgeText: {
     alignItems: "center",
     paddingVertical: 8,
   },
+  parentGenerateVisualsButton: {
+    marginTop:12,
+    backgroundColor: "#EFE4D8",
+    borderRadius:14,
+    paddingVertical:12,
+    paddingHorizontal:16,
+    alignItems:"center",
+    borderWidth:1,
+    borderColor:"#D4C4B8",
+  },
+  parentGenerateVisualsButtonText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#705642",
+  },
   previewToggleButton: {
     paddingHorizontal: 14,
     paddingVertical: 7,

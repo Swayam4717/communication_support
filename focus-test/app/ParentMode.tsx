@@ -22,7 +22,38 @@ import { OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
 
 type sessionTemplateId = "food" | "feelings" | "activities" | "yesNo";
-
+const MOCK_GENERATED_IMAGE_URLS: Record<string, string> = {
+  rice: "https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?w=400",
+  noodles: "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=400",
+  pizza: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400",
+  sandwich: "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=400",
+  happy: "https://images.unsplash.com/photo-1542596768-5d1d21f1cf98?w=400",
+  sad: "https://images.unsplash.com/photo-1493836512294-502baa1986e2?w=400",
+  angry: "https://images.unsplash.com/photo-1519682337058-a94d519337bc?w=400",
+  tired: "https://images.unsplash.com/photo-1511295742362-92c96b1cf484?w=400",
+  rest: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400",
+  play: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=400",
+  walk: "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=400",
+  read: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400",
+  yes: "https://images.unsplash.com/photo-1500462918059-b1a0cb512f1d?w=400",
+  no: "https://images.unsplash.com/photo-1528459105426-b9548367069b?w=400",
+  maybe: "https://images.unsplash.com/photo-1496449903678-68ddcb189a24?w=400",
+  later: "https://images.unsplash.com/photo-1501139083538-0139583c060f?w=400",
+}
+function getMockGeneratedImageUrl(label: string, index: number): string{
+  const normalized = label.trim().toLowerCase();
+  const directMatch = MOCK_GENERATED_IMAGE_URLS[normalized];
+  if(directMatch){
+    return directMatch;
+  }
+  const fallbackUrls = [
+    "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=400",
+    "https://images.unsplash.com/photo-1490730141103-6cac27aaab94?w=400",
+    "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=400",
+    "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400",
+  ]
+  return fallbackUrls[index % fallbackUrls.length];
+}
 interface ParentModeScreenProps {
   question: string;
   optionLabels: string[];
@@ -62,6 +93,7 @@ export default function ParentModeScreen({
   const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(
     null,
   );
+  const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
 
   React.useEffect(() => {
     const unsub = subscribeToSession((s) => setFireSession(s), roomId);
@@ -204,6 +236,26 @@ export default function ParentModeScreen({
     setOptionImageUrl(index, "");
   };
   const isUploadingImage = uploadingImageIndex !== null;
+  const isImageWorkInProgress = isUploadingImage || isGeneratingVisuals;
+
+  const handleGenerateVisuals = async () => {
+    if(isImageWorkInProgress){
+      return;
+    }
+    setIsGeneratingVisuals(true);
+    try{
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      setOptionImageUrls(
+        optionLabels.map((label, index) => getMockGeneratedImageUrl(label, index)),
+      );
+      Alert.alert(
+        "Visuals Generated",
+        "Demo Visuals have been added. Later this button will use AI to generate custom images based on the option labels you entered.",
+      );
+    }finally{
+      setIsGeneratingVisuals(false);
+    }
+  }
 
   const showImageSourceMenu = (index: number) => {
     const hasImage = !!optionImageUrls[index];
@@ -245,10 +297,10 @@ export default function ParentModeScreen({
   };
 
   const handleSend = async () => {
-    if (isUploadingImage) {
+    if (isImageWorkInProgress) {
       Alert.alert(
-        "Image still uploading",
-        "Please wait until the image is ready before sending this session.",
+        "Visuals still preparing",
+        "Please wait until the visuals are ready before sending this session.",
       );
       return;
     }
@@ -363,6 +415,21 @@ export default function ParentModeScreen({
                 <Text style={styles.previewToggleText}>Yes / No</Text>
               </TouchableOpacity>
             </View>
+
+            <TouchableOpacity
+              disabled= {isImageWorkInProgress}
+              style={[
+                styles.parentGenerateVisualsButton,
+                isImageWorkInProgress && styles.parentGenerateVisualsButtonDisabled,
+              ]}
+              onPress={handleGenerateVisuals}
+            >
+              <Text
+                style ={styles.parentGenerateVisualsButtonText}
+              >
+                {isGeneratingVisuals ? "Generating..." : "Generate Visuals"}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.parentInputGroup}>
@@ -483,15 +550,15 @@ export default function ParentModeScreen({
 
         <View style={styles.parentActionSection}>
           <TouchableOpacity
-            disabled={isUploadingImage}
+            disabled={isImageWorkInProgress}
             style={[
               styles.primaryButton,
-              isUploadingImage && styles.primaryButtonDisabled,
+              isImageWorkInProgress && styles.primaryButtonDisabled,
             ]}
             onPress={handleSend}
           >
             <Text style={styles.primaryButtonText}>
-              {isUploadingImage ? "Uploading image..." : "Send to Child"}
+              {isImageWorkInProgress ? "Generating Visuals..." : isUploadingImage ? "Uploading Image...": "Send To Child"}
             </Text>
           </TouchableOpacity>
           {sentSession && (

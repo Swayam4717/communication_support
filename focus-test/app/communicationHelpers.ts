@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { doc, getFirestore, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
+import {getFunctions, httpsCallable} from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY ?? "",
@@ -20,6 +21,8 @@ for (const [key, value] of Object.entries(firebaseConfig)) {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+export const functions = getFunctions(app);
+
 
 // Shared session types and helpers below define the Firestore room document used by both devices.
 
@@ -171,4 +174,29 @@ export async function resetSession(roomId: string) {
   };
 
   await setDoc(getRoomsDoc(roomId), empty, { merge: true });
+}
+export async function generateOptionVisualsFromCloud(
+  question: string,
+  optionLabels: string[],
+): Promise<string[]> {
+  const generateOptionVisualsCallable = httpsCallable<
+    { question: string; optionLabels: string[] },
+    {
+      question: string;
+      images: Array<{
+        label: string;
+        imageUrl: string;
+        source: string;
+      }>;
+    }
+  >(functions, "generateOptionVisuals");
+
+  const result = await generateOptionVisualsCallable({
+    question,
+    optionLabels,
+  });
+
+  console.log("Cloud Function raw result:", result.data);
+
+  return result.data.images.map((image) => image.imageUrl);
 }

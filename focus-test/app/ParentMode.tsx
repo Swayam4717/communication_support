@@ -17,10 +17,11 @@ import {
   sendSession,
   subscribeToSession,
   uploadOptionImage,
+  generateOptionVisualsFromCloud,
 } from "./communicationHelpers";
 import { OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
-import { generateMockVisualUrls } from "./aiVisualHelper";
+
 
 type sessionTemplateId = "food" | "feelings" | "activities" | "yesNo";
 interface ParentModeScreenProps {
@@ -207,25 +208,36 @@ export default function ParentModeScreen({
   const isUploadingImage = uploadingImageIndex !== null;
   const isImageWorkInProgress = isUploadingImage || isGeneratingVisuals;
 
-  const handleGenerateVisuals = async () => {
-    if(isImageWorkInProgress){
-      return;
-    }
-    setIsGeneratingVisuals(true);
-    try{
-      await new Promise((resolve) => setTimeout(resolve, 900));
-      setOptionImageUrls(
-        generateMockVisualUrls(optionLabels)
-      );
-      Alert.alert(
-        "Demo Visuals Generated",
-        "Placeholder visuals have been added for this prototype. In the next version, this button can call an AI image generation backend.",
-      );
-    }finally{
-      setIsGeneratingVisuals(false);
-    }
+const handleGenerateVisuals = async () => {
+  if (isImageWorkInProgress) {
+    return;
   }
 
+  setIsGeneratingVisuals(true);
+
+  try {
+    const generatedUrls = await generateOptionVisualsFromCloud(
+      question,
+      optionLabels,
+    );
+
+    setOptionImageUrls(generatedUrls);
+
+    Alert.alert(
+      "Demo visuals generated",
+      "Visuals have been added to the option cards.",
+    );
+  } catch (error) {
+    console.error("Failed to generate visuals:", error);
+
+    Alert.alert(
+      "Could not generate visuals",
+      "Something went wrong while generating visuals. Please try again.",
+    );
+  } finally {
+    setIsGeneratingVisuals(false);
+  }
+};
   const showImageSourceMenu = (index: number) => {
     if(Platform.OS === "web"){
       handleChooseFromGallery(index);

@@ -227,6 +227,10 @@ export default function ParentModeScreen({
   }
 
   const showImageSourceMenu = (index: number) => {
+    if(Platform.OS === "web"){
+      handleChooseFromGallery(index);
+      return;
+    }
     const hasImage = !!optionImageUrls[index];
 
     Alert.alert(

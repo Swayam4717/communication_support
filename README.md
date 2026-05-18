@@ -478,7 +478,92 @@ Suggested Monday demo flow:
 11. Show parent receiving response
 12. Clear session
 ```
+## Cross-Platform Demo Flow
 
+The current demo can be tested using a browser or iPhone as the parent device and an Android emulator as the child device.
+
+This setup is useful because the parent side does not depend on Android-only attention-capture features. The Android-specific behavior is mainly needed on the child side for notifications, overlays, and focus alerts.
+
+### Recommended Demo Setup
+
+- Parent device: iPhone Safari or desktop browser
+- Child device: Android emulator
+- Backend: Firebase Firestore, Firebase Cloud Messaging, Firebase Storage
+
+### Running the Android Child App
+
+Run the Android app from the project folder:
+
+```bash
+cd D:\communication_support\focus-test
+npx expo run:android
+```
+
+Set up the Android app as the child device and enter the room code created by the parent.
+
+### Running the Web Parent App
+
+Expo web development mode currently has issues with Metro/HMR in this project, so the web parent is tested using a production-style export.
+
+```bash
+cd D:\communication_support\focus-test
+npx expo export --platform web
+npx serve dist -l 3000
+```
+
+Open the local URL in a browser.
+
+For iPhone testing, use the laptop’s Wi-Fi IPv4 address from:
+
+```bash
+ipconfig
+```
+
+Example:
+
+```text
+http://192.168.1.23:3000
+```
+
+Do not use the `192.168.56.x` address because that is usually a virtual adapter address and may not be reachable from the phone.
+
+### Demo Flow
+
+1. Open the parent web app on iPhone Safari or desktop browser.
+2. Create or enter a parent room.
+3. Open the Android emulator app as the child.
+4. Enter the same room code on the child device.
+5. Parent selects a quick template or types a question.
+6. Parent adds images manually or uses Generate demo visuals.
+7. Parent sends the session.
+8. Android child receives the visual cards.
+9. Child selects an option and sends the answer.
+10. Parent receives the child’s response in realtime.
+11. Parent clears the session and the room returns to idle.
+
+### Current Cross-Platform Behavior
+
+| Feature | Web Parent | Android Child |
+|---|---:|---:|
+| Room creation | Yes | Not needed |
+| Room joining | Yes | Yes |
+| Quick templates | Yes | Not needed |
+| Manual image selection | Yes | Not needed |
+| Generate demo visuals | Yes | Not needed |
+| Send session | Yes | Not needed |
+| Receive visual cards | Not needed | Yes |
+| Select answer | Not needed | Yes |
+| Realtime parent response | Yes | Not needed |
+| Android attention overlay | Not applicable | Yes |
+
+### Notes
+
+- The parent flow works through the browser, including on iPhone Safari.
+- The child flow is currently Android-first because attention capture depends on Android native behavior.
+- Firebase Firestore is used for realtime session state.
+- Firebase Storage is used for uploaded option images.
+- Firebase Cloud Messaging and the native Android module handle child-side attention capture.
+- The Generate demo visuals feature currently uses mock image URLs and is intended to be replaced later with a backend AI image generation pipeline.
 ---
 
 # Android Alert / FCM Notes

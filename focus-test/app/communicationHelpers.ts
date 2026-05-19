@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { doc,getFirestore, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import { collection,doc,getFirestore, limit,  onSnapshot, orderBy, query,  setDoc, updateDoc } from "firebase/firestore";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import {getFunctions, httpsCallable} from "firebase/functions";
 
@@ -49,7 +49,13 @@ export interface CommunicationSession {
   childFcmToken?: string | null;
   tokenSavedAt?: number | null;
 }
-
+export interface SessionHistoryItem{
+  id: string;
+  question: string;
+  answer: string;
+  answerEmoji?: string;
+  createdAt: number;
+}
 export const DEFAULT_ROOM_ID = "demo-room";
 
 export const DEFAULT_QUESTION = "What would you like to eat?";
@@ -131,7 +137,7 @@ export async function uploadOptionImage(
 }
 
 const getRoomsDoc = (roomId: string) => doc(db, "rooms", roomId);
-
+const getRoomHistoryCollection = (roomId: string) => collection(db, "rooms", roomId, "history");
 // Each room is stored as a single Firestore document keyed by the shared room code.
 
 export async function sendSession(session: CommunicationSession, roomId: string) {
@@ -196,4 +202,54 @@ export async function generateOptionVisualsFromCloud(
     optionLabels,
   });
   return result.data.images.map((image) => image.imageUrl);
+}
+export async function saveSessionHistory(
+  session: CommunicationSession,
+  roomId: string,
+) {
+  if (!session.selectedAnswer) {
+    return;
+  }
+
+  const selectedOption = session.options.find(
+    (option) => option.id === session.selectedAnswer,
+  );
+
+  if (!selectedOption) {
+    return;
+  }
+
+  const historyItem: SessionHistoryItem = {
+    id: session.id || String(Date.now()),
+    question: session.title,
+    answer: selectedOption.label,
+    answerEmoji: selectedOption.emoji,
+    createdAt: Date.now(),
+  };
+
+  await setDoc(
+    doc(getRoomHistoryCollection(roomId), historyItem.id),
+    historyItem,
+    { merge: true },
+  );
+}
+
+export function subscribeToSessionHistory(
+  cb: (history: SessionHistoryItem[]) => void,
+  roomId: string,
+) {
+  const q = query(
+    getRoomHistoryCollection(roomId),
+    orderBy("createdAt", "desc"),
+    limit(10),
+  );
+
+  return onSnapshot(q, (snap) => {
+    const history = snap.docs.map((item) => ({
+      id: item.id,
+      ...(item.data() as Omit<SessionHistoryItem, "id">),
+    }));
+
+    cb(history);
+  });
 }

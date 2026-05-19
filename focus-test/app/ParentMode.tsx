@@ -10,7 +10,10 @@ import {
   View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import type { CommunicationSession } from "./communicationHelpers";
+import type {
+  CommunicationSession,
+  SessionHistoryItem,
+} from "./communicationHelpers";
 import {
   createSession,
   resetSession,
@@ -18,10 +21,11 @@ import {
   subscribeToSession,
   uploadOptionImage,
   generateOptionVisualsFromCloud,
+  saveSessionHistory,
+  subscribeToSessionHistory,
 } from "./communicationHelpers";
 import { OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
-
 
 type sessionTemplateId = "food" | "feelings" | "activities" | "yesNo";
 interface ParentModeScreenProps {
@@ -57,6 +61,12 @@ export default function ParentModeScreen({
 }: ParentModeScreenProps) {
   const [fireSession, setFireSession] =
     React.useState<CommunicationSession | null>(null);
+  const [sessionHistory, setSessionHistory] = React.useState<
+    SessionHistoryItem[]
+  >([]);
+  const [savedHistorySessionId, setSavedHistorySessionId] = React.useState<
+    string | null
+  >(null);
   const [optionImageUrls, setOptionImageUrls] = useState<string[]>(
     optionLabels.map(() => ""),
   );
@@ -67,6 +77,10 @@ export default function ParentModeScreen({
 
   React.useEffect(() => {
     const unsub = subscribeToSession((s) => setFireSession(s), roomId);
+    return () => unsub();
+  }, [roomId]);
+  React.useEffect(() => {
+    const unsub = subscribeToSessionHistory(setSessionHistory, roomId);
     return () => unsub();
   }, [roomId]);
 
@@ -89,6 +103,21 @@ export default function ParentModeScreen({
           (o) => o.id === fireSession.selectedAnswer,
         ) ?? null)
       : null;
+
+  React.useEffect(() => {
+    if (
+      fireSession?.status === "answered" &&
+      fireSession.selectedAnswer &&
+      fireSession.id &&
+      savedHistorySessionId !== fireSession.id
+    ) {
+      saveSessionHistory(fireSession, roomId)
+        .then(() => setSavedHistorySessionId(fireSession.id))
+        .catch((error) => {
+          console.warn("Failed to save session history", error);
+        });
+    }
+  }, [fireSession, roomId, savedHistorySessionId]);
 
   const isChildConnected = !!fireSession?.childFcmToken;
   const scrollRef = useRef<ScrollView | null>(null);
@@ -208,38 +237,38 @@ export default function ParentModeScreen({
   const isUploadingImage = uploadingImageIndex !== null;
   const isImageWorkInProgress = isUploadingImage || isGeneratingVisuals;
 
-const handleGenerateVisuals = async () => {
-  if (isImageWorkInProgress) {
-    return;
-  }
+  const handleGenerateVisuals = async () => {
+    if (isImageWorkInProgress) {
+      return;
+    }
 
-  setIsGeneratingVisuals(true);
+    setIsGeneratingVisuals(true);
 
-  try {
-    const generatedUrls = await generateOptionVisualsFromCloud(
-      question,
-      optionLabels,
-    );
+    try {
+      const generatedUrls = await generateOptionVisualsFromCloud(
+        question,
+        optionLabels,
+      );
 
-    setOptionImageUrls(generatedUrls);
+      setOptionImageUrls(generatedUrls);
 
-    Alert.alert(
-      "Demo visuals generated",
-      "Visuals have been added to the option cards.",
-    );
-  } catch (error) {
-    console.error("Failed to generate visuals:", error);
+      Alert.alert(
+        "Demo visuals generated",
+        "Visuals have been added to the option cards.",
+      );
+    } catch (error) {
+      console.error("Failed to generate visuals:", error);
 
-    Alert.alert(
-      "Could not generate visuals",
-      "Something went wrong while generating visuals. Please try again.",
-    );
-  } finally {
-    setIsGeneratingVisuals(false);
-  }
-};
+      Alert.alert(
+        "Could not generate visuals",
+        "Something went wrong while generating visuals. Please try again.",
+      );
+    } finally {
+      setIsGeneratingVisuals(false);
+    }
+  };
   const showImageSourceMenu = (index: number) => {
-    if(Platform.OS === "web"){
+    if (Platform.OS === "web") {
       handleChooseFromGallery(index);
       return;
     }
@@ -361,7 +390,29 @@ const handleGenerateVisuals = async () => {
             </View>
           )}
         </View>
+        <View style={styles.parentStatusSection}>
+          <Text style={styles.parentStatusLabel}>Recent history</Text>
 
+          {sessionHistory.length > 0 ? (
+            sessionHistory.map((item) => (
+              <View key={item.id} style={styles.parentStatusInactive}>
+                <Text style={styles.parentStatusPlaceholder}>
+                  {item.question}
+                </Text>
+                <Text style={styles.parentStatusValue}>
+                  {item.answerEmoji ? `${item.answerEmoji} ` : ""}
+                  {item.answer}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <View style={styles.parentStatusInactive}>
+              <Text style={styles.parentStatusPlaceholder}>
+                No previous responses yet.
+              </Text>
+            </View>
+          )}
+        </View>
         <View style={styles.parentBuildSection}>
           <View style={styles.parentSectionHeader}>
             <Text style={styles.parentSectionTitle}>Create a session</Text>
@@ -402,17 +453,18 @@ const handleGenerateVisuals = async () => {
             </View>
 
             <TouchableOpacity
-              disabled= {isImageWorkInProgress}
+              disabled={isImageWorkInProgress}
               style={[
                 styles.parentGenerateVisualsButton,
-                isImageWorkInProgress && styles.parentGenerateVisualsButtonDisabled,
+                isImageWorkInProgress &&
+                  styles.parentGenerateVisualsButtonDisabled,
               ]}
               onPress={handleGenerateVisuals}
             >
-              <Text
-                style ={styles.parentGenerateVisualsButtonText}
-              >
-                {isGeneratingVisuals ? "Generating demo visuals..." : "Generate demo Visuals"}
+              <Text style={styles.parentGenerateVisualsButtonText}>
+                {isGeneratingVisuals
+                  ? "Generating demo visuals..."
+                  : "Generate demo Visuals"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -543,7 +595,11 @@ const handleGenerateVisuals = async () => {
             onPress={handleSend}
           >
             <Text style={styles.primaryButtonText}>
-              {isImageWorkInProgress ? "Generating Visuals..." : isUploadingImage ? "Uploading Image...": "Send To Child"}
+              {isImageWorkInProgress
+                ? "Generating Visuals..."
+                : isUploadingImage
+                  ? "Uploading Image..."
+                  : "Send To Child"}
             </Text>
           </TouchableOpacity>
           {sentSession && (

@@ -249,7 +249,6 @@ exports.generateOptionVisuals = onCall(
     } 
 
     console.log("generateOptionVisuals called");
-    console.log("SJ_TEST_123");
     console.log("QUESTION:", question);
     console.log("OPTION LABELS:", JSON.stringify(cleanedLabels));
 
@@ -281,7 +280,6 @@ exports.generateOptionVisuals = onCall(
         label: firstLabel,
         imageUrl: getMockGeneratedImageUrl(firstLabel, 0),
         source: "mock",
-        errorMessage : error?.message || String(error),
       };
     }
     return {

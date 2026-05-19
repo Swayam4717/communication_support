@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { doc, getFirestore, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import { doc,getFirestore, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import {getFunctions, httpsCallable} from "firebase/functions";
 
@@ -195,8 +195,5 @@ export async function generateOptionVisualsFromCloud(
     question,
     optionLabels,
   });
-
-  console.log("Cloud Function raw result:", result.data);
-
   return result.data.images.map((image) => image.imageUrl);
 }

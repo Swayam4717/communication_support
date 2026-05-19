@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { SafeAreaView, Button, Linking } from "react-native";
+import { SafeAreaView, Button, Linking, Alert, TextInput, View } from "react-native";
 import FocusAlert from "focus-alert";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ParentModeScreen from "./ParentMode";
@@ -15,6 +15,7 @@ import {
   CommunicationSession,
   DEFAULT_ROOM_ID,
   db,
+  roomExists,
 } from "./communicationHelpers";
 import { styles } from "./communicationCommon";
 
@@ -56,7 +57,9 @@ export default function CommunicationMvpApp() {
   const [draftQuestion, setDraftQuestion] = useState(DEFAULT_QUESTION);
   const [draftOptions, setDraftOptions] = useState<string[]>(DEFAULT_OPTIONS);
   const [showPreview, setShowPreview] = useState(false);
-  const [sentSession, setSentSession] = useState<CommunicationSession | null>(null);
+  const [sentSession, setSentSession] = useState<CommunicationSession | null>(
+    null,
+  );
   const [templateVersion, setTemplateVersion] = useState(0);
 
   // Load persisted setup on app launch
@@ -110,7 +113,10 @@ export default function CommunicationMvpApp() {
     setAppState("setup");
   };
 
-  const handleSetupComplete = async (role: "parent" | "child", room: string) => {
+  const handleSetupComplete = async (
+    role: "parent" | "child",
+    room: string,
+  ) => {
     try {
       console.log("Setup complete with role:", role, "and room:", room);
       await AsyncStorage.setItem("deviceRole", role);
@@ -133,7 +139,7 @@ export default function CommunicationMvpApp() {
               childFcmToken: token || "NO_TOKEN_RETURNED_TEST",
               tokenSavedAt: Date.now(),
             },
-            { merge: true }
+            { merge: true },
           );
 
           console.log("FIRESTORE TOKEN WRITE COMPLETE");
@@ -200,7 +206,7 @@ export default function CommunicationMvpApp() {
   const handleClearSession = () => {
     setSentSession(null);
     setShowPreview(false);
-  }
+  };
 
   if (appState === "loading") {
     return <SafeAreaView style={styles.appShell} />;

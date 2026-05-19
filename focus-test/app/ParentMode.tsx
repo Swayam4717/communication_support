@@ -214,13 +214,13 @@ const handleGenerateVisuals = async () => {
   }
 
   setIsGeneratingVisuals(true);
-
   try {
+    console.log("Generate Visuals button pressed")
     const generatedUrls = await generateOptionVisualsFromCloud(
       question,
       optionLabels,
     );
-
+    console.log("Generated visuals:", generatedUrls);
     setOptionImageUrls(generatedUrls);
 
     Alert.alert(

@@ -1,9 +1,13 @@
 const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {defineSecret} = require("firebase-functions/params");
+const {GoogleGenAI} = require("@google/genai");
+const crypyo = require("crypto");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
-
+const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
+const bucket = admin.storage().bucket();
 // Cloud Function that watches room updates and sends a push message when a new session is posted.
 
 exports.sendFocusAlertOnSessionUpdate = onDocumentUpdated(
@@ -129,41 +133,160 @@ function getMockGeneratedImageUrl(label, index) {
 
   return FALLBACK_GENERATED_IMAGE_URLS[index % FALLBACK_GENERATED_IMAGE_URLS.length];
 }
+function buildChildFriendlyImagePrompt(question, label){
+  return [
+    "Create a simple, child-friendly visual communication card.",
+    "The image should be calm, clear, and easy to understand for an autistic child.",
+    "Use a clean illustrated style , not a realistic photo.",
+    "Avoid Clutter, text, labels, scary expressions, or overwhelming backgrounds.",
+    "The image should represent this option:",
+    `"${label}"`,
+    question ? `Context question: "${question}"` : "",
+    "square image, centered subject, soft colors, simple background.",
+  ]
+  .filter(Boolean)
+  .join("\n");
+}
 
-exports.generateOptionVisuals = onCall(async (request) => {
-  const question = String(request.data?.question || "").trim();
-  const optionLabels = request.data?.optionLabels;
+function extractFirstGeneratedImagePart(response){
+  const parts = response?.candidates?.[0]?.content?.parts || [];
 
-  if (!Array.isArray(optionLabels)) {
-    throw new HttpsError(
-      "invalid-argument",
-      "optionLabels must be an array of option label strings."
-    );
+  for(const part of parts){
+    if(part?.inlineData?.data){
+      return {
+        base64Data: part.inlineData.data,
+        mimeType : part.inlineData.mimeType || "image/png",
+      };
+    }
+    if(part.inline_data?.data){
+      return {
+        base64Data: part.inline_data.data,
+        mimeType : part.inline_data.mime_type || "image/png",
+      };
+    }
   }
+  return null;
+}
 
-  const cleanedLabels = optionLabels
-    .map((label) => String(label || "").trim())
-    .filter(Boolean);
+async function generateImageWithGemini(question, label){
+  const ai = new GoogleGenAI({
+    apiKey: GEMINI_API_KEY.value(),
+  });
 
-  if (cleanedLabels.length === 0) {
-    throw new HttpsError(
-      "invalid-argument",
-      "At least one option label is required."
-    );
+  const prompt = buildChildFriendlyImagePrompt(question, label);
+
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash-image",
+    contents: prompt,
+    config: {
+      responseModalities: ["TEXT", "IMAGE"],
+      imageConfig: {
+        aspectRatio: "1:1",
+        imageSize: "512",
+      },
+    },
+  });
+  const generatedImage = extractFirstGeneratedImagePart(response);
+
+  if(!generatedImage){
+    throw new Error("Gemini did not return an inline image");
   }
+  return generatedImage;
+}
 
-  console.log("generateOptionVisuals called");
-  console.log("QUESTION:", question);
-  console.log("OPTION LABELS:", JSON.stringify(cleanedLabels));
+async function uploadGeneratedImageToStorage(roomSafeLabel,base64Data, mimeType){
+  const extension = mimeType.includes("jpeg") || mimeType.includes("jpg") ? "jpg" : "png";
 
-  const images = cleanedLabels.map((label, index) => ({
-    label,
-    imageUrl: getMockGeneratedImageUrl(label, index),
-    source: "mock",
-  }));
+  const imageBuffer = Buffer.from(base64Data, "base64");
+  const fileName = `generated_visuals/${Date.now()}-${crypto.randomUUID()}-${roomSafeLabel}.${extension}`;
+  const file = bucket.file(fileName);
 
-  return {
-    question,
-    images,
-  };
-});
+  await file.save(imageBuffer, {
+    metadata: {
+      contentType: mimeType,
+      cacheControl: "public, max-age=31536000",
+    },
+  });
+
+  await file.makePublic();
+
+  return `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+}
+
+function makeStorageSafeLabel(label){
+  return String(label || "option")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g,"-")
+    .replace(/^-+|-_$/g,"")
+    .slice(0,40) || "option";
+}
+exports.generateOptionVisuals = onCall(
+  {
+  secrets: [GEMINI_API_KEY],
+  timeoutSeconds: 120,
+  memory: "1GiB",
+  },
+  async (request) => {
+    const question = String(request.data?.question || "").trim();
+    const optionLabels = request.data?.optionLabels;
+
+    if(!Array.isArray(optionLabels)){
+      throw new HttpsError(
+        "invalid-argument",
+        "optionLabels must be an array of strings"
+      );
+    }
+    const cleanedLabels = optionLabels
+      .map((label) => String(label || "").trim())
+      .filter(Boolean);
+    
+    if (cleanedLabels.length === 0){
+      throw new HttpsError(
+        "invalid-argument",
+        "At least one option label is required."
+      );
+    } 
+
+    console.log("generateOptionVisuals called");
+    console.log("SJ_TEST_123");
+    console.log("QUESTION:", question);
+    console.log("OPTION LABELS:", JSON.stringify(cleanedLabels));
+
+    const images = cleanedLabels.map((label, index) => ({
+      label,
+      imageUrl: getMockGeneratedImageUrl(label, index),
+      source: "mock",
+    }));
+
+    const firstLabel = cleanedLabels[0];
+    try{
+      console.log("Generating real Gemini image for first option:", firstLabel);
+
+      const generatedImage = await generateImageWithGemini(question, firstLabel);
+      const storageUrl = await uploadGeneratedImageToStorage(
+        makeStorageSafeLabel(firstLabel),
+        generatedImage.base64Data,
+        generatedImage.mimeType
+      );
+      images[0] = {
+        label: firstLabel,
+        imageUrl: storageUrl,
+        source: "gemini",
+      };
+      console.log("Gemini image generated and uploaded successfully:", storageUrl);
+    }catch (error){
+      console.error("Failed to generate real image, using mock fallback:", error);
+      images[0] = {
+        label: firstLabel,
+        imageUrl: getMockGeneratedImageUrl(firstLabel, 0),
+        source: "mock",
+        errorMessage : error?.message || String(error),
+      };
+    }
+    return {
+      question,
+      images,
+    };
+  }
+);

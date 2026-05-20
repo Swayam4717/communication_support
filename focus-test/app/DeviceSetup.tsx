@@ -17,7 +17,16 @@ interface DeviceSetupProps {
 
 type SetupStage = "role-select" | "room-setup";
 
-const ROOM_WORDS = ["CALM", "BLUE", "STAR", "MOON", "RICE", "WAVE", "TREE", "SOFT"];
+const ROOM_WORDS = [
+  "CALM",
+  "BLUE",
+  "STAR",
+  "MOON",
+  "RICE",
+  "WAVE",
+  "TREE",
+  "SOFT",
+];
 
 function generateRoomCode() {
   const word = ROOM_WORDS[Math.floor(Math.random() * ROOM_WORDS.length)];
@@ -38,16 +47,23 @@ async function generateUniqueRoomCode() {
   throw new Error("Failed to generate unique room code");
 }
 
-export default function DeviceSetupScreen({ onSetupComplete }: DeviceSetupProps) {
+export default function DeviceSetupScreen({
+  onSetupComplete,
+}: DeviceSetupProps) {
   const [stage, setStage] = useState<SetupStage>("role-select");
-  const [selectedRole, setSelectedRole] = useState<"parent" | "child" | null>(null);
+  const [selectedRole, setSelectedRole] = useState<"parent" | "child" | null>(
+    null,
+  );
   const [roomCode, setRoomCode] = useState("");
   const [isCheckingRoom, setIsCheckingRoom] = useState(false);
+  const [useExistingRoom, setUseExistingRoom] = useState(false);
 
   const handleContinueToRoom = async () => {
     if (!selectedRole) return;
 
     if (selectedRole === "parent") {
+      setUseExistingRoom(false);
+
       try {
         const uniqueCode = await generateUniqueRoomCode();
         setRoomCode(uniqueCode);
@@ -81,7 +97,7 @@ export default function DeviceSetupScreen({ onSetupComplete }: DeviceSetupProps)
         createdAt: Date.now(),
         roomCreatedAt: Date.now(),
       },
-      { merge: true }
+      { merge: true },
     );
   };
 
@@ -90,7 +106,7 @@ export default function DeviceSetupScreen({ onSetupComplete }: DeviceSetupProps)
     const roomSnap = await getDoc(roomRef);
     return roomSnap.exists();
   };
-
+  
   const handleCompleteSetup = async () => {
     const normalizedRoomCode = roomCode.trim().toUpperCase();
 
@@ -102,7 +118,19 @@ export default function DeviceSetupScreen({ onSetupComplete }: DeviceSetupProps)
 
     try {
       if (selectedRole === "parent") {
-        await createParentRoomIfNeeded(normalizedRoomCode);
+        if (useExistingRoom) {
+          const existingRoom = await checkChildRoomExists(normalizedRoomCode);
+
+          if (!existingRoom) {
+            Alert.alert(
+              "Room Not Found",
+              "Please Check the room code and try again.",
+            );
+            return;
+          }
+        } else {
+          await createParentRoomIfNeeded(normalizedRoomCode);
+        }
         onSetupComplete(selectedRole, normalizedRoomCode);
         return;
       }
@@ -112,7 +140,7 @@ export default function DeviceSetupScreen({ onSetupComplete }: DeviceSetupProps)
       if (!roomExists) {
         Alert.alert(
           "Room not found",
-          "Please check the room code shown on the parent device and try again."
+          "Please check the room code shown on the parent device and try again.",
         );
         return;
       }
@@ -122,7 +150,7 @@ export default function DeviceSetupScreen({ onSetupComplete }: DeviceSetupProps)
       console.warn("Room setup failed:", error);
       Alert.alert(
         "Setup failed",
-        "Something went wrong while checking the room. Please try again."
+        "Something went wrong while checking the room. Please try again.",
       );
     } finally {
       setIsCheckingRoom(false);
@@ -169,9 +197,7 @@ export default function DeviceSetupScreen({ onSetupComplete }: DeviceSetupProps)
             >
               <Text style={styles.roleButtonEmoji}>👦</Text>
               <Text style={styles.roleButtonTitle}>Child Device</Text>
-              <Text style={styles.roleButtonSubtitle}>
-                Answer with choices
-              </Text>
+              <Text style={styles.roleButtonSubtitle}>Answer with choices</Text>
             </TouchableOpacity>
           </View>
 
@@ -204,12 +230,48 @@ export default function DeviceSetupScreen({ onSetupComplete }: DeviceSetupProps)
 
           <View style={styles.panelCard}>
             <Text style={styles.sectionLabel}>Room Code</Text>
+            {selectedRole === "parent" ? (
+              <View style={{ marginBottom: 12, gap: 8 }}>
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={async () => {
+                    setUseExistingRoom(false);
 
+                    try {
+                      const uniqueCode = await generateUniqueRoomCode();
+                      setRoomCode(uniqueCode);
+                    } catch (error) {
+                      console.warn(
+                        "Failed to generate unique room code:",
+                        error,
+                      );
+                      setRoomCode(generateRoomCode());
+                    }
+                  }}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    Create New Room
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={() => {
+                    setUseExistingRoom(true);
+                    setRoomCode("");
+                  }}
+                >
+                  <Text style={styles.secondaryButtonText}>
+                    Join Existing Room
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
             <TextInput
               autoCapitalize="characters"
               autoCorrect={false}
               cursorColor="#A97E57"
-              editable={selectedRole === "child"}
+              editable={selectedRole === "child" || useExistingRoom}
               placeholder="Enter room code"
               placeholderTextColor="#AA9C94"
               selectionColor="#D8B48F"
@@ -235,10 +297,11 @@ export default function DeviceSetupScreen({ onSetupComplete }: DeviceSetupProps)
             </TouchableOpacity>
 
             <TouchableOpacity
-              disabled={!roomCode.trim() || isCheckingRoom}
+              disabled={isCheckingRoom || ((selectedRole === "child" || useExistingRoom) && !roomCode.trim())}
               style={[
                 styles.primaryButton,
-                (!roomCode.trim() || isCheckingRoom) && styles.primaryButtonDisabled,
+                (!roomCode.trim() || isCheckingRoom) &&
+                  styles.primaryButtonDisabled,
               ]}
               onPress={handleCompleteSetup}
             >

@@ -4,10 +4,10 @@ const {defineSecret} = require("firebase-functions/params");
 const {GoogleGenAI} = require("@google/genai");
 const crypto = require("crypto");
 const admin = require("firebase-admin");
-const { get } = require("http");
 
 admin.initializeApp();
 const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
+const OPENSYMBOLS_SHARED_SECRET = defineSecret("OPENSYMBOLS_SHARED_SECRET");
 const bucket = admin.storage().bucket();
 const firestore = admin.firestore();
 const visualCacheCollection = firestore.collection("visualCache");
@@ -206,8 +206,25 @@ async function resolveVisualForLabel(label){
   const cachedVisual = await getCachedVisual(label);
 
   if(cachedVisual){
-    return cachedVisual;
+    return {
+      ...cachedVisual,
+      source: cachedVisual.source || "cache",
+    };
   }
+  
+  try{
+    const openSymbolVisual = await searchOpenSymbols(label); 
+    if(openSymbolVisual){
+      await saveVisualToCache(label, openSymbolVisual);
+      return {
+        ...openSymbolVisual,
+      };
+    }
+    
+  }catch(error){
+    console.error("OpenSymbols lookup failed, using fallback:", error);
+  }
+
   const fallbackVisual = {
     label,
     imageUrl: getMockGeneratedImageUrl(label, 0),
@@ -218,6 +235,115 @@ async function resolveVisualForLabel(label){
   await saveVisualToCache(label, fallbackVisual);
   return fallbackVisual;
 }
+
+const ALLOWED_SYMBOL_LICENSES = [
+  "CC0",
+  "CC BY",
+  "CC-BY",
+  "CC BY-SA",
+  "CC-BY-SA",
+];
+
+const BLOCKED_SYMBOL_LICENSES = [
+  "NC",
+  "NONCOMMERCIAL",
+  "ND",
+  "NODERIVATIVES",
+];
+
+function isComercialSafeLicense(License){
+  const normalized = String(License || "").toUpperCase();
+
+  if(!normalized){
+    return false;
+  }
+  if(BLOCKED_SYMBOL_LICENSES.some((blocked) => normalized.includes(blocked))){
+    return false;
+  }
+  return ALLOWED_SYMBOL_LICENSES.some((allowed) => normalized.includes(allowed.toUpperCase()));
+}
+
+async function getOpenSymbolsAccessToken() {
+  const secret = OPENSYMBOLS_SHARED_SECRET.value().trim();
+
+  const url = new URL("https://www.opensymbols.org/api/v2/token");
+  url.searchParams.set("secret", secret);
+
+  const response = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  const body = await response.text();
+
+  if (!body.trim().startsWith("{")) {
+    throw new Error(
+      `OpenSymbols token returned HTML/non-JSON. status=${response.status}, url=${url.origin}${url.pathname}, body=${body.slice(0, 300)}`
+    );
+  }
+
+  const data = JSON.parse(body);
+
+  if (!response.ok) {
+    throw new Error(
+      `OpenSymbols token failed. status=${response.status}, body=${body.slice(0, 300)}`
+    );
+  }
+
+  if (!data.access_token) {
+    throw new Error(`No access_token in response: ${body.slice(0, 300)}`);
+  }
+
+  return data.access_token;
+}
+async function searchOpenSymbols(label){
+  const token = await getOpenSymbolsAccessToken();
+  const url = new URL("https://www.opensymbols.org/api/v2/symbols");
+  url.searchParams.set("access_token", token);
+  url.searchParams.set("q", label);
+  url.searchParams.set("locale", "en");
+  url.searchParams.set("safe", "1");
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+  });
+  const body = await response.text();
+  if(!response.ok){
+    
+    throw new Error(`OpenSymbols search failed: ${response.status} ${body}`);
+  }
+  const results = JSON.parse(body);
+  if(!Array.isArray(results)){
+    return null;
+  }
+  
+  const safeResult = results.find((symbol) => {
+    return (
+      symbol &&
+      symbol.image_url &&
+      symbol.unsafe_result !== true &&
+      isComercialSafeLicense(symbol.license)
+    );
+  });
+  if(!safeResult){
+    return null;
+  }
+  return {
+    label,
+    imageUrl: safeResult.image_url,
+    source: "opensymbols",
+    provider: safeResult.repo_key || "opensymbols",
+    license: safeResult.license || null,
+    licenseUrl: safeResult.license_url || null,
+    author: safeResult.author || null,
+    providerId: safeResult.symbol_key || String(safeResult.id || ""),
+    unsafe: !!safeResult.unsafe_result,
+  };
+}
+
+
 function buildChildFriendlyImagePrompt(question, label){
   return [
     "Create a simple, child-friendly visual communication card.",
@@ -308,6 +434,7 @@ function makeStorageSafeLabel(label){
 }
 exports.generateOptionVisuals = onCall(
   {
+    secrets: [OPENSYMBOLS_SHARED_SECRET],
     timeoutSeconds: 120,
     memory: "1GiB",
   },

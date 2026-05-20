@@ -2,12 +2,15 @@ const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
 const {GoogleGenAI} = require("@google/genai");
-const crypyo = require("crypto");
+const crypto = require("crypto");
 const admin = require("firebase-admin");
+const { get } = require("http");
 
 admin.initializeApp();
 const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 const bucket = admin.storage().bucket();
+const firestore = admin.firestore();
+const visualCacheCollection = firestore.collection("visualCache");
 // Cloud Function that watches room updates and sends a push message when a new session is posted.
 
 exports.sendFocusAlertOnSessionUpdate = onDocumentUpdated(
@@ -133,6 +136,88 @@ function getMockGeneratedImageUrl(label, index) {
 
   return FALLBACK_GENERATED_IMAGE_URLS[index % FALLBACK_GENERATED_IMAGE_URLS.length];
 }
+
+function normalizeVisualKey(label){
+  return String(label || "option")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-");
+}
+
+async function getCachedVisual(label){
+  const key = normalizeVisualKey(label);
+  if(!key ){
+    return null;
+  }
+
+  const docRef = visualCacheCollection.doc(key);
+  const snap = await docRef.get();
+
+  if(!snap.exists){
+    return null;
+  }
+
+  const data = snap.data();
+  await docRef.set(
+    {
+    lastUsedAt: Date.now(),
+    useCount: admin.firestore.FieldValue.increment(1),
+    },
+    {merge: true},
+  );
+
+  return {
+    label,
+    imageUrl: data.imageUrl,
+    source: data.source || "cache",
+    cacheKey: key,
+    license : data.license || null,
+    provider: data.provider || null,
+  };
+
+}
+
+async function saveVisualToCache(label, visual){
+  const key = normalizeVisualKey(label);
+
+  if(!key || !visual?.imageUrl){
+    return;
+  }
+  await visualCacheCollection.doc(key).set(
+    {
+      key,
+      label,
+      imageUrl: visual.imageUrl,
+      source: visual.source,
+      provider: visual.provider || visual.source,
+      license: visual.license || null,
+      licenseUrl: visual.licenseUrl || null,
+      author: visual.author || null,
+      createdAt: Date.now(),
+      lastUsedAt: Date.now(),
+      useCount : admin.firestore.FieldValue.increment(1),
+    },
+    {merge: true},
+  );
+}
+
+async function resolveVisualForLabel(label){
+  const cachedVisual = await getCachedVisual(label);
+
+  if(cachedVisual){
+    return cachedVisual;
+  }
+  const fallbackVisual = {
+    label,
+    imageUrl: getMockGeneratedImageUrl(label, 0),
+    source: "mock-fallback",
+    provider: "mock",
+    license: null,
+  };
+  await saveVisualToCache(label, fallbackVisual);
+  return fallbackVisual;
+}
 function buildChildFriendlyImagePrompt(question, label){
   return [
     "Create a simple, child-friendly visual communication card.",
@@ -223,65 +308,33 @@ function makeStorageSafeLabel(label){
 }
 exports.generateOptionVisuals = onCall(
   {
-  secrets: [GEMINI_API_KEY],
-  timeoutSeconds: 120,
-  memory: "1GiB",
+    timeoutSeconds: 120,
+    memory: "1GiB",
   },
   async (request) => {
     const question = String(request.data?.question || "").trim();
     const optionLabels = request.data?.optionLabels;
-
     if(!Array.isArray(optionLabels)){
       throw new HttpsError(
         "invalid-argument",
         "optionLabels must be an array of strings"
       );
     }
-    const cleanedLabels = optionLabels
-      .map((label) => String(label || "").trim())
-      .filter(Boolean);
-    
-    if (cleanedLabels.length === 0){
+    const cleanedLabels = optionLabels.map((label) => String(label || "").trim()).filter(Boolean);
+    if(cleanedLabels.length ===0){
       throw new HttpsError(
         "invalid-argument",
-        "At least one option label is required."
+        "At least one option label is required"
       );
-    } 
-
-    console.log("generateOptionVisuals called");
-    console.log("QUESTION:", question);
-    console.log("OPTION LABELS:", JSON.stringify(cleanedLabels));
-
-    const images = cleanedLabels.map((label, index) => ({
-      label,
-      imageUrl: getMockGeneratedImageUrl(label, index),
-      source: "mock",
-    }));
-
-    const firstLabel = cleanedLabels[0];
-    try{
-      console.log("Generating real Gemini image for first option:", firstLabel);
-
-      const generatedImage = await generateImageWithGemini(question, firstLabel);
-      const storageUrl = await uploadGeneratedImageToStorage(
-        makeStorageSafeLabel(firstLabel),
-        generatedImage.base64Data,
-        generatedImage.mimeType
-      );
-      images[0] = {
-        label: firstLabel,
-        imageUrl: storageUrl,
-        source: "gemini",
-      };
-      console.log("Gemini image generated and uploaded successfully:", storageUrl);
-    }catch (error){
-      console.error("Failed to generate real image, using mock fallback:", error);
-      images[0] = {
-        label: firstLabel,
-        imageUrl: getMockGeneratedImageUrl(firstLabel, 0),
-        source: "mock",
-      };
     }
+    console.log("generateOptionVisuals Called");
+    console.log("Question:", question);
+    console.log("Option Labels:", JSON.stringify(cleanedLabels));
+    
+    const images = await Promise.all(
+      cleanedLabels.map((label, index) => resolveVisualForLabel(label, index))
+    );
+
     return {
       question,
       images,

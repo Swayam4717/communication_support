@@ -8,6 +8,7 @@ const admin = require("firebase-admin");
 admin.initializeApp();
 const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 const OPENSYMBOLS_SHARED_SECRET = defineSecret("OPENSYMBOLS_SHARED_SECRET");
+const EMOJI_API_KEY = defineSecret("EMOJI_API_KEY");
 const bucket = admin.storage().bucket();
 const firestore = admin.firestore();
 const visualCacheCollection = firestore.collection("visualCache");
@@ -174,6 +175,7 @@ async function getCachedVisual(label){
     cacheKey: key,
     license : data.license || null,
     provider: data.provider || null,
+    emoji: data.emoji || null,
   };
 
 }
@@ -181,9 +183,9 @@ async function getCachedVisual(label){
 async function saveVisualToCache(label, visual){
   const key = normalizeVisualKey(label);
 
-  if(!key || !visual?.imageUrl){
+  if(!key || (!visual?.imageUrl && !visual?.emoji)) {
     return;
-  }
+  } 
   await visualCacheCollection.doc(key).set(
     {
       key,
@@ -197,6 +199,10 @@ async function saveVisualToCache(label, visual){
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
       useCount : admin.firestore.FieldValue.increment(1),
+      emoji: visual.emoji || null,
+      unicodeName: visual.unicodeName || null,
+      group: visual.group || null,
+      subGroup: visual.subGroup || null,
     },
     {merge: true},
   );
@@ -223,6 +229,18 @@ async function resolveVisualForLabel(label){
     
   }catch(error){
     console.error("OpenSymbols lookup failed, using fallback:", error);
+  }
+
+  try{
+    console.log("EMOJI test path active");
+    emojiVisual = await searchEmojiApi(label);
+
+    if(emojiVisual){
+      await saveVisualToCache(label, emojiVisual);
+      return emojiVisual;
+    }
+  }catch(error){
+    console.error("Emoji API lookup failed, using fallback:", error);
   }
 
   const fallbackVisual = {
@@ -343,6 +361,54 @@ async function searchOpenSymbols(label){
   };
 }
 
+async function searchEmojiApi(label){
+  const apiKey = EMOJI_API_KEY.value().trim();
+
+  const url = new URL("https://emoji-api.com/emojis");
+  url.searchParams.set("search", label);
+  url.searchParams.set("access_key", apiKey);
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  const body = await response.text();
+
+  if(!response.ok){
+    throw new Error(`Emoji API search failed: ${response.status} ${body.slice(0, 300)}`);
+  }
+  if(!body.trim().startsWith("[")){
+    throw new Error(`Emoji API returned non-array response: ${body.slice(0, 300)}`);
+  }
+
+  const results = JSON.parse(body);
+
+  if (!Array.isArray(results) || results.length === 0) {
+    return null;
+  }
+
+  const bestEmoji = results[0];
+  if(!bestEmoji?.character){
+    return null;
+  }
+  return{
+    label,
+    imageUrl: null,
+    emoji: bestEmoji.character,
+    source: "emoji-api",
+    provider: "emoji-api",
+    license: "Unicode emoji metadata",
+    licenseUrl: "https://emoji-api.com/",
+    author: "Unicode / emoji-api.com",
+    providerId: bestEmoji.slug || "",
+    unicodeName: bestEmoji.unicodeName || "",
+    group: bestEmoji.group || "",
+    subGroup: bestEmoji.subGroup || "",
+  };
+}
 
 function buildChildFriendlyImagePrompt(question, label){
   return [
@@ -434,7 +500,7 @@ function makeStorageSafeLabel(label){
 }
 exports.generateOptionVisuals = onCall(
   {
-    secrets: [OPENSYMBOLS_SHARED_SECRET],
+    secrets: [OPENSYMBOLS_SHARED_SECRET, EMOJI_API_KEY],
     timeoutSeconds: 120,
     memory: "1GiB",
   },

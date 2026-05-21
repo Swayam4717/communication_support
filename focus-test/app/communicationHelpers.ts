@@ -33,8 +33,10 @@ export type SessionStatus = "idle" | "sent" | "answered";
 export interface SessionOption {
   id: string;
   label: string;
-  emoji?: string;
-  imageUrl?: string;
+  emoji?: string | null;
+  imageUrl?: string | null;
+  source?: string | null;
+  provider?: string | null;
 }
 
 export interface CommunicationSession {
@@ -111,6 +113,21 @@ export function createSession(
   } as CommunicationSession;
 }
 
+export function createSessionWithResolvedOptions(
+  question: string,
+  options: SessionOption[],
+): CommunicationSession {
+  return {
+    id: String(Date.now()),
+    type: "communication",
+    title: question.trim() || DEFAULT_QUESTION,
+    options,
+    status: "sent",
+    selectedAnswer: null,
+    createdAt: Date.now(),
+  };
+}
+
 function getSafeRoomId(roomId: string) {
   return roomId.replace(/[^a-zA-Z0-9-_]/g, "_") || DEFAULT_ROOM_ID;
 }
@@ -184,15 +201,18 @@ export async function resetSession(roomId: string) {
 export async function generateOptionVisualsFromCloud(
   question: string,
   optionLabels: string[],
-): Promise<string[]> {
+): Promise<SessionOption[]> {
   const generateOptionVisualsCallable = httpsCallable<
     { question: string; optionLabels: string[] },
     {
       question: string;
       images: Array<{
         label: string;
-        imageUrl: string;
-        source: string;
+        imageUrl?: string | null;
+        emoji?: string | null;
+        source?: string | null;
+        provider?: string | null;
+        debug?: unknown;
       }>;
     }
   >(functions, "generateOptionVisuals");
@@ -201,7 +221,20 @@ export async function generateOptionVisualsFromCloud(
     question,
     optionLabels,
   });
-  return result.data.images.map((image) => image.imageUrl);
+  console.log("VISUAL GENERATION DEBUG:" ,JSON.stringify(result.data.images.map((image) => image.debug), null, 2),);
+  return result.data.images.map((image, index) => {
+    const cleanedLabel =
+      image.label?.trim() || optionLabels[index]?.trim() || `Option ${index + 1}`;
+
+    return {
+      id: String(index + 1),
+      label: cleanedLabel,
+      imageUrl: image.imageUrl ?? null,
+      emoji: image.emoji ?? getEmojiForLabel(cleanedLabel, index),
+      source: image.source ?? null,
+      provider: image.provider ?? null,
+    };
+  });
 }
 export async function saveSessionHistory(
   session: CommunicationSession,

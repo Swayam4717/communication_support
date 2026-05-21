@@ -4,10 +4,12 @@ const {defineSecret} = require("firebase-functions/params");
 const {GoogleGenAI} = require("@google/genai");
 const crypto = require("crypto");
 const admin = require("firebase-admin");
+const { debug } = require("console");
 
 admin.initializeApp();
 const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 const OPENSYMBOLS_SHARED_SECRET = defineSecret("OPENSYMBOLS_SHARED_SECRET");
+const RUNWARE_API_KEY = defineSecret("RUNWARE_API_KEY");
 const EMOJI_API_KEY = defineSecret("EMOJI_API_KEY");
 const bucket = admin.storage().bucket();
 const firestore = admin.firestore();
@@ -209,12 +211,29 @@ async function saveVisualToCache(label, visual){
 }
 
 async function resolveVisualForLabel(label){
+   const debug = {
+    label,
+    cacheChecked: false,
+    cacheHit: false,
+    openSymbolsSkipped: true,
+    emojiApiSkipped: true,
+    runwareAttempted: false,
+    runwareSuccess: false,
+    runwareError: null,
+    fallbackUsed: false,
+    finalSource: null,
+    finalProvider: null,
+  };
   const cachedVisual = await getCachedVisual(label);
-
+  debug.cacheChecked = true
   if(cachedVisual){
+    debug.cacheHit = true;
+    debug.finalSource = "cache";
+    debug.finalProvider = cachedVisual.provider || "cache";
     return {
       ...cachedVisual,
       source: cachedVisual.source || "cache",
+      debug,
     };
   }
   
@@ -232,8 +251,8 @@ async function resolveVisualForLabel(label){
   }
 
   try{
-    console.log("EMOJI test path active");
-    emojiVisual = await searchEmojiApi(label);
+    
+    const emojiVisual = await searchEmojiApi(label);
 
     if(emojiVisual){
       await saveVisualToCache(label, emojiVisual);
@@ -243,6 +262,22 @@ async function resolveVisualForLabel(label){
     console.error("Emoji API lookup failed, using fallback:", error);
   }
 
+  try{
+    debug.runwareAttempted = true;
+
+    const runwareVisual = await generateRunwareVisual(label);
+
+    if(runwareVisual){
+      await saveVisualToCache(label, runwareVisual);
+      debug.runwareSuccess = true;
+      debug.finalSource = runwareVisual.source || "ai-generated";
+      debug.finalProvider = runwareVisual.provider || null;
+      return {...runwareVisual,debug};
+    }
+  }catch(error){
+    debug.runwareError = {message: error?.message || String(error), stack: error?.stack?.slice(0,1000) || null,};
+    console.error("Runware generation failed, using fallback:", error);
+  }
   const fallbackVisual = {
     label,
     imageUrl: getMockGeneratedImageUrl(label, 0),
@@ -250,8 +285,11 @@ async function resolveVisualForLabel(label){
     provider: "mock",
     license: null,
   };
+  debug.fallbackUsed = true;
+  debug.finalSource = fallbackVisual.source;
+  debug.finalProvider = fallbackVisual.provider;
   await saveVisualToCache(label, fallbackVisual);
-  return fallbackVisual;
+  return {...fallbackVisual, debug};
 }
 
 const ALLOWED_SYMBOL_LICENSES = [
@@ -410,6 +448,242 @@ async function searchEmojiApi(label){
   };
 }
 
+async function getCustomerRunwareApiKey(context = {}) {
+  // Future extension:
+  // - read roomId/customerId
+  // - fetch customer/admin AI settings from Firestore
+  // - decrypt customer-owned Runware API key
+  // - return that key if available
+  //
+  // For now, no customer key is configured,
+  // so the system will fall back to the company Firebase Secret.
+
+  return null;
+}
+
+async function getRunwareApiKey(context = {}) {
+  const customerApiKey = await getCustomerRunwareApiKey(context);
+
+  if (customerApiKey) {
+    return customerApiKey.trim();
+  }
+
+  return RUNWARE_API_KEY.value().trim();
+}
+
+function getRunwarePromptSubject(label) {
+  const normalized = String(label || "").trim().toLowerCase();
+
+  const promptMap = {
+    rice: "a small bowl filled with white rice",
+    noodles: "a bowl of noodles with chopsticks",
+    pizza: "a single triangular slice of pizza",
+    sandwich: "a simple sandwich with bread, lettuce, and filling",
+    water: "a clear glass of water",
+    milk: "a glass of milk",
+    toilet: "a simple toilet",
+    sleep: "a simple bed with a pillow and blanket",
+    happy: "a simple happy smiling face",
+    sad: "a simple sad face",
+    angry: "a simple angry face",
+    tired: "a simple sleepy tired face",
+    scared: "a simple scared face",
+    medicine: "a simple pill bottle with one pill",
+    phone: "a simple generic smartphone with no logo",
+    iphone: "a simple generic smartphone with no logo",
+    youtube: "a generic video play button on a screen with no logo",
+    minecraft: "colorful cube building blocks, no logo, no characters",
+    "block building game": "colorful cube building blocks, no logo, no characters",
+    "brush teeth": "a toothbrush with toothpaste beside a clean tooth",
+    "go outside": "an open door with sunshine outside",
+    "soft blue blanket": "a folded soft blue blanket",
+    "weighted blanket": "a folded weighted blanket",
+    "sensory headphones": "simple over-ear headphones",
+    "calm corner": "a quiet cozy corner with a cushion",
+    "school bus toy": "a simple yellow toy school bus",
+  };
+
+  return promptMap[normalized] || label;
+}
+
+function buildRunwareImagePrompt(label) {
+  const subject = getRunwarePromptSubject(label);
+
+  return [
+    `Create a simple AAC-style communication pictogram of ${subject}.`,
+    "The image must clearly represent the object or action for a child.",
+    "Use a simple cartoon symbol style.",
+    "Use thick clean outlines.",
+    "Use flat colors.",
+    "Use a plain white background.",
+    "Show only one main subject.",
+    "Center the subject in the image.",
+    "Make it look like a communication card symbol, not artwork.",
+    "The visual should be easy to understand at a glance.",
+    "Avoid decorative or artistic interpretation.",
+    "No text.",
+    "No labels.",
+    "No watermark.",
+    "No realistic photo style.",
+    "No complex background.",
+    "No extra objects.",
+    "No clutter.",
+  ].join(" ");
+}
+
+function buildRunwareNegativePrompt() {
+  return [
+    "text",
+    "letters",
+    "words",
+    "caption",
+    "label",
+    "watermark",
+    "logo",
+    "brand logo",
+    "realistic",
+    "photorealistic",
+    "photo",
+    "3d render",
+    "complex background",
+    "busy background",
+    "clutter",
+    "multiple subjects",
+    "extra objects",
+    "cropped",
+    "dark",
+    "scary",
+    "blurry",
+    "distorted",
+    "abstract shape",
+    "unrecognizable object",
+    "messy composition",
+    "detailed scenery",
+    "shadows",
+    "dramatic lighting",
+  ].join(", ");
+}
+
+async function uploadRemoteImageToStorage(roomSafeLabel, imageUrl) {
+  const response = await fetch(imageUrl);
+
+  if (!response.ok) {
+    throw new Error(`Failed to download Runware image: ${response.status}`);
+  }
+
+  const contentType = response.headers.get("content-type") || "image/jpeg";
+  const extension = contentType.includes("png")
+    ? "png"
+    : contentType.includes("webp")
+      ? "webp"
+      : contentType.includes("jpeg") || contentType.includes("jpg")
+        ? "jpg"
+        : "jpg";
+
+  const arrayBuffer = await response.arrayBuffer();
+  const imageBuffer = Buffer.from(arrayBuffer);
+
+  const fileName = `generated_visuals/${Date.now()}-${crypto.randomUUID()}-${roomSafeLabel}.${extension}`;
+  const file = bucket.file(fileName);
+
+  await file.save(imageBuffer, {
+    metadata: {
+      contentType,
+      cacheControl: "public, max-age=31536000",
+    },
+  });
+
+  await file.makePublic();
+
+  return `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+}
+
+async function generateRunwareVisual(label, context = {}) {
+  const apiKey = await getRunwareApiKey(context);
+
+  if (!apiKey) {
+    throw new Error("RUNWARE_API_KEY is missing");
+  }
+
+  const taskUUID = crypto.randomUUID();
+
+  const response = await fetch("https://api.runware.ai/v1", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify([
+      {
+        taskType: "imageInference",
+        taskUUID,
+        model: "runware:400@4",
+        positivePrompt: buildRunwareImagePrompt(label),
+        negativePrompt: buildRunwareNegativePrompt(),
+        width: 1024,
+        height: 1024,
+        numberResults: 1,
+        steps: 4,
+        CFGScale: 4,
+        includeCost: true,
+        outputType: "URL",
+      },
+    ]),
+  });
+
+  const body = await response.text();
+
+  let data;
+  try {
+    data = JSON.parse(body);
+  } catch (error) {
+    throw new Error(`Runware returned non-JSON response: ${body.slice(0, 1000)}`);
+  }
+
+  if (!response.ok || data.error) {
+    const errorDetails = {
+      status: response.status,
+      body: body.slice(0, 1500),
+    };
+
+    throw new Error(
+      `Runware generation failed: ${JSON.stringify(errorDetails)}`
+    );
+  }
+
+  const result = data?.data?.find(
+    (item) =>
+      item.taskType === "imageInference" &&
+      (item.imageURL || item.imageUrl)
+  );
+
+  const runwareImageUrl = result?.imageURL || result?.imageUrl;
+
+  if (!runwareImageUrl) {
+    throw new Error(
+      `Runware generation did not return an image URL: ${body.slice(0, 1500)}`
+    );
+  }
+
+  const safeLabel = makeStorageSafeLabel(label);
+  const storedImageUrl = await uploadRemoteImageToStorage(
+    safeLabel,
+    runwareImageUrl
+  );
+
+  return {
+    label,
+    imageUrl: storedImageUrl,
+    emoji: null,
+    source: "ai-generated",
+    provider: "runware-flux-klein-4b",
+    license: "AI generated via Runware / FLUX.2 Klein 4B",
+    licenseUrl: "https://runware.ai/",
+    author: "Runware / Black Forest Labs",
+    providerId: result.imageUUID || taskUUID,
+    cost: result.cost || null,
+  };
+}
 function buildChildFriendlyImagePrompt(question, label){
   return [
     "Create a simple, child-friendly visual communication card.",
@@ -495,12 +769,12 @@ function makeStorageSafeLabel(label){
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g,"-")
-    .replace(/^-+|-_$/g,"")
+    .replace(/^-+|-+$/g,"")
     .slice(0,40) || "option";
 }
 exports.generateOptionVisuals = onCall(
   {
-    secrets: [OPENSYMBOLS_SHARED_SECRET, EMOJI_API_KEY],
+    secrets: [OPENSYMBOLS_SHARED_SECRET, EMOJI_API_KEY, RUNWARE_API_KEY],
     timeoutSeconds: 120,
     memory: "1GiB",
   },

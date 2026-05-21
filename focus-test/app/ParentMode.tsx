@@ -13,9 +13,11 @@ import * as ImagePicker from "expo-image-picker";
 import type {
   CommunicationSession,
   SessionHistoryItem,
+  SessionOption,
 } from "./communicationHelpers";
 import {
   createSession,
+  createSessionWithResolvedOptions,
   resetSession,
   sendSession,
   subscribeToSession,
@@ -70,6 +72,9 @@ export default function ParentModeScreen({
   const [optionImageUrls, setOptionImageUrls] = useState<string[]>(
     optionLabels.map(() => ""),
   );
+  const [resolvedOptions, setResolvedOptions] = useState<SessionOption[] | null>(
+    null
+  );
   const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(
     null,
   );
@@ -88,12 +93,16 @@ export default function ParentModeScreen({
     setOptionImageUrls((currentUrls) =>
       optionLabels.map((_, index) => currentUrls[index] ?? ""),
     );
+    setResolvedOptions(null);
   }, [optionLabels]);
   React.useEffect(() => {
     setOptionImageUrls(optionLabels.map(() => ""));
+    setResolvedOptions(null);
   }, [templateVersion]);
 
-  const draftSession = createSession(question, optionLabels, optionImageUrls);
+  const draftSession = resolvedOptions
+  ? createSessionWithResolvedOptions(question, resolvedOptions)
+  : createSession(question, optionLabels, optionImageUrls);
   const currentSession = fireSession ?? sentSession ?? draftSession;
   const previewSession = draftSession;
 
@@ -139,6 +148,8 @@ export default function ParentModeScreen({
   };
 
   const setOptionImageUrl = (index: number, imageUrl: string) => {
+    setResolvedOptions(null);
+
     setOptionImageUrls((currentUrls) => {
       const nextUrls = [...currentUrls];
       nextUrls[index] = imageUrl;
@@ -245,12 +256,16 @@ export default function ParentModeScreen({
     setIsGeneratingVisuals(true);
 
     try {
-      const generatedUrls = await generateOptionVisualsFromCloud(
+      const generatedOptions = await generateOptionVisualsFromCloud(
         question,
         optionLabels,
       );
 
-      setOptionImageUrls(generatedUrls);
+      setResolvedOptions(generatedOptions);
+
+      setOptionImageUrls(
+        generatedOptions.map((option) => option.imageUrl ?? ""),
+      )
 
       Alert.alert(
         "Demo visuals generated",
@@ -319,7 +334,9 @@ export default function ParentModeScreen({
       return;
     }
 
-    const session = createSession(question, optionLabels, optionImageUrls);
+    const session = resolvedOptions
+  ? createSessionWithResolvedOptions(question, resolvedOptions)
+  : createSession(question, optionLabels, optionImageUrls);
 
     try {
       await sendSession(session, roomId);

@@ -1,5 +1,6 @@
 import React from "react";
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { Image, Platform, Text, TouchableOpacity, View } from "react-native";
+import { WebView } from "react-native-webview";
 import type { SessionOption } from "./communicationHelpers";
 import { styles } from "./communicationCommon";
 
@@ -9,6 +10,79 @@ interface OptionCardProps {
   compact?: boolean;
   disabled?: boolean;
   onPress?: (option: SessionOption) => void;
+}
+
+function isSvgUrl(url?: string | null) {
+  return !!url && url.toLowerCase().split("?")[0].endsWith(".svg");
+}
+
+function SvgImageView({
+  uri,
+  compact,
+  onError,
+}: {
+  uri: string;
+  compact?: boolean;
+  onError: () => void;
+}) {
+  const size = compact ? 40 : 56;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            overflow: hidden;
+          }
+          body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+          }
+        </style>
+      </head>
+      <body>
+        <img src="${uri}" />
+      </body>
+    </html>
+  `;
+
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        overflow: "hidden",
+        backgroundColor: "transparent",
+      }}
+    >
+      <WebView
+        originWhitelist={["*"]}
+        source={{ html }}
+        style={{
+          width: size,
+          height: size,
+          backgroundColor: "transparent",
+        }}
+        scrollEnabled={false}
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
+        onError={onError}
+      />
+    </View>
+  );
 }
 
 export function OptionCard({
@@ -25,6 +99,7 @@ export function OptionCard({
   }, [option.imageUrl]);
 
   const shouldShowImage = !!option.imageUrl && !imageFailed;
+  const isSvg = isSvgUrl(option.imageUrl);
 
   return (
     <TouchableOpacity
@@ -38,12 +113,20 @@ export function OptionCard({
       ]}
     >
       {shouldShowImage ? (
-        <Image
-          source={{ uri: option.imageUrl }}
-          style={[styles.optionImage, compact && styles.optionImageCompact]}
-          resizeMode="cover"
-          onError={() => setImageFailed(true)}
-        />
+        isSvg && Platform.OS !== "web" ? (
+          <SvgImageView
+            uri={option.imageUrl as string}
+            compact={compact}
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <Image
+            source={{ uri: option.imageUrl as string }}
+            style={[styles.optionImage, compact && styles.optionImageCompact]}
+            resizeMode="contain"
+            onError={() => setImageFailed(true)}
+          />
+        )
       ) : (
         <Text style={[styles.optionEmoji, compact && styles.optionEmojiCompact]}>
           {option.emoji ?? "✨"}
@@ -57,13 +140,14 @@ export function OptionCard({
       </View>
 
       {selected ? (
-        <View style = {styles.selectedBadge}>
+        <View style={styles.selectedBadge}>
           <Text style={styles.selectedBadgeText}>✓</Text>
         </View>
-      ): null }
+      ) : null}
     </TouchableOpacity>
   );
 }
+
 interface HeaderProps {
   title: string;
   subtitle?: string;
@@ -71,15 +155,13 @@ interface HeaderProps {
 }
 
 export function Header({ title, subtitle, onBack }: HeaderProps) {
-  // Reusable header that shows the current screen title and optional mode-switch action.
   return (
     <View style={styles.headerRow}>
       <View style={styles.headerTextBlock}>
         <Text style={styles.headerTitle}>{title}</Text>
-        {subtitle ? (
-          <Text style={styles.headerSubtitle}>{subtitle}</Text>
-        ) : null}
+        {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
       </View>
+
       {onBack ? (
         <TouchableOpacity style={styles.textButton} onPress={onBack}>
           <Text style={styles.textButtonLabel}>Change mode</Text>

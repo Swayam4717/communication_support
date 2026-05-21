@@ -49,7 +49,9 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
 }, [roomId]);
 
   const selectedOption = session?.options.find((o) => o.id === selectedOptionId) ?? null;
-
+  React.useEffect(() => {
+    console.log("CHILD SESSION OPTION:", JSON.stringify(session?.options, null, 2))
+  }, [session]);
   return (
     <ScrollView
       contentContainerStyle={styles.scrollContent}

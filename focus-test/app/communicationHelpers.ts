@@ -221,7 +221,6 @@ export async function generateOptionVisualsFromCloud(
     question,
     optionLabels,
   });
-  console.log("VISUAL GENERATION DEBUG:" ,JSON.stringify(result.data.images.map((image) => image.debug), null, 2),);
   return result.data.images.map((image, index) => {
     const cleanedLabel =
       image.label?.trim() || optionLabels[index]?.trim() || `Option ${index + 1}`;

@@ -4,7 +4,6 @@ const {defineSecret} = require("firebase-functions/params");
 const {GoogleGenAI} = require("@google/genai");
 const crypto = require("crypto");
 const admin = require("firebase-admin");
-const { debug } = require("console");
 
 admin.initializeApp();
 const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
@@ -211,29 +210,11 @@ async function saveVisualToCache(label, visual){
 }
 
 async function resolveVisualForLabel(label){
-   const debug = {
-    label,
-    cacheChecked: false,
-    cacheHit: false,
-    openSymbolsSkipped: true,
-    emojiApiSkipped: true,
-    runwareAttempted: false,
-    runwareSuccess: false,
-    runwareError: null,
-    fallbackUsed: false,
-    finalSource: null,
-    finalProvider: null,
-  };
   const cachedVisual = await getCachedVisual(label);
-  debug.cacheChecked = true
   if(cachedVisual){
-    debug.cacheHit = true;
-    debug.finalSource = "cache";
-    debug.finalProvider = cachedVisual.provider || "cache";
     return {
       ...cachedVisual,
       source: cachedVisual.source || "cache",
-      debug,
     };
   }
   
@@ -263,19 +244,14 @@ async function resolveVisualForLabel(label){
   }
 
   try{
-    debug.runwareAttempted = true;
 
     const runwareVisual = await generateRunwareVisual(label);
 
     if(runwareVisual){
       await saveVisualToCache(label, runwareVisual);
-      debug.runwareSuccess = true;
-      debug.finalSource = runwareVisual.source || "ai-generated";
-      debug.finalProvider = runwareVisual.provider || null;
-      return {...runwareVisual,debug};
+      return {...runwareVisual};
     }
   }catch(error){
-    debug.runwareError = {message: error?.message || String(error), stack: error?.stack?.slice(0,1000) || null,};
     console.error("Runware generation failed, using fallback:", error);
   }
   const fallbackVisual = {
@@ -285,11 +261,8 @@ async function resolveVisualForLabel(label){
     provider: "mock",
     license: null,
   };
-  debug.fallbackUsed = true;
-  debug.finalSource = fallbackVisual.source;
-  debug.finalProvider = fallbackVisual.provider;
   await saveVisualToCache(label, fallbackVisual);
-  return {...fallbackVisual, debug};
+  return fallbackVisual;
 }
 
 const ALLOWED_SYMBOL_LICENSES = [

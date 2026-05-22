@@ -25,7 +25,7 @@ function SvgImageView({
   compact?: boolean;
   onError: () => void;
 }) {
-  const size = compact ? 40 : 56;
+  const size = compact ? 40 : 58;
 
   const html = `
     <!DOCTYPE html>
@@ -47,9 +47,10 @@ function SvgImageView({
             justify-content: center;
           }
           img {
-            max-width: 100%;
-            max-height: 100%;
+            width: 100%;
+            height: 100%;
             object-fit: contain;
+            display: block;
           }
         </style>
       </head>
@@ -61,6 +62,7 @@ function SvgImageView({
 
   return (
     <View
+      pointerEvents="none"
       style={{
         width: size,
         height: size,
@@ -85,13 +87,13 @@ function SvgImageView({
   );
 }
 
-export function OptionCard({
+function OptionVisual({
   option,
-  selected = false,
-  compact = false,
-  disabled = false,
-  onPress,
-}: OptionCardProps) {
+  compact,
+}: {
+  option: SessionOption;
+  compact?: boolean;
+}) {
   const [imageFailed, setImageFailed] = React.useState(false);
 
   React.useEffect(() => {
@@ -102,16 +104,7 @@ export function OptionCard({
   const isSvg = isSvgUrl(option.imageUrl);
 
   return (
-    <TouchableOpacity
-      activeOpacity={disabled ? 1 : 0.85}
-      disabled={disabled || !onPress}
-      onPress={() => onPress?.(option)}
-      style={[
-        styles.optionCard,
-        compact && styles.optionCardCompact,
-        selected && styles.optionCardSelected,
-      ]}
-    >
+    <View style={[styles.optionVisualBox, compact && styles.optionVisualBoxCompact]}>
       {shouldShowImage ? (
         isSvg && Platform.OS !== "web" ? (
           <SvgImageView
@@ -132,9 +125,35 @@ export function OptionCard({
           {option.emoji ?? "✨"}
         </Text>
       )}
+    </View>
+  );
+}
+
+export function OptionCard({
+  option,
+  selected = false,
+  compact = false,
+  disabled = false,
+  onPress,
+}: OptionCardProps) {
+  return (
+    <TouchableOpacity
+      activeOpacity={disabled ? 1 : 0.85}
+      disabled={disabled || !onPress}
+      onPress={() => onPress?.(option)}
+      style={[
+        styles.optionCard,
+        compact && styles.optionCardCompact,
+        selected && styles.optionCardSelected,
+      ]}
+    >
+      <OptionVisual option={option} compact={compact} />
 
       <View style={styles.optionTextWrap}>
-        <Text style={[styles.optionLabel, compact && styles.optionLabelCompact]}>
+        <Text
+          style={[styles.optionLabel, compact && styles.optionLabelCompact]}
+          numberOfLines={compact ? 2 : 3}
+        >
           {option.label}
         </Text>
       </View>

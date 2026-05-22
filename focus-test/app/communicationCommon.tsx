@@ -888,7 +888,16 @@ selectedBadgeText: {
     fontWeight: "700",
     color: "#8A5A44",
   },
-
+  parentRemoveVisualButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+    alignSelf: "center",
+  },
+  parentRemoveVisualText: {
+    color: "#A65B4B",
+    fontSize: 12,
+    fontWeight: "700",
+  },
   parentImageStatusText: {
     fontSize: 12,
     color: "#7E6F67",

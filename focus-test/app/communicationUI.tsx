@@ -101,10 +101,20 @@ function OptionVisual({
   }, [option.imageUrl]);
 
   const shouldShowImage = !!option.imageUrl && !imageFailed;
+  const shouldShowEmoji = !!option.emoji;
   const isSvg = isSvgUrl(option.imageUrl);
 
+  if (!shouldShowImage && !shouldShowEmoji) {
+    return null;
+  }
+
   return (
-    <View style={[styles.optionVisualBox, compact && styles.optionVisualBoxCompact]}>
+    <View
+      style={[
+        styles.optionVisualBox,
+        compact && styles.optionVisualBoxCompact,
+      ]}
+    >
       {shouldShowImage ? (
         isSvg && Platform.OS !== "web" ? (
           <SvgImageView
@@ -122,7 +132,7 @@ function OptionVisual({
         )
       ) : (
         <Text style={[styles.optionEmoji, compact && styles.optionEmojiCompact]}>
-          {option.emoji ?? "✨"}
+          {option.emoji}
         </Text>
       )}
     </View>

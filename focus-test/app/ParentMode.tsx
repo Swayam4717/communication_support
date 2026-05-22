@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -30,6 +30,7 @@ import { OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
 
 type sessionTemplateId = "food" | "feelings" | "activities" | "yesNo";
+
 interface ParentModeScreenProps {
   question: string;
   optionLabels: string[];
@@ -63,27 +64,38 @@ export default function ParentModeScreen({
 }: ParentModeScreenProps) {
   const [fireSession, setFireSession] =
     React.useState<CommunicationSession | null>(null);
+
   const [sessionHistory, setSessionHistory] = React.useState<
     SessionHistoryItem[]
   >([]);
+
   const [savedHistorySessionId, setSavedHistorySessionId] = React.useState<
     string | null
   >(null);
+
   const [optionImageUrls, setOptionImageUrls] = useState<string[]>(
     optionLabels.map(() => ""),
   );
+
   const [resolvedOptions, setResolvedOptions] = useState<SessionOption[] | null>(
-    null
+    null,
   );
+
+  const [removedVisualIndexes, setRemovedVisualIndexes] = useState<Set<number>>(
+    new Set(),
+  );
+
   const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(
     null,
   );
+
   const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
 
   React.useEffect(() => {
     const unsub = subscribeToSession((s) => setFireSession(s), roomId);
     return () => unsub();
   }, [roomId]);
+
   React.useEffect(() => {
     const unsub = subscribeToSessionHistory(setSessionHistory, roomId);
     return () => unsub();
@@ -94,15 +106,47 @@ export default function ParentModeScreen({
       optionLabels.map((_, index) => currentUrls[index] ?? ""),
     );
     setResolvedOptions(null);
+    setRemovedVisualIndexes(new Set());
   }, [optionLabels]);
+
   React.useEffect(() => {
     setOptionImageUrls(optionLabels.map(() => ""));
     setResolvedOptions(null);
-  }, [templateVersion]);
+    setRemovedVisualIndexes(new Set());
+  }, [templateVersion, optionLabels]);
 
-  const draftSession = resolvedOptions
-  ? createSessionWithResolvedOptions(question, resolvedOptions)
-  : createSession(question, optionLabels, optionImageUrls);
+  const applyRemovedVisuals = (
+    session: CommunicationSession,
+  ): CommunicationSession => {
+    if (removedVisualIndexes.size === 0) {
+      return session;
+    }
+
+    return {
+      ...session,
+      options: session.options.map((option, index) =>
+        removedVisualIndexes.has(index)
+          ? {
+              ...option,
+              imageUrl: null,
+              emoji: null,
+              source: "none",
+              provider: "manual",
+            }
+          : option,
+      ),
+    };
+  };
+
+  const buildDraftSession = () => {
+    const baseSession = resolvedOptions
+      ? createSessionWithResolvedOptions(question, resolvedOptions)
+      : createSession(question, optionLabels, optionImageUrls);
+
+    return applyRemovedVisuals(baseSession);
+  };
+
+  const draftSession = buildDraftSession();
   const currentSession = fireSession ?? sentSession ?? draftSession;
   const previewSession = draftSession;
 
@@ -129,26 +173,15 @@ export default function ParentModeScreen({
   }, [fireSession, roomId, savedHistorySessionId]);
 
   const isChildConnected = !!fireSession?.childFcmToken;
-  const scrollRef = useRef<ScrollView | null>(null);
-  const [optionRowPositions, setOptionRowPositions] = useState<number[]>([]);
-
-  const scrollFieldIntoView = (index: number) => {
-    const rowY = optionRowPositions[index];
-
-    if (rowY === undefined || !scrollRef.current) {
-      return;
-    }
-
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({
-        y: Math.max(0, rowY - 100),
-        animated: true,
-      });
-    });
-  };
 
   const setOptionImageUrl = (index: number, imageUrl: string) => {
     setResolvedOptions(null);
+
+    setRemovedVisualIndexes((currentIndexes) => {
+      const nextIndexes = new Set(currentIndexes);
+      nextIndexes.delete(index);
+      return nextIndexes;
+    });
 
     setOptionImageUrls((currentUrls) => {
       const nextUrls = [...currentUrls];
@@ -242,9 +275,36 @@ export default function ParentModeScreen({
     }
   };
 
-  const handleRemoveImage = (index: number) => {
-    setOptionImageUrl(index, "");
+  const handleRemoveVisual = (index: number) => {
+    setRemovedVisualIndexes((currentIndexes) => {
+      const nextIndexes = new Set(currentIndexes);
+      nextIndexes.add(index);
+      return nextIndexes;
+    });
+
+    setOptionImageUrls((currentUrls) => {
+      const nextUrls = [...currentUrls];
+      nextUrls[index] = "";
+      return nextUrls;
+    });
+
+    setResolvedOptions((currentOptions) =>
+      currentOptions
+        ? currentOptions.map((option, optionIndex) =>
+            optionIndex === index
+              ? {
+                  ...option,
+                  imageUrl: null,
+                  emoji: null,
+                  source: "none",
+                  provider: "manual",
+                }
+              : option,
+          )
+        : currentOptions,
+    );
   };
+
   const isUploadingImage = uploadingImageIndex !== null;
   const isImageWorkInProgress = isUploadingImage || isGeneratingVisuals;
 
@@ -262,13 +322,14 @@ export default function ParentModeScreen({
       );
 
       setResolvedOptions(generatedOptions);
+      setRemovedVisualIndexes(new Set());
 
       setOptionImageUrls(
         generatedOptions.map((option) => option.imageUrl ?? ""),
-      )
+      );
 
       Alert.alert(
-        "Demo visuals generated",
+        "Visuals generated",
         "Visuals have been added to the option cards.",
       );
     } catch (error) {
@@ -282,12 +343,15 @@ export default function ParentModeScreen({
       setIsGeneratingVisuals(false);
     }
   };
+
   const showImageSourceMenu = (index: number) => {
     if (Platform.OS === "web") {
       handleChooseFromGallery(index);
       return;
     }
-    const hasImage = !!optionImageUrls[index];
+
+    const visualRemoved = removedVisualIndexes.has(index);
+    const hasImage = !!optionImageUrls[index] && !visualRemoved;
 
     Alert.alert(
       hasImage ? "Change option image" : "Add option image",
@@ -303,9 +367,13 @@ export default function ParentModeScreen({
               onPress: () => handleChooseFromGallery(index),
             },
             {
-              text: "Remove image",
+              text: "Remove visual",
               style: "destructive",
-              onPress: () => handleRemoveImage(index),
+              onPress: () => handleRemoveVisual(index),
+            },
+            {
+              text: "Cancel",
+              style: "cancel",
             },
           ]
         : [
@@ -334,9 +402,7 @@ export default function ParentModeScreen({
       return;
     }
 
-    const session = resolvedOptions
-  ? createSessionWithResolvedOptions(question, resolvedOptions)
-  : createSession(question, optionLabels, optionImageUrls);
+    const session = buildDraftSession();
 
     try {
       await sendSession(session, roomId);
@@ -363,7 +429,6 @@ export default function ParentModeScreen({
       style={styles.flexFill}
     >
       <ScrollView
-        ref={scrollRef}
         contentContainerStyle={[
           styles.scrollContent,
           styles.parentScrollContent,
@@ -381,6 +446,7 @@ export default function ParentModeScreen({
               Child: {isChildConnected ? "Connected" : "Not Connected"}
             </Text>
           </View>
+
           <TouchableOpacity style={styles.resetButton} onPress={onResetSetup}>
             <Text style={styles.resetButtonText}>Reset</Text>
           </TouchableOpacity>
@@ -388,11 +454,13 @@ export default function ParentModeScreen({
 
         <View style={styles.parentStatusSection}>
           <Text style={styles.parentStatusLabel}>Child&apos;s response</Text>
+
           {selectedAnswer ? (
             <View style={styles.parentStatusActive}>
               <Text style={styles.parentStatusEmoji}>
-                {selectedAnswer.emoji}
+                {selectedAnswer.emoji ?? ""}
               </Text>
+
               <View style={styles.parentStatusContent}>
                 <Text style={styles.parentStatusValue}>
                   {selectedAnswer.label}
@@ -407,7 +475,7 @@ export default function ParentModeScreen({
             </View>
           )}
         </View>
-        
+
         <View style={styles.parentBuildSection}>
           <View style={styles.parentSectionHeader}>
             <Text style={styles.parentSectionTitle}>Create a session</Text>
@@ -459,16 +527,20 @@ export default function ParentModeScreen({
               <Text style={styles.parentGenerateVisualsButtonText}>
                 {isGeneratingVisuals
                   ? "Generating visuals..."
-                  : "Generate Visuals"}
+                  : "Generate visuals"}
               </Text>
             </TouchableOpacity>
-            <Text style = {styles.generateVisualsHint}>
-              Uses Symbols first, then emoji. AI works best for concrete objects. For abstract concepts, consider adding your own images
+
+            <Text style={styles.generateVisualsHint}>
+              Uses symbols first, then emoji. AI works best for concrete
+              objects; for abstract concepts, adding your own image may work
+              better.
             </Text>
           </View>
 
           <View style={styles.parentInputGroup}>
             <Text style={styles.parentInputLabel}>Question</Text>
+
             <TextInput
               accessibilityLabel="Question text"
               cursorColor="#A97E57"
@@ -484,24 +556,20 @@ export default function ParentModeScreen({
 
           <View style={styles.parentInputGroup}>
             <Text style={styles.parentInputLabel}>Answer options</Text>
+
             <View style={styles.parentOptionsList}>
               {optionLabels.map((label, index) => {
-                const hasImage = !!optionImageUrls[index];
+                const visualRemoved = removedVisualIndexes.has(index);
+                const hasImage = !!optionImageUrls[index] && !visualRemoved;
+                const hasResolvedVisual =
+                  !!resolvedOptions?.[index]?.imageUrl ||
+                  !!resolvedOptions?.[index]?.emoji;
+                const hasAnyVisual =
+                  !visualRemoved && (hasImage || hasResolvedVisual);
                 const isUploading = uploadingImageIndex === index;
 
                 return (
-                  <View
-                    key={`draft-${index}`}
-                    onLayout={(event) => {
-                      const rowY = event.nativeEvent.layout.y;
-                      setOptionRowPositions((currentPositions) => {
-                        const nextPositions = [...currentPositions];
-                        nextPositions[index] = rowY;
-                        return nextPositions;
-                      });
-                    }}
-                    style={styles.parentOptionRow}
-                  >
+                  <View key={`draft-${index}`} style={styles.parentOptionRow}>
                     <View style={styles.parentOptionIndexBadge}>
                       <View style={styles.parentOptionIndexInner}>
                         <Text style={styles.parentOptionIndexText}>
@@ -522,7 +590,6 @@ export default function ParentModeScreen({
                         onChangeText={(value) =>
                           onOptionLabelChange(index, value)
                         }
-                        //onFocus={() => scrollFieldIntoView(index)}
                       />
 
                       <View style={styles.parentImageActionRow}>
@@ -539,12 +606,28 @@ export default function ParentModeScreen({
                                 : "Add image"}
                           </Text>
                         </TouchableOpacity>
+
+                        {hasAnyVisual ? (
+                          <TouchableOpacity
+                            style={styles.parentRemoveVisualButton}
+                            onPress={() => handleRemoveVisual(index)}
+                            disabled={isUploading}
+                          >
+                            <Text style={styles.parentRemoveVisualText}>
+                              Remove visual
+                            </Text>
+                          </TouchableOpacity>
+                        ) : null}
                       </View>
 
                       <Text style={styles.parentImageStatusText}>
-                        {hasImage
-                          ? "Image ready"
-                          : "Tap Add image to use camera or gallery. Emoji fallback will be used."}
+                        {visualRemoved
+                          ? "No visual will be sent for this option."
+                          : hasImage
+                            ? "Image ready"
+                            : hasResolvedVisual
+                              ? "Generated visual ready"
+                              : "Tap Add image to use camera or gallery. A fallback visual may be used."}
                       </Text>
                     </View>
                   </View>
@@ -569,6 +652,7 @@ export default function ParentModeScreen({
               <Text style={styles.parentPreviewTitle}>
                 {previewSession.title || "Your question"}
               </Text>
+
               <View style={styles.parentPreviewGrid}>
                 {previewSession.options.map((option) => (
                   <OptionCard
@@ -600,6 +684,7 @@ export default function ParentModeScreen({
                   : "Send To Child"}
             </Text>
           </TouchableOpacity>
+
           {sentSession && (
             <TouchableOpacity
               style={styles.secondaryButton}
@@ -609,6 +694,7 @@ export default function ParentModeScreen({
             </TouchableOpacity>
           )}
         </View>
+
         <View style={styles.parentStatusSection}>
           <Text style={styles.parentStatusLabel}>Recent history</Text>
 

@@ -458,10 +458,13 @@ export default function ParentModeScreen({
             >
               <Text style={styles.parentGenerateVisualsButtonText}>
                 {isGeneratingVisuals
-                  ? "Generating demo visuals..."
-                  : "Generate demo Visuals"}
+                  ? "Generating visuals..."
+                  : "Generate Visuals"}
               </Text>
             </TouchableOpacity>
+            <Text style = {styles.generateVisualsHint}>
+              Uses Symbols first, then emoji. AI works best for concrete objects. For abstract concepts, consider adding your own images
+            </Text>
           </View>
 
           <View style={styles.parentInputGroup}>

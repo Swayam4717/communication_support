@@ -1,12 +1,10 @@
 const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
-const {GoogleGenAI} = require("@google/genai");
 const crypto = require("crypto");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
-const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 const OPENSYMBOLS_SHARED_SECRET = defineSecret("OPENSYMBOLS_SHARED_SECRET");
 const RUNWARE_API_KEY = defineSecret("RUNWARE_API_KEY");
 const EMOJI_API_KEY = defineSecret("EMOJI_API_KEY");
@@ -657,85 +655,7 @@ async function generateRunwareVisual(label, context = {}) {
     cost: result.cost || null,
   };
 }
-function buildChildFriendlyImagePrompt(question, label){
-  return [
-    "Create a simple, child-friendly visual communication card.",
-    "The image should be calm, clear, and easy to understand for an autistic child.",
-    "Use a clean illustrated style , not a realistic photo.",
-    "Avoid Clutter, text, labels, scary expressions, or overwhelming backgrounds.",
-    "The image should represent this option:",
-    `"${label}"`,
-    question ? `Context question: "${question}"` : "",
-    "square image, centered subject, soft colors, simple background.",
-  ]
-  .filter(Boolean)
-  .join("\n");
-}
 
-function extractFirstGeneratedImagePart(response){
-  const parts = response?.candidates?.[0]?.content?.parts || [];
-
-  for(const part of parts){
-    if(part?.inlineData?.data){
-      return {
-        base64Data: part.inlineData.data,
-        mimeType : part.inlineData.mimeType || "image/png",
-      };
-    }
-    if(part.inline_data?.data){
-      return {
-        base64Data: part.inline_data.data,
-        mimeType : part.inline_data.mime_type || "image/png",
-      };
-    }
-  }
-  return null;
-}
-
-async function generateImageWithGemini(question, label){
-  const ai = new GoogleGenAI({
-    apiKey: GEMINI_API_KEY.value(),
-  });
-
-  const prompt = buildChildFriendlyImagePrompt(question, label);
-
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-image",
-    contents: prompt,
-    config: {
-      responseModalities: ["TEXT", "IMAGE"],
-      imageConfig: {
-        aspectRatio: "1:1",
-        imageSize: "512",
-      },
-    },
-  });
-  const generatedImage = extractFirstGeneratedImagePart(response);
-
-  if(!generatedImage){
-    throw new Error("Gemini did not return an inline image");
-  }
-  return generatedImage;
-}
-
-async function uploadGeneratedImageToStorage(roomSafeLabel,base64Data, mimeType){
-  const extension = mimeType.includes("jpeg") || mimeType.includes("jpg") ? "jpg" : "png";
-
-  const imageBuffer = Buffer.from(base64Data, "base64");
-  const fileName = `generated_visuals/${Date.now()}-${crypto.randomUUID()}-${roomSafeLabel}.${extension}`;
-  const file = bucket.file(fileName);
-
-  await file.save(imageBuffer, {
-    metadata: {
-      contentType: mimeType,
-      cacheControl: "public, max-age=31536000",
-    },
-  });
-
-  await file.makePublic();
-
-  return `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-}
 
 function makeStorageSafeLabel(label){
   return String(label || "option")

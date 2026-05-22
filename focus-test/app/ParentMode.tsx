@@ -407,29 +407,7 @@ export default function ParentModeScreen({
             </View>
           )}
         </View>
-        <View style={styles.parentStatusSection}>
-          <Text style={styles.parentStatusLabel}>Recent history</Text>
-
-          {sessionHistory.length > 0 ? (
-            sessionHistory.map((item) => (
-              <View key={item.id} style={styles.parentStatusInactive}>
-                <Text style={styles.parentStatusPlaceholder}>
-                  {item.question}
-                </Text>
-                <Text style={styles.parentStatusValue}>
-                  {item.answerEmoji ? `${item.answerEmoji} ` : ""}
-                  {item.answer}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <View style={styles.parentStatusInactive}>
-              <Text style={styles.parentStatusPlaceholder}>
-                No previous responses yet.
-              </Text>
-            </View>
-          )}
-        </View>
+        
         <View style={styles.parentBuildSection}>
           <View style={styles.parentSectionHeader}>
             <Text style={styles.parentSectionTitle}>Create a session</Text>
@@ -541,7 +519,7 @@ export default function ParentModeScreen({
                         onChangeText={(value) =>
                           onOptionLabelChange(index, value)
                         }
-                        onFocus={() => scrollFieldIntoView(index)}
+                        //onFocus={() => scrollFieldIntoView(index)}
                       />
 
                       <View style={styles.parentImageActionRow}>
@@ -626,6 +604,29 @@ export default function ParentModeScreen({
             >
               <Text style={styles.secondaryButtonText}>Clear session</Text>
             </TouchableOpacity>
+          )}
+        </View>
+        <View style={styles.parentStatusSection}>
+          <Text style={styles.parentStatusLabel}>Recent history</Text>
+
+          {sessionHistory.length > 0 ? (
+            sessionHistory.map((item) => (
+              <View key={item.id} style={styles.parentStatusInactive}>
+                <Text style={styles.parentStatusPlaceholder}>
+                  {item.question}
+                </Text>
+                <Text style={styles.parentStatusValue}>
+                  {item.answerEmoji ? `${item.answerEmoji} ` : ""}
+                  {item.answer}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <View style={styles.parentStatusInactive}>
+              <Text style={styles.parentStatusPlaceholder}>
+                No previous responses yet.
+              </Text>
+            </View>
           )}
         </View>
       </ScrollView>

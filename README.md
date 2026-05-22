@@ -320,13 +320,10 @@ This allows retreived or generated visuals to be reussed globally instead of bei
 OpenSymbols is used as the primary AAC-style pictogram source
 
 The backend filters symbol results to only allow comercially safer licenses such as:
-> CC0
->
-> CC BY
->
-> CC BY-SA
->
-
+ - CC0
+ - CC BY
+ - CC BY-SA
+ 
 non commercial or no-deriviatves are blocked
 
 ### Emoji API layer

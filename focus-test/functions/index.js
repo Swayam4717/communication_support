@@ -680,11 +680,20 @@ exports.generateOptionVisuals = onCall(
         "optionLabels must be an array of strings"
       );
     }
-    const cleanedLabels = optionLabels.map((label) => String(label || "").trim()).filter(Boolean);
+    const MAX_OPTIONS = 4;
+    const MAX_LABEL_LENGTH = 60;
+    const cleanedLabels = optionLabels.map((label) => String(label || "").trim()).filter(Boolean).slice(0, MAX_OPTIONS);
     if(cleanedLabels.length ===0){
       throw new HttpsError(
         "invalid-argument",
         "At least one option label is required"
+      );
+    }
+    const tooLongLabel = cleanedLabels.find((label) => label.length > MAX_LABEL_LENGTH);
+    if(tooLongLabel){
+      throw new HttpsError(
+        "invalid-argument",
+        `Option labels must be at most ${MAX_LABEL_LENGTH} characters long.`
       );
     }
     console.log("generateOptionVisuals Called");

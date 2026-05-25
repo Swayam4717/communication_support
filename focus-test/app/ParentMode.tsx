@@ -307,18 +307,41 @@ export default function ParentModeScreen({
 
   const isUploadingImage = uploadingImageIndex !== null;
   const isImageWorkInProgress = isUploadingImage || isGeneratingVisuals;
+  const showMessage = (title: string, message: string) => {
+    if (Platform.OS === "web" && typeof window !== "undefined"){
+      window.alert(`${title}\n\n${message}`);
+      return;
+    }
+    Alert.alert(title, message);
+  }
 
   const handleGenerateVisuals = async () => {
     if (isImageWorkInProgress) {
       return;
     }
+    const cleanedLabels = optionLabels.map((label) => label.trim()).filter(Boolean);
+    if (cleanedLabels.length === 0){
+      showMessage(
+        "Add options First",
+        "Please enter at least one option before generating visuals"
+      );
+      return;
+    }
 
+    const tooLongLabel = cleanedLabels.find((label) => label.length > 60);
+    if(tooLongLabel){
+      showMessage(
+        "Option too long",
+        "Please keep each option under 60 characters for clear visuals."
+      );
+      return;
+    }
     setIsGeneratingVisuals(true);
 
     try {
       const generatedOptions = await generateOptionVisualsFromCloud(
         question,
-        optionLabels,
+        cleanedLabels,
       );
 
       setResolvedOptions(generatedOptions);
@@ -328,14 +351,14 @@ export default function ParentModeScreen({
         generatedOptions.map((option) => option.imageUrl ?? ""),
       );
 
-      Alert.alert(
+      showMessage(
         "Visuals generated",
         "Visuals have been added to the option cards.",
       );
     } catch (error) {
       console.error("Failed to generate visuals:", error);
 
-      Alert.alert(
+      showMessage(
         "Could not generate visuals",
         "Something went wrong while generating visuals. Please try again.",
       );

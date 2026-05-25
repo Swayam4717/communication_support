@@ -207,7 +207,7 @@ async function saveVisualToCache(label, visual){
   );
 }
 
-async function resolveVisualForLabel(label){
+async function resolveVisualForLabel(label, index = 0){
   const cachedVisual = await getCachedVisual(label);
   if(cachedVisual){
     return {
@@ -254,12 +254,11 @@ async function resolveVisualForLabel(label){
   }
   const fallbackVisual = {
     label,
-    imageUrl: getMockGeneratedImageUrl(label, 0),
+    imageUrl: getMockGeneratedImageUrl(label, index),
     source: "mock-fallback",
     provider: "mock",
     license: null,
   };
-  await saveVisualToCache(label, fallbackVisual);
   return fallbackVisual;
 }
 
@@ -476,7 +475,15 @@ function getRunwarePromptSubject(label) {
 
   return promptMap[normalized] || label;
 }
+function fetchWithTimeout(url, options = {}, timeoutMs = 25000){
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
+  return fetch(url, {
+    ...options,
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timeout));
+}
 function buildRunwareImagePrompt(label) {
   const subject = getRunwarePromptSubject(label);
 
@@ -578,7 +585,7 @@ async function generateRunwareVisual(label, context = {}) {
 
   const taskUUID = crypto.randomUUID();
 
-  const response = await fetch("https://api.runware.ai/v1", {
+  const response = await fetchWithTimeout("https://api.runware.ai/v1", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

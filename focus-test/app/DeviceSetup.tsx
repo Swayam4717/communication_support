@@ -1,12 +1,15 @@
 import React, { useState } from "react";
 import {
   Alert,
+  AppState,
+  Platform,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import FocusAlertModule from "../modules/focus-alert";
 import { styles } from "./communicationCommon";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "./communicationHelpers";
@@ -57,6 +60,61 @@ export default function DeviceSetupScreen({
   const [roomCode, setRoomCode] = useState("");
   const [isCheckingRoom, setIsCheckingRoom] = useState(false);
   const [useExistingRoom, setUseExistingRoom] = useState(false);
+  const [childOverlayAllowed, setChildOverlayAllowed] = useState(true);
+
+  const checkChildOverlayPermission = React.useCallback(async () => {
+    console.log("Checking child overlay permission...");
+    console.log("Platform:", Platform.OS);
+
+    if (Platform.OS !== "android") {
+      setChildOverlayAllowed(true);
+      return true;
+    }
+
+    try {
+      const allowed = await FocusAlertModule.canDrawOverlays();
+      console.log("Overlay permission allowed:", allowed);
+      setChildOverlayAllowed(Boolean(allowed));
+      return Boolean(allowed);
+    } catch (error) {
+      console.warn("Failed to check child overlay permission:", error);
+      setChildOverlayAllowed(false);
+      return false;
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (selectedRole !== "child") {
+      setChildOverlayAllowed(true);
+      return;
+    }
+
+    checkChildOverlayPermission();
+
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        checkChildOverlayPermission();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [selectedRole, checkChildOverlayPermission]);
+
+  const handleRequestChildOverlayPermission = async () => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+
+    try {
+      await FocusAlertModule.requestOverlayPermission();
+    } catch (error) {
+      console.warn("Failed to open overlay permission settings:", error);
+      Alert.alert(
+        "Permission unavailable",
+        "Could not open the overlay permission settings. Please enable Display over other apps manually from Android Settings.",
+      );
+    }
+  };
 
   const handleContinueToRoom = async () => {
     if (!selectedRole) return;
@@ -73,6 +131,7 @@ export default function DeviceSetupScreen({
       }
     } else {
       setRoomCode("");
+      checkChildOverlayPermission();
     }
 
     setStage("room-setup");
@@ -106,7 +165,7 @@ export default function DeviceSetupScreen({
     const roomSnap = await getDoc(roomRef);
     return roomSnap.exists();
   };
-  
+
   const handleCompleteSetup = async () => {
     const normalizedRoomCode = roomCode.trim().toUpperCase();
 
@@ -124,13 +183,14 @@ export default function DeviceSetupScreen({
           if (!existingRoom) {
             Alert.alert(
               "Room Not Found",
-              "Please Check the room code and try again.",
+              "Please check the room code and try again.",
             );
             return;
           }
         } else {
           await createParentRoomIfNeeded(normalizedRoomCode);
         }
+
         onSetupComplete(selectedRole, normalizedRoomCode);
         return;
       }
@@ -141,6 +201,27 @@ export default function DeviceSetupScreen({
         Alert.alert(
           "Room not found",
           "Please check the room code shown on the parent device and try again.",
+        );
+        return;
+      }
+
+      const overlayAllowed = await checkChildOverlayPermission();
+
+      if (Platform.OS === "android" && !overlayAllowed) {
+        Alert.alert(
+          "Attention alerts need permission",
+          "To show messages over other apps, please allow Display over other apps before completing child setup.",
+          [
+            {
+              text: "Enable permission",
+              onPress: handleRequestChildOverlayPermission,
+            },
+            {
+              text: "Continue anyway",
+              style: "cancel",
+              onPress: () => onSetupComplete(selectedRole, normalizedRoomCode),
+            },
+          ],
         );
         return;
       }
@@ -193,7 +274,10 @@ export default function DeviceSetupScreen({
                 styles.roleButton,
                 selectedRole === "child" && styles.roleButtonSelected,
               ]}
-              onPress={() => setSelectedRole("child")}
+              onPress={() => {
+                setSelectedRole("child");
+                checkChildOverlayPermission();
+              }}
             >
               <Text style={styles.roleButtonEmoji}>👦</Text>
               <Text style={styles.roleButtonTitle}>Child Device</Text>
@@ -227,6 +311,29 @@ export default function DeviceSetupScreen({
                 : "Enter the code shown on the parent device"}
             </Text>
           </View>
+
+          {selectedRole === "child" &&
+          Platform.OS === "android" &&
+          !childOverlayAllowed ? (
+            <View style={styles.panelCard}>
+              <Text style={styles.sectionLabel}>
+                Attention alerts need permission
+              </Text>
+              <Text style={styles.inputHint}>
+                To show messages over other apps, please allow Display over
+                other apps for this child device.
+              </Text>
+
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={handleRequestChildOverlayPermission}
+              >
+                <Text style={styles.secondaryButtonText}>
+                  Enable overlay permission
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           <View style={styles.panelCard}>
             <Text style={styles.sectionLabel}>Room Code</Text>
@@ -267,6 +374,7 @@ export default function DeviceSetupScreen({
                 </TouchableOpacity>
               </View>
             ) : null}
+
             <TextInput
               autoCapitalize="characters"
               autoCorrect={false}
@@ -297,7 +405,11 @@ export default function DeviceSetupScreen({
             </TouchableOpacity>
 
             <TouchableOpacity
-              disabled={isCheckingRoom || ((selectedRole === "child" || useExistingRoom) && !roomCode.trim())}
+              disabled={
+                isCheckingRoom ||
+                ((selectedRole === "child" || useExistingRoom) &&
+                  !roomCode.trim())
+              }
               style={[
                 styles.primaryButton,
                 (!roomCode.trim() || isCheckingRoom) &&

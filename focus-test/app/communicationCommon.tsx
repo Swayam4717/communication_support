@@ -955,6 +955,24 @@ selectedBadgeText: {
     gap: 10,
     marginBottom: 40,
   },
+  roomCodeActionRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 8,
+  },
+  roomCodeCopyButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "#F1E5DA",
+    borderWidth: 1,
+    borderColor: "#E0CBB8",
+  },
+  roomCodeCopyButtonText: {
+    color: "#8A5E3C",
+    fontSize: 12,
+    fontWeight: "800",
+  },
 });
 
 export default null;

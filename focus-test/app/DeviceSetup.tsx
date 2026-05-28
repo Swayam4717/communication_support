@@ -13,6 +13,7 @@ import FocusAlertModule from "../modules/focus-alert";
 import { styles } from "./communicationCommon";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "./communicationHelpers";
+import * as Clipboard from "expo-clipboard";
 
 interface DeviceSetupProps {
   onSetupComplete: (role: "parent" | "child", roomId: string) => void;
@@ -139,6 +140,19 @@ export default function DeviceSetupScreen({
 
   const handleRoomCodeChange = (value: string) => {
     setRoomCode(value.trim().toUpperCase());
+  };
+  const handleCopyRoomCode = async () => {
+    const normalizedRoomCode = roomCode.trim().toUpperCase();
+
+    if (!normalizedRoomCode) {
+      Alert.alert("No room code", "There is no room code to copy.");
+      return;
+    }
+    await Clipboard.setStringAsync(normalizedRoomCode);
+    Alert.alert(
+      "Room code copied",
+      "The room code has been copied to clipboard.",
+    );
   };
 
   const createParentRoomIfNeeded = async (normalizedRoomCode: string) => {
@@ -387,6 +401,16 @@ export default function DeviceSetupScreen({
               value={roomCode}
               onChangeText={handleRoomCodeChange}
             />
+            {selectedRole === "parent" && roomCode.trim() ? (
+              <View style={styles.roomCodeActionRow}>
+                <TouchableOpacity
+                  style={styles.roomCodeCopyButton}
+                  onPress={handleCopyRoomCode}
+                >
+                  <Text style={styles.roomCodeCopyButtonText}>Copy</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
 
             <Text style={styles.inputHint}>
               {selectedRole === "parent"

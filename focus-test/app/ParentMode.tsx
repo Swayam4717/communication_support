@@ -90,6 +90,9 @@ export default function ParentModeScreen({
   );
 
   const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
+  const [activeParentTab, setActiveParentTab] = useState<"create" | "history">(
+    "create",
+  );
 
   React.useEffect(() => {
     const unsub = subscribeToSession((s) => setFireSession(s), roomId);
@@ -470,273 +473,325 @@ export default function ParentModeScreen({
             <Text style={styles.parentHeaderRoom}>
               Child: {isChildConnected ? "Connected" : "Not Connected"}
             </Text>
+            
           </View>
-
           <TouchableOpacity style={styles.resetButton} onPress={onResetSetup}>
             <Text style={styles.resetButtonText}>Reset</Text>
           </TouchableOpacity>
+          
         </View>
-
-        <View style={styles.parentStatusSection}>
-          <Text style={styles.parentStatusLabel}>Child&apos;s response</Text>
-
-          {selectedAnswer ? (
-            <View style={styles.parentStatusActive}>
-              <Text style={styles.parentStatusEmoji}>
-                {selectedAnswer.emoji ?? ""}
-              </Text>
-
-              <View style={styles.parentStatusContent}>
-                <Text style={styles.parentStatusValue}>
-                  {selectedAnswer.label}
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.parentStatusInactive}>
-              <Text style={styles.parentStatusPlaceholder}>
-                Waiting for response...
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.parentBuildSection}>
-          <View style={styles.parentSectionHeader}>
-            <Text style={styles.parentSectionTitle}>Create a session</Text>
-            {sentSession && <Text style={styles.parentSectionBadge}>Live</Text>}
-          </View>
-
-          <View style={styles.parentInputGroup}>
-            <Text style={styles.parentInputLabel}>Quick templates</Text>
-
-            <View style={styles.templateChipRow}>
-              <TouchableOpacity
-                style={styles.previewToggleButton}
-                onPress={() => onApplyTemplate("food")}
-              >
-                <Text style={styles.previewToggleText}>Food</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.previewToggleButton}
-                onPress={() => onApplyTemplate("feelings")}
-              >
-                <Text style={styles.previewToggleText}>Feelings</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.previewToggleButton}
-                onPress={() => onApplyTemplate("activities")}
-              >
-                <Text style={styles.previewToggleText}>Activities</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.previewToggleButton}
-                onPress={() => onApplyTemplate("yesNo")}
-              >
-                <Text style={styles.previewToggleText}>Yes / No</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              disabled={isImageWorkInProgress}
-              style={[
-                styles.parentGenerateVisualsButton,
-                isImageWorkInProgress &&
-                  styles.primaryButtonDisabled,
-              ]}
-              onPress={handleGenerateVisuals}
-            >
-              <Text style={styles.parentGenerateVisualsButtonText}>
-                {isGeneratingVisuals
-                  ? "Generating visuals..."
-                  : "Generate visuals"}
-              </Text>
-            </TouchableOpacity>
-
-            <Text style={styles.generateVisualsHint}>
-              Symbols and Emoji are tried first. AI works better for concrete objects.
-            </Text>
-          </View>
-
-          <View style={styles.parentInputGroup}>
-            <Text style={styles.parentInputLabel}>Question</Text>
-
-            <TextInput
-              accessibilityLabel="Question text"
-              cursorColor="#A97E57"
-              placeholder="Ask a calm question..."
-              placeholderTextColor="#D4C4B8"
-              selectionColor="#D8B48F"
-              style={styles.parentQuestionInput}
-              value={question}
-              onChangeText={onQuestionChange}
-              multiline
-            />
-          </View>
-
-          <View style={styles.parentInputGroup}>
-            <Text style={styles.parentInputLabel}>Answer options</Text>
-            <Text style={styles.parentOptionsHint}>
-              Add Images only when needed. Visuals can also be generatedautomatically.
-            </Text>
-            <View style={styles.parentOptionsList}>
-              {optionLabels.map((label, index) => {
-                const visualRemoved = removedVisualIndexes.has(index);
-                const hasImage = !!optionImageUrls[index] && !visualRemoved;
-                const hasResolvedVisual =
-                  !!resolvedOptions?.[index]?.imageUrl ||
-                  !!resolvedOptions?.[index]?.emoji;
-                const hasAnyVisual =
-                  !visualRemoved && (hasImage || hasResolvedVisual);
-                const isUploading = uploadingImageIndex === index;
-
-                return (
-                  <View
-                    key={`draft-${index}`}
-                    style={styles.parentOptionCompactRow}
-                  >
-                    <View style={styles.parentOptionIndexBadge}>
-                      <View style={styles.parentOptionIndexInner}>
-                        <Text style={styles.parentOptionIndexText}>
-                          {index + 1}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <TextInput
-                      accessibilityLabel={`Option ${index + 1} label`}
-                      cursorColor="#A97E57"
-                      placeholder={`Option ${index + 1}`}
-                      placeholderTextColor="#D4C4B8"
-                      selectionColor="#D8B48F"
-                      style={styles.parentOptionCompactInput}
-                      value={label}
-                      onChangeText={(value) =>
-                        onOptionLabelChange(index, value)
-                      }
-                    />
-
-                    <View style={styles.parentOptionCompactActions}>
-                      <TouchableOpacity
-                        style={[
-                          styles.parentMiniImageButton,
-                          hasAnyVisual && styles.parentMiniImageButtonReady,
-                        ]}
-                        onPress={() => showImageSourceMenu(index)}
-                        disabled={isUploading}
-                      >
-                        <Text style={styles.parentMiniImageButtonText}>
-                          {isUploading
-                            ? "..."
-                            : hasAnyVisual
-                              ? "Change"
-                              : "Add"}
-                        </Text>
-                      </TouchableOpacity>
-
-                      {hasAnyVisual ? (
-                        <TouchableOpacity
-                          style={styles.parentMiniImageRemoveButton}
-                          onPress={() => handleRemoveVisual(index)}
-                          disabled={isUploading}
-                        >
-                          <Text style={styles.parentMiniImageRemoveButtonText}>
-                            Remove
-                          </Text>
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-
-          <View style={styles.parentPreviewToggle}>
-            <TouchableOpacity
-              style={styles.previewToggleButton}
-              onPress={onPreviewToggle}
-            >
-              <Text style={styles.previewToggleText}>
-                {showPreview ? "Hide preview" : "Preview"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {showPreview ? (
-            <View style={styles.parentPreviewBox}>
-              <Text style={styles.parentPreviewTitle}>
-                {previewSession.title || "Your question"}
-              </Text>
-
-              <View style={styles.parentPreviewGrid}>
-                {previewSession.options.map((option) => (
-                  <OptionCard
-                    key={option.id}
-                    option={option}
-                    compact
-                    disabled
-                  />
-                ))}
-              </View>
-            </View>
-          ) : null}
-        </View>
-
-        <View style={styles.parentActionSection}>
+        <View style={styles.parentTabRow}>
           <TouchableOpacity
-            disabled={isImageWorkInProgress}
             style={[
-              styles.primaryButton,
-              isImageWorkInProgress && styles.primaryButtonDisabled,
+              styles.parentTabButton,
+              activeParentTab === "create" && styles.parentTabButtonActive,
             ]}
-            onPress={handleSend}
+            onPress={() => setActiveParentTab("create")}
           >
-            <Text style={styles.primaryButtonText}>
-              {isImageWorkInProgress
-                ? "Generating Visuals..."
-                : isUploadingImage
-                  ? "Uploading Image..."
-                  : "Send To Child"}
+            <Text
+              style={[
+                styles.parentTabButtonText,
+                activeParentTab === "create" &&
+                  styles.parentTabButtonTextActive,
+              ]}
+            >
+              Create
             </Text>
           </TouchableOpacity>
 
-          {sentSession && (
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={handleReset}
+          <TouchableOpacity
+            style={[
+              styles.parentTabButton,
+              activeParentTab === "history" && styles.parentTabButtonActive,
+            ]}
+            onPress={() => setActiveParentTab("history")}
+          >
+            <Text
+              style={[
+                styles.parentTabButtonText,
+                activeParentTab === "history" &&
+                  styles.parentTabButtonTextActive,
+              ]}
             >
-              <Text style={styles.secondaryButtonText}>Clear session</Text>
-            </TouchableOpacity>
-          )}
+              History
+            </Text>
+          </TouchableOpacity>
         </View>
+        {activeParentTab === "create" ? (
+          <>
+            <View style={styles.parentStatusSection}>
+              <Text style={styles.parentStatusLabel}>
+                Child&apos;s response
+              </Text>
 
-        <View style={styles.parentStatusSection}>
-          <Text style={styles.parentStatusLabel}>Recent history</Text>
+              {selectedAnswer ? (
+                <View style={styles.parentStatusActive}>
+                  <Text style={styles.parentStatusEmoji}>
+                    {selectedAnswer.emoji ?? ""}
+                  </Text>
 
-          {sessionHistory.length > 0 ? (
-            sessionHistory.map((item) => (
-              <View key={item.id} style={styles.parentStatusInactive}>
-                <Text style={styles.parentStatusPlaceholder}>
-                  {item.question}
-                </Text>
-                <Text style={styles.parentStatusValue}>
-                  {item.answerEmoji ? `${item.answerEmoji} ` : ""}
-                  {item.answer}
+                  <View style={styles.parentStatusContent}>
+                    <Text style={styles.parentStatusValue}>
+                      {selectedAnswer.label}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.parentStatusInactive}>
+                  <Text style={styles.parentStatusPlaceholder}>
+                    Waiting for response...
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.parentBuildSection}>
+              <View style={styles.parentSectionHeader}>
+                <Text style={styles.parentSectionTitle}>Create a session</Text>
+                {sentSession && (
+                  <Text style={styles.parentSectionBadge}>Live</Text>
+                )}
+              </View>
+
+              <View style={styles.parentInputGroup}>
+                <Text style={styles.parentInputLabel}>Quick templates</Text>
+
+                <View style={styles.templateChipRow}>
+                  <TouchableOpacity
+                    style={styles.previewToggleButton}
+                    onPress={() => onApplyTemplate("food")}
+                  >
+                    <Text style={styles.previewToggleText}>Food</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.previewToggleButton}
+                    onPress={() => onApplyTemplate("feelings")}
+                  >
+                    <Text style={styles.previewToggleText}>Feelings</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.previewToggleButton}
+                    onPress={() => onApplyTemplate("activities")}
+                  >
+                    <Text style={styles.previewToggleText}>Activities</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.previewToggleButton}
+                    onPress={() => onApplyTemplate("yesNo")}
+                  >
+                    <Text style={styles.previewToggleText}>Yes / No</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  disabled={isImageWorkInProgress}
+                  style={[
+                    styles.parentGenerateVisualsButton,
+                    isImageWorkInProgress && styles.primaryButtonDisabled,
+                  ]}
+                  onPress={handleGenerateVisuals}
+                >
+                  <Text style={styles.parentGenerateVisualsButtonText}>
+                    {isGeneratingVisuals
+                      ? "Generating visuals..."
+                      : "Generate visuals"}
+                  </Text>
+                </TouchableOpacity>
+
+                <Text style={styles.generateVisualsHint}>
+                  Symbols and Emoji are tried first. AI works better for
+                  concrete objects.
                 </Text>
               </View>
-            ))
-          ) : (
-            <View style={styles.parentStatusInactive}>
-              <Text style={styles.parentStatusPlaceholder}>
-                No previous responses yet.
-              </Text>
+
+              <View style={styles.parentInputGroup}>
+                <Text style={styles.parentInputLabel}>Question</Text>
+
+                <TextInput
+                  accessibilityLabel="Question text"
+                  cursorColor="#A97E57"
+                  placeholder="Ask a calm question..."
+                  placeholderTextColor="#D4C4B8"
+                  selectionColor="#D8B48F"
+                  style={styles.parentQuestionInput}
+                  value={question}
+                  onChangeText={onQuestionChange}
+                  multiline
+                />
+              </View>
+
+              <View style={styles.parentInputGroup}>
+                <Text style={styles.parentInputLabel}>Answer options</Text>
+                <Text style={styles.parentOptionsHint}>
+                  Add Images only when needed. Visuals can also be
+                  generatedautomatically.
+                </Text>
+                <View style={styles.parentOptionsList}>
+                  {optionLabels.map((label, index) => {
+                    const visualRemoved = removedVisualIndexes.has(index);
+                    const hasImage = !!optionImageUrls[index] && !visualRemoved;
+                    const hasResolvedVisual =
+                      !!resolvedOptions?.[index]?.imageUrl ||
+                      !!resolvedOptions?.[index]?.emoji;
+                    const hasAnyVisual =
+                      !visualRemoved && (hasImage || hasResolvedVisual);
+                    const isUploading = uploadingImageIndex === index;
+
+                    return (
+                      <View
+                        key={`draft-${index}`}
+                        style={styles.parentOptionCompactRow}
+                      >
+                        <View style={styles.parentOptionIndexBadge}>
+                          <View style={styles.parentOptionIndexInner}>
+                            <Text style={styles.parentOptionIndexText}>
+                              {index + 1}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <TextInput
+                          accessibilityLabel={`Option ${index + 1} label`}
+                          cursorColor="#A97E57"
+                          placeholder={`Option ${index + 1}`}
+                          placeholderTextColor="#D4C4B8"
+                          selectionColor="#D8B48F"
+                          style={styles.parentOptionCompactInput}
+                          value={label}
+                          onChangeText={(value) =>
+                            onOptionLabelChange(index, value)
+                          }
+                        />
+
+                        <View style={styles.parentOptionCompactActions}>
+                          <TouchableOpacity
+                            style={[
+                              styles.parentMiniImageButton,
+                              hasAnyVisual && styles.parentMiniImageButtonReady,
+                            ]}
+                            onPress={() => showImageSourceMenu(index)}
+                            disabled={isUploading}
+                          >
+                            <Text style={styles.parentMiniImageButtonText}>
+                              {isUploading
+                                ? "..."
+                                : hasAnyVisual
+                                  ? "Change"
+                                  : "Add"}
+                            </Text>
+                          </TouchableOpacity>
+
+                          {hasAnyVisual ? (
+                            <TouchableOpacity
+                              style={styles.parentMiniImageRemoveButton}
+                              onPress={() => handleRemoveVisual(index)}
+                              disabled={isUploading}
+                            >
+                              <Text
+                                style={styles.parentMiniImageRemoveButtonText}
+                              >
+                                Remove
+                              </Text>
+                            </TouchableOpacity>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.parentPreviewToggle}>
+                <TouchableOpacity
+                  style={styles.previewToggleButton}
+                  onPress={onPreviewToggle}
+                >
+                  <Text style={styles.previewToggleText}>
+                    {showPreview ? "Hide preview" : "Preview"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {showPreview ? (
+                <View style={styles.parentPreviewBox}>
+                  <Text style={styles.parentPreviewTitle}>
+                    {previewSession.title || "Your question"}
+                  </Text>
+
+                  <View style={styles.parentPreviewGrid}>
+                    {previewSession.options.map((option) => (
+                      <OptionCard
+                        key={option.id}
+                        option={option}
+                        compact
+                        disabled
+                      />
+                    ))}
+                  </View>
+                </View>
+              ) : null}
             </View>
-          )}
-        </View>
+
+            <View style={styles.parentActionSection}>
+              <TouchableOpacity
+                disabled={isImageWorkInProgress}
+                style={[
+                  styles.primaryButton,
+                  isImageWorkInProgress && styles.primaryButtonDisabled,
+                ]}
+                onPress={handleSend}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {isImageWorkInProgress
+                    ? "Generating Visuals..."
+                    : isUploadingImage
+                      ? "Uploading Image..."
+                      : "Send To Child"}
+                </Text>
+              </TouchableOpacity>
+
+              {sentSession && (
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={handleReset}
+                >
+                  <Text style={styles.secondaryButtonText}>Clear session</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </>
+        ) : null}
+        {activeParentTab === "history" ? (
+          <View style={styles.parentStatusSection}>
+            <Text style={styles.parentStatusLabel}>Recent history</Text>
+
+            {sessionHistory.length > 0 ? (
+              sessionHistory.map((item) => (
+                <View key={item.id} style={styles.historyCard}>
+                  <Text style={styles.historyAnswer}>
+                    {item.answerEmoji ? `${item.answerEmoji} ` : ""}
+                    {item.answer}
+                  </Text>
+
+                  <Text style={styles.historyQuestion}>{item.question}</Text>
+
+                  <Text style={styles.historyTime}>
+                    {new Date(item.createdAt).toLocaleString()}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.historyEmptyCard}>
+                <Text style={styles.historyEmptyText}>
+                  No previous responses yet.
+                </Text>
+              </View>
+            )}
+          </View>
+        ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );

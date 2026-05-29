@@ -886,7 +886,7 @@ export const styles = StyleSheet.create({
     gap: 4,
   },
 
-  parentMiniImageButtion: {
+  parentMiniImageButton: {
     minWidth: 32,
     alignItems: "center",
     justifyContent: "center",
@@ -1053,6 +1053,81 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 6,
+  },
+
+  parentTabRow: {
+    flexDirection: "row",
+    backgroundColor: "#EFE4D8",
+    borderRadius: 18,
+    padding: 4,
+    marginBottom: 20,
+  },
+
+  parentTabButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+    paddingVertical: 10,
+  },
+
+  parentTabButtonActive: {
+    backgroundColor: "#FFFFFF",
+  },
+
+  parentTabButtonText: {
+    color: "#7D6E66",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  parentTabButtonTextActive: {
+    color: "#2B1D18",
+  },
+
+  historyCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E5D8CF",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 10,
+  },
+
+  historyAnswer: {
+    color: "#2B1D18",
+    fontSize: 18,
+    fontWeight: "900",
+    marginBottom: 4,
+  },
+
+  historyQuestion: {
+    color: "#6F5D52",
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+
+  historyTime: {
+    color: "#A8978B",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  historyEmptyCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E5D8CF",
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+  },
+
+  historyEmptyText: {
+    color: "#7D6E66",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });
 

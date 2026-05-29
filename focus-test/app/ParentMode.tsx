@@ -627,8 +627,9 @@ export default function ParentModeScreen({
                 <Text style={styles.parentInputLabel}>Answer options</Text>
                 <Text style={styles.parentOptionsHint}>
                   Add Images only when needed. Visuals can also be
-                  generatedautomatically.
+                  generated automatically.
                 </Text>
+                
                 <View style={styles.parentOptionsList}>
                   {optionLabels.map((label, index) => {
                     const visualRemoved = removedVisualIndexes.has(index);

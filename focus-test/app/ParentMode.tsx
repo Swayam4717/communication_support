@@ -77,9 +77,9 @@ export default function ParentModeScreen({
     optionLabels.map(() => ""),
   );
 
-  const [resolvedOptions, setResolvedOptions] = useState<SessionOption[] | null>(
-    null,
-  );
+  const [resolvedOptions, setResolvedOptions] = useState<
+    SessionOption[] | null
+  >(null);
 
   const [removedVisualIndexes, setRemovedVisualIndexes] = useState<Set<number>>(
     new Set(),
@@ -308,31 +308,33 @@ export default function ParentModeScreen({
   const isUploadingImage = uploadingImageIndex !== null;
   const isImageWorkInProgress = isUploadingImage || isGeneratingVisuals;
   const showMessage = (title: string, message: string) => {
-    if (Platform.OS === "web" && typeof window !== "undefined"){
+    if (Platform.OS === "web" && typeof window !== "undefined") {
       window.alert(`${title}\n\n${message}`);
       return;
     }
     Alert.alert(title, message);
-  }
+  };
 
   const handleGenerateVisuals = async () => {
     if (isImageWorkInProgress) {
       return;
     }
-    const cleanedLabels = optionLabels.map((label) => label.trim()).filter(Boolean);
-    if (cleanedLabels.length === 0){
+    const cleanedLabels = optionLabels
+      .map((label) => label.trim())
+      .filter(Boolean);
+    if (cleanedLabels.length === 0) {
       showMessage(
         "Add options First",
-        "Please enter at least one option before generating visuals"
+        "Please enter at least one option before generating visuals",
       );
       return;
     }
 
     const tooLongLabel = cleanedLabels.find((label) => label.length > 60);
-    if(tooLongLabel){
+    if (tooLongLabel) {
       showMessage(
         "Option too long",
-        "Please keep each option under 60 characters for clear visuals."
+        "Please keep each option under 60 characters for clear visuals.",
       );
       return;
     }
@@ -579,7 +581,9 @@ export default function ParentModeScreen({
 
           <View style={styles.parentInputGroup}>
             <Text style={styles.parentInputLabel}>Answer options</Text>
-
+            <Text style={styles.parentOptionsHint}>
+              Add Images only when needed. Visuals can also be generatedautomatically.
+            </Text>
             <View style={styles.parentOptionsList}>
               {optionLabels.map((label, index) => {
                 const visualRemoved = removedVisualIndexes.has(index);
@@ -592,7 +596,10 @@ export default function ParentModeScreen({
                 const isUploading = uploadingImageIndex === index;
 
                 return (
-                  <View key={`draft-${index}`} style={styles.parentOptionRow}>
+                  <View
+                    key={`draft-${index}`}
+                    style={styles.parentOptionCompactRow}
+                  >
                     <View style={styles.parentOptionIndexBadge}>
                       <View style={styles.parentOptionIndexInner}>
                         <Text style={styles.parentOptionIndexText}>
@@ -601,57 +608,48 @@ export default function ParentModeScreen({
                       </View>
                     </View>
 
-                    <View style={styles.parentOptionInputStack}>
-                      <TextInput
-                        accessibilityLabel={`Option ${index + 1} label`}
-                        cursorColor="#A97E57"
-                        placeholder={`Option ${index + 1}`}
-                        placeholderTextColor="#D4C4B8"
-                        selectionColor="#D8B48F"
-                        style={styles.parentOptionInput}
-                        value={label}
-                        onChangeText={(value) =>
-                          onOptionLabelChange(index, value)
-                        }
-                      />
+                    <TextInput
+                      accessibilityLabel={`Option ${index + 1} label`}
+                      cursorColor="#A97E57"
+                      placeholder={`Option ${index + 1}`}
+                      placeholderTextColor="#D4C4B8"
+                      selectionColor="#D8B48F"
+                      style={styles.parentOptionCompactInput}
+                      value={label}
+                      onChangeText={(value) =>
+                        onOptionLabelChange(index, value)
+                      }
+                    />
 
-                      <View style={styles.parentImageActionRow}>
+                    <View style={styles.parentOptionCompactActions}>
+                      <TouchableOpacity
+                        style={[
+                          styles.parentMiniImageButton,
+                          hasAnyVisual && styles.parentMiniImageButtonReady,
+                        ]}
+                        onPress={() => showImageSourceMenu(index)}
+                        disabled={isUploading}
+                      >
+                        <Text style={styles.parentMiniImageButtonText}>
+                          {isUploading
+                            ? "..."
+                            : hasAnyVisual
+                              ? "Change"
+                              : "Add"}
+                        </Text>
+                      </TouchableOpacity>
+
+                      {hasAnyVisual ? (
                         <TouchableOpacity
-                          style={styles.parentImageButton}
-                          onPress={() => showImageSourceMenu(index)}
+                          style={styles.parentMiniRemoveButton}
+                          onPress={() => handleRemoveVisual(index)}
                           disabled={isUploading}
                         >
-                          <Text style={styles.parentImageButtonText}>
-                            {isUploading
-                              ? "Uploading..."
-                              : hasImage
-                                ? "Change image"
-                                : "Add image"}
+                          <Text style={styles.parentMiniRemoveButtonText}>
+                            Remove
                           </Text>
                         </TouchableOpacity>
-
-                        {hasAnyVisual ? (
-                          <TouchableOpacity
-                            style={styles.parentRemoveVisualButton}
-                            onPress={() => handleRemoveVisual(index)}
-                            disabled={isUploading}
-                          >
-                            <Text style={styles.parentRemoveVisualText}>
-                              Remove visual
-                            </Text>
-                          </TouchableOpacity>
-                        ) : null}
-                      </View>
-
-                      <Text style={styles.parentImageStatusText}>
-                        {visualRemoved
-                          ? "No visual will be sent for this option."
-                          : hasImage
-                            ? "Image ready"
-                            : hasResolvedVisual
-                              ? "Generated visual ready"
-                              : "Tap Add image to use camera or gallery. A fallback visual may be used."}
-                      </Text>
+                      ) : null}
                     </View>
                   </View>
                 );

@@ -849,6 +849,74 @@ selectedBadgeText: {
     fontWeight: "500",
     paddingVertical: 4,
   },
+  parentOptionsHint: {
+    color: "#8A7566",
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: -2,
+  },
+
+  parentOptionCompactRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#FBF9F6",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E4D8CC",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 62,
+  },
+
+  parentOptionCompactInput : {
+    flex: 1,
+    minWidth: 0,
+    fontSize:16,
+    color: "#2B1D18",
+    fontWeight: "600",
+    paddingVertical:6,
+  },
+
+  parentOptionCompactActions: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+
+  parentMiniImageButtion: {
+    minWidth: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#F1E8DD",
+    borderWidth: 1,
+    borderColor: "#D4C4B8",
+  },
+
+  parentMiniImageButtonReady: {
+    backgroundColor: "#F5EBDD",
+    borderColor: "#C4A87A",
+  },
+
+  parentMiniImageButtonText: {
+    color: "705642",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+
+  parentMiniImageRemoveButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+
+  parentMiniImageRemoveButtonText: {
+    color: "#A65B4B",
+    fontSize: 11,
+    fontWeight: "700",
+  },
 
   parentImageActionRow: {
     flexDirection: "row",

@@ -360,7 +360,7 @@ export default function ParentModeScreen({
 
       showMessage(
         "Could not generate visuals",
-        "Something went wrong while generating visuals. Please try again.",
+        "The visual service has faced some difficulties. You can still send the session without the visuals, or add your own images from the gallery or camera.",
       );
     } finally {
       setIsGeneratingVisuals(false);

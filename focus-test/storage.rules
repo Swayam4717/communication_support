@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isImageUpload() {
+      return request.resource != null &&
+        request.resource.size < 5 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+
+    // Parent-uploaded option images.
+    // Prototype rule: readable so child device can display them.
+    // Uploads are limited to image files under 5MB.
+    match /option-images/{roomId}/{fileName} {
+      allow read: if true;
+      allow create: if isImageUpload();
+      allow update, delete: if false;
+    }
+
+    // AI-generated visuals should be written only by backend/Admin SDK.
+    match /generated_visuals/{fileName} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Deny everything else.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

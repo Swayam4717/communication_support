@@ -1,0 +1,33 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidRoomId(roomId) {
+      return roomId == "demo-room" ||
+        roomId.matches('^[A-Z]{3,10}-[0-9]{5}$');
+    }
+
+    // Room documents are still prototype-accessible by room code.
+    // This is not production-secure, but it limits access to expected room IDs.
+    match /rooms/{roomId} {
+      allow read, write: if isValidRoomId(roomId);
+
+      match /history/{historyId} {
+        allow read, write: if isValidRoomId(roomId);
+      }
+    }
+
+    // Global visual cache should be backend-controlled.
+    // Clients can read cached visuals if needed, but cannot poison/overwrite cache.
+    match /visualCache/{cacheId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

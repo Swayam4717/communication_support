@@ -510,7 +510,7 @@ export default function ParentModeScreen({
           <View style={styles.parentInputGroup}>
             <Text style={styles.parentInputLabel}>Quick templates</Text>
 
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            <View style={styles.templateChipRow}>
               <TouchableOpacity
                 style={styles.previewToggleButton}
                 onPress={() => onApplyTemplate("food")}
@@ -545,7 +545,7 @@ export default function ParentModeScreen({
               style={[
                 styles.parentGenerateVisualsButton,
                 isImageWorkInProgress &&
-                  styles.parentGenerateVisualsButtonDisabled,
+                  styles.primaryButtonDisabled,
               ]}
               onPress={handleGenerateVisuals}
             >
@@ -557,9 +557,7 @@ export default function ParentModeScreen({
             </TouchableOpacity>
 
             <Text style={styles.generateVisualsHint}>
-              Uses symbols first, then emoji. AI works best for concrete
-              objects; for abstract concepts, adding your own image may work
-              better.
+              Symbols and Emoji are tried first. AI works better for concrete objects.
             </Text>
           </View>
 
@@ -641,11 +639,11 @@ export default function ParentModeScreen({
 
                       {hasAnyVisual ? (
                         <TouchableOpacity
-                          style={styles.parentMiniRemoveButton}
+                          style={styles.parentMiniImageRemoveButton}
                           onPress={() => handleRemoveVisual(index)}
                           disabled={isUploading}
                         >
-                          <Text style={styles.parentMiniRemoveButtonText}>
+                          <Text style={styles.parentMiniImageRemoveButtonText}>
                             Remove
                           </Text>
                         </TouchableOpacity>

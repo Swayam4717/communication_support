@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { SafeAreaView, Button, Linking, Alert, TextInput, View } from "react-native";
+import {
+  SafeAreaView,
+  Button,
+  Linking,
+  Alert,
+  TextInput,
+  View,
+} from "react-native";
 import FocusAlert from "focus-alert";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ParentModeScreen from "./ParentMode";
@@ -27,7 +34,7 @@ type savedSessionTemplate = {
   question: string;
   options: string[];
   createdAt: number;
-}
+};
 
 const SAVED_TEMPLATES_STORAGE_KEY = "savedSessionTemplates";
 
@@ -70,7 +77,9 @@ export default function CommunicationMvpApp() {
     null,
   );
   const [templateVersion, setTemplateVersion] = useState(0);
-  const [savedTemplates, setSavedTemplates] = useState<savedSessionTemplate[]>([]);
+  const [savedTemplates, setSavedTemplates] = useState<savedSessionTemplate[]>(
+    [],
+  );
 
   // Load persisted setup on app launch
   useEffect(() => {
@@ -97,14 +106,16 @@ export default function CommunicationMvpApp() {
   useEffect(() => {
     const loadSavedTemplates = async () => {
       try {
-        const rawTemplates = await AsyncStorage.getItem(SAVED_TEMPLATES_STORAGE_KEY);
-        if(!rawTemplates) return;
+        const rawTemplates = await AsyncStorage.getItem(
+          SAVED_TEMPLATES_STORAGE_KEY,
+        );
+        if (!rawTemplates) return;
 
         const parsedTemplates = JSON.parse(rawTemplates);
-        if(Array.isArray(parsedTemplates)){
+        if (Array.isArray(parsedTemplates)) {
           setSavedTemplates(parsedTemplates);
         }
-      } catch(error){
+      } catch (error) {
         console.warn("Failed to load saved templates from AsyncStorage", error);
       }
     };
@@ -221,42 +232,62 @@ export default function CommunicationMvpApp() {
     setTemplateVersion((value) => value + 1);
   };
 
-  const persistSavedTemplate = async (nextTemplate: savedSessionTemplate[],) => {
+  const persistSavedTemplate = async (nextTemplate: savedSessionTemplate[]) => {
     setSavedTemplates(nextTemplate);
-    await AsyncStorage.setItem(SAVED_TEMPLATES_STORAGE_KEY, JSON.stringify(nextTemplate));
+    await AsyncStorage.setItem(
+      SAVED_TEMPLATES_STORAGE_KEY,
+      JSON.stringify(nextTemplate),
+    );
   };
 
-  const handleSaveCurrentTemplate = async (name: string) => {
-    const cleanedQuestion = draftQuestion.trim() || "Untitled Question";
-    const cleanedOptions = draftOptions.map((opt) => opt.trim());
+  const handleSaveCurrentTemplate = async (templateName?: string) => {
+    const cleanedQuestion = draftQuestion.trim() || "Untitled question";
+    const cleanedOptions = draftOptions.map((option) => option.trim());
 
-    if(cleanedOptions.every((option) => !option)) {
-      Alert.alert("Add options first", "Please add at least one option before saving the template." );
+    if (cleanedOptions.every((option) => !option)) {
+      Alert.alert(
+        "Add options first",
+        "Please add at least one option before saving a template.",
+      );
       return;
     }
-    const templateName = cleanedQuestion.length > 28 ? `${cleanedQuestion.slice(0,28)}...` : cleanedQuestion;
+
+    const cleanedTemplateName = templateName?.trim();
+
+    const fallbackName =
+      cleanedQuestion.length > 28
+        ? `${cleanedQuestion.slice(0, 28)}...`
+        : cleanedQuestion;
 
     const nextTemplate: savedSessionTemplate = {
       id: String(Date.now()),
-      name: templateName,
+      name: cleanedTemplateName || fallbackName,
       question: cleanedQuestion,
       options: cleanedOptions,
       createdAt: Date.now(),
     };
-    const nextTemplates = [nextTemplate, ...savedTemplates].slice(0,10); // Keep only the 10 most recent templates
-    try{
+
+    const nextTemplates = [nextTemplate, ...savedTemplates].slice(0, 10);
+
+    try {
       await persistSavedTemplate(nextTemplates);
 
-      Alert.alert("Template Saved", `Your template "${templateName}" has been saved.`);
-    }catch(error){
+      Alert.alert(
+        "Template saved",
+        "You can reuse this question and options from the Templates tab.",
+      );
+    } catch (error) {
       console.warn("Failed to save template", error);
-      Alert.alert("Save Failed", "An error occurred while saving your template. Please try again.");
+      Alert.alert(
+        "Could not save template",
+        "Something went wrong while saving this template.",
+      );
     }
   };
 
   const handleApplySavedTemplate = (templateId: string) => {
     const template = savedTemplates.find((item) => item.id === templateId);
-    if(!template) return;
+    if (!template) return;
     setDraftQuestion(template.question);
     setDraftOptions(template.options);
     setSentSession(null);
@@ -265,10 +296,12 @@ export default function CommunicationMvpApp() {
   };
 
   const handleDeleteSavedTemplate = async (templateId: string) => {
-    const nextTemplates = savedTemplates.filter((item) => item.id !== templateId);
-    try{
+    const nextTemplates = savedTemplates.filter(
+      (item) => item.id !== templateId,
+    );
+    try {
       await persistSavedTemplate(nextTemplates);
-    }catch (error){
+    } catch (error) {
       console.warn("Failed to delete template", error);
     }
   };

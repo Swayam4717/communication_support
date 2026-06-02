@@ -1255,6 +1255,83 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
   },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(43, 29, 24, 0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 22,
+  },
+
+  saveTemplateModalCard: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#E5D8CF",
+    paddingHorizontal: 20,
+    paddingVertical: 22,
+  },
+
+  saveTemplateModalTitle: {
+    color: "#2B1D18",
+    fontSize: 22,
+    fontWeight: "900",
+    marginBottom: 6,
+  },
+
+  saveTemplateModalSubtitle: {
+    color: "#7D6E66",
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: "600",
+    marginBottom: 16,
+  },
+
+  saveTemplateModalInput: {
+    borderWidth: 1,
+    borderColor: "#E5D8CF",
+    borderRadius: 16,
+    backgroundColor: "#FFFDFC",
+    color: "#2B1D18",
+    fontSize: 16,
+    fontWeight: "700",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 18,
+  },
+
+  saveTemplateModalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+  },
+
+  saveTemplateModalCancelButton: {
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: "#F5EEE8",
+  },
+
+  saveTemplateModalCancelText: {
+    color: "#7D6E66",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  saveTemplateModalSaveButton: {
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    backgroundColor: "#B9824F",
+  },
+
+  saveTemplateModalSaveText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "900",
+  },
 });
 
 export default null;

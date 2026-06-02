@@ -8,6 +8,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Modal,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import type {
@@ -53,7 +54,7 @@ interface ParentModeScreenProps {
   onResetSetup: () => void;
   onApplyTemplate: (templateId: sessionTemplateId) => void;
   onApplySavedTemplate: (templateId: string) => void;
-  onSaveCurrentTemplate: () => void;
+  onSaveCurrentTemplate: (templateName?: string) => void;
   onDeleteSavedTemplate: (templateId: string) => void;
   onClearSession: () => void;
 }
@@ -108,6 +109,10 @@ export default function ParentModeScreen({
   const [activeParentTab, setActiveParentTab] = useState<
     "create" | "history" | "templates"
   >("create");
+
+  const [isSavedTemplateModalVisible, setIsSavedTemplateModalVisible] =
+    useState(false);
+  const [templateNameInput, setTemplateNameInput] = useState("");
 
   React.useEffect(() => {
     const unsub = subscribeToSession((s) => setFireSession(s), roomId);
@@ -291,6 +296,23 @@ export default function ParentModeScreen({
     } finally {
       setUploadingImageIndex(null);
     }
+  };
+  const openSaveTemplateModal = () => {
+    const defaultName =
+      question.trim().length > 28
+        ? `${question.trim().slice(0, 28)}...`
+        : question.trim();
+    setTemplateNameInput(defaultName);
+    setIsSavedTemplateModalVisible(true);
+  };
+  const handleConfirmSaveTemplate = () => {
+    onSaveCurrentTemplate(templateNameInput);
+    setIsSavedTemplateModalVisible(false);
+    setTemplateNameInput("");
+  };
+  const handleCancelSaveTemplate = () => {
+    setIsSavedTemplateModalVisible(false);
+    setTemplateNameInput("");
   };
 
   const handleRemoveVisual = (index: number) => {
@@ -684,7 +706,7 @@ export default function ParentModeScreen({
 
                   <TouchableOpacity
                     style={styles.saveTemplateInlineButton}
-                    onPress={onSaveCurrentTemplate}
+                    onPress={openSaveTemplateModal}
                     disabled={isImageWorkInProgress}
                   >
                     <Text style={styles.saveTemplateInlineButtonText}>
@@ -979,6 +1001,48 @@ export default function ParentModeScreen({
           </>
         ) : null}
       </ScrollView>
+      <Modal
+        transparent
+        visible={isSavedTemplateModalVisible}
+        animationType="fade"
+        onRequestClose={handleCancelSaveTemplate}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.saveTemplateModalCard}>
+            <Text style={styles.saveTemplateModalTitle}>Save template</Text>
+
+            <Text style={styles.saveTemplateModalSubtitle}>
+              Give this set of question and options a name.
+            </Text>
+
+            <TextInput
+              cursorColor="#A97E57"
+              placeholder="Example: Dinner choices"
+              placeholderTextColor="#B8A89D"
+              selectionColor="#D8B48F"
+              style={styles.saveTemplateModalInput}
+              value={templateNameInput}
+              onChangeText={setTemplateNameInput}
+            />
+
+            <View style={styles.saveTemplateModalActions}>
+              <TouchableOpacity
+                style={styles.saveTemplateModalCancelButton}
+                onPress={handleCancelSaveTemplate}
+              >
+                <Text style={styles.saveTemplateModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.saveTemplateModalSaveButton}
+                onPress={handleConfirmSaveTemplate}
+              >
+                <Text style={styles.saveTemplateModalSaveText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }

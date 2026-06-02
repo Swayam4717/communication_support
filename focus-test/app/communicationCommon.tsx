@@ -775,7 +775,7 @@ export const styles = StyleSheet.create({
     borderColor: "#E5D8CF",
     paddingHorizontal: 18,
     paddingVertical: 20,
-    marginBottom: 24,
+    marginBottom: 14,
   },
   parentSectionHeader: {
     flexDirection: "row",
@@ -1028,8 +1028,9 @@ export const styles = StyleSheet.create({
     gap: 10,
   },
   parentActionSection: {
+    marginTop: 10,
     gap: 10,
-    marginBottom: 40,
+    marginBottom: 24,
   },
   roomCodeActionRow: {
     flexDirection: "row",
@@ -1055,41 +1056,14 @@ export const styles = StyleSheet.create({
     gap: 6,
   },
   savedTemplateSection: {
-    marginTop: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRadius: 16,
-    backgroundColor: "#FBF7F1",
-    borderWidth: 1,
-    borderColor: "#E8D8C8",
-  },
-
-  savedTemplateHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
+    marginTop: 12,
   },
 
   savedTemplateTitle: {
     color: "#2B1D18",
     fontSize: 13,
     fontWeight: "900",
-  },
-
-  saveTemplateButton: {
-    borderRadius: 999,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#D8BFA8",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-
-  saveTemplateButtonText: {
-    color: "#8A5E3C",
-    fontSize: 12,
-    fontWeight: "800",
+    marginBottom: 8,
   },
 
   savedTemplateEmptyText: {
@@ -1098,41 +1072,41 @@ export const styles = StyleSheet.create({
     lineHeight: 16,
   },
 
-  savedTemplateChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    maxWidth: "100%",
-    borderRadius: 999,
-    backgroundColor: "#FFFFFF",
+  savedTemplateSimpleChip: {
     borderWidth: 1,
-    borderColor: "#E0CBB8",
-    overflow: "hidden",
+    borderColor: "#DCCABE",
+    backgroundColor: "#FFFDFC",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    maxWidth: 160,
   },
 
-  savedTemplateChipMain: {
-    maxWidth: 220,
-    paddingLeft: 12,
-    paddingRight: 8,
-    paddingVertical: 8,
-  },
-
-  savedTemplateChipText: {
-    color: "#4A372F",
+  savedTemplateSimpleChipText: {
+    color: "#6F5D52",
     fontSize: 12,
     fontWeight: "800",
   },
-
-  savedTemplateDeleteButton: {
-    paddingHorizontal: 9,
-    paddingVertical: 8,
-    borderLeftWidth: 1,
-    borderLeftColor: "#E8D8C8",
-    backgroundColor: "#FFF7F2",
+  answerOptionsHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 6,
   },
 
-  savedTemplateDeleteText: {
-    color: "#A65B4B",
-    fontSize: 14,
+  saveTemplateInlineButton: {
+    borderWidth: 1,
+    borderColor: "#D6C3B4",
+    backgroundColor: "#FFFDFC",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+
+  saveTemplateInlineButtonText: {
+    color: "#705642",
+    fontSize: 12,
     fontWeight: "900",
   },
   parentTabRow: {

@@ -599,54 +599,28 @@ export default function ParentModeScreen({
                   </TouchableOpacity>
                 </View>
                 <View style={styles.savedTemplateSection}>
-                  <View style={styles.savedTemplateHeaderRow}>
-                    <Text style={styles.savedTemplateTitle}>
-                      Saved templates
-                    </Text>
-
-                    <TouchableOpacity
-                      style={styles.saveTemplateButton}
-                      onPress={onSaveCurrentTemplate}
-                    >
-                      <Text style={styles.saveTemplateButtonText}>
-                        Save current
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                  <Text style={styles.savedTemplateTitle}>My templates</Text>
 
                   {savedTemplates.length > 0 ? (
                     <View style={styles.templateChipRow}>
-                      {savedTemplates.map((template) => (
-                        <View
+                      {savedTemplates.slice(0, 3).map((template) => (
+                        <TouchableOpacity
                           key={template.id}
-                          style={styles.savedTemplateChip}
+                          style={styles.savedTemplateSimpleChip}
+                          onPress={() => onApplySavedTemplate(template.id)}
                         >
-                          <TouchableOpacity
-                            style={styles.savedTemplateChipMain}
-                            onPress={() => onApplySavedTemplate(template.id)}
+                          <Text
+                            style={styles.savedTemplateSimpleChipText}
+                            numberOfLines={1}
                           >
-                            <Text
-                              style={styles.savedTemplateChipText}
-                              numberOfLines={1}
-                            >
-                              {template.name}
-                            </Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            style={styles.savedTemplateDeleteButton}
-                            onPress={() => onDeleteSavedTemplate(template.id)}
-                          >
-                            <Text style={styles.savedTemplateDeleteText}>
-                              ×
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
+                            {template.name}
+                          </Text>
+                        </TouchableOpacity>
                       ))}
                     </View>
                   ) : (
                     <Text style={styles.savedTemplateEmptyText}>
-                      Save frequently used questions here.
+                      Saved templates will appear here.
                     </Text>
                   )}
                 </View>
@@ -688,9 +662,22 @@ export default function ParentModeScreen({
               </View>
 
               <View style={styles.parentInputGroup}>
-                <Text style={styles.parentInputLabel}>Answer options</Text>
+                <View style={styles.answerOptionsHeaderRow}>
+                  <Text style={styles.parentInputLabel}>Answer options</Text>
+
+                  <TouchableOpacity
+                    style={styles.saveTemplateInlineButton}
+                    onPress={onSaveCurrentTemplate}
+                    disabled={isImageWorkInProgress}
+                  >
+                    <Text style={styles.saveTemplateInlineButtonText}>
+                      Save template
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
                 <Text style={styles.parentOptionsHint}>
-                  Add Images only when needed. Visuals can also be generated
+                  Add images only when needed. Visuals can also be generated
                   automatically.
                 </Text>
 

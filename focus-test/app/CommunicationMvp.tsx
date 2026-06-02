@@ -285,7 +285,7 @@ export default function CommunicationMvpApp() {
     }
   };
 
-  const handleApplySavedTemplate = (templateId: string) => {
+  const handleApplySavedTemplate = async (templateId: string) => {
     const template = savedTemplates.find((item) => item.id === templateId);
     if (!template) return;
     setDraftQuestion(template.question);
@@ -293,6 +293,16 @@ export default function CommunicationMvpApp() {
     setSentSession(null);
     setShowPreview(true);
     setTemplateVersion((value) => value + 1);
+
+    const reorderedTemplates = [
+      template,
+      ...savedTemplates.filter((item) => item.id !== templateId),
+    ]
+    try{
+      await persistSavedTemplate(reorderedTemplates);
+    } catch (error) {
+      console.warn("Failed to reorder templates", error);
+    }
   };
 
   const handleDeleteSavedTemplate = async (templateId: string) => {

@@ -259,22 +259,32 @@ export default function CommunicationMvpApp() {
         ? `${cleanedQuestion.slice(0, 28)}...`
         : cleanedQuestion;
 
+    const finalTemplateName = cleanedTemplateName || fallbackName;
+
+    const existingTemplate = savedTemplates.find(
+      (template) =>
+        template.name.trim().toLowerCase() ===
+        finalTemplateName.trim().toLowerCase(),
+    );
+
     const nextTemplate: savedSessionTemplate = {
-      id: String(Date.now()),
-      name: cleanedTemplateName || fallbackName,
+      id: existingTemplate?.id ?? String(Date.now()),
+      name: finalTemplateName,
       question: cleanedQuestion,
       options: cleanedOptions,
-      createdAt: Date.now(),
+      createdAt: existingTemplate?.createdAt ?? Date.now(),
     };
 
-    const nextTemplates = [nextTemplate, ...savedTemplates].slice(0, 10);
-
+    const nextTemplates = [
+      nextTemplate,
+      ...savedTemplates.filter((template) => template.id !== nextTemplate.id),
+    ].slice(0, 10);
     try {
       await persistSavedTemplate(nextTemplates);
 
       Alert.alert(
-        "Template saved",
-        "You can reuse this question and options from the Templates tab.",
+        existingTemplate ? "Template updated" : "Template saved",
+        existingTemplate ? "The existing template has been updated and moved to the top" : "You can reuse this question and options from the Templates tab.",
       );
     } catch (error) {
       console.warn("Failed to save template", error);
@@ -297,8 +307,8 @@ export default function CommunicationMvpApp() {
     const reorderedTemplates = [
       template,
       ...savedTemplates.filter((item) => item.id !== templateId),
-    ]
-    try{
+    ];
+    try {
       await persistSavedTemplate(reorderedTemplates);
     } catch (error) {
       console.warn("Failed to reorder templates", error);

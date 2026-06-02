@@ -1,6 +1,6 @@
 # Communication Support
 
-A React Native + Expo prototype for calm, structured parent-child communication, with realtime sync, visual answer cards, layered visual retrieval, Firebase image storage, AI fallback generation, and Android focus alerts.
+A React Native + Expo prototype for calm, structured parent-child communication, with realtime sync, visual answer cards, layered visual retrieval, Firebase image storage, AI fallback generation, saved parent templates, browser-friendly parent mode, and Android focus alerts.
 
 ---
 
@@ -12,10 +12,12 @@ The system works through a parent device and a child device:
 
 - Parent creates a short question with visual answer options
 - Parent can add images to options using camera or gallery
+- Parent can generate visuals using a layered backend visual pipeline
+- Parent can save frequently used question/option sets as reusable templates
 - Child receives the prompt in realtime
 - Child selects one answer visually
 - Parent receives the selected answer immediately
-- Android devices can trigger focus alerts and overlays to capture attention even while other applications are open
+- Android child devices can trigger focus alerts and overlays to capture attention even while other applications are open
 
 The core goal is to support low-pressure communication through structured visual interaction and attention support mechanisms.
 
@@ -32,7 +34,14 @@ The core goal is to support low-pressure communication through structured visual
 - Camera/gallery image picker for parent option cards
 - Image-based child option cards
 - Emoji fallback when images are missing or fail to load
-- Quick session templates
+- Built-in quick session templates
+- Parent-saved custom templates
+- Custom template naming
+- Duplicate saved template names update the existing template instead of creating duplicates
+- Recently used templates appear first
+- Parent Mode Create / History / Templates tabs
+- Templates tab for built-in and saved template management
+- Browser-friendly centered Parent Mode layout for laptop/web use
 - Android overlay attention alerts
 - Firebase Cloud Messaging integration
 - Persistent device setup using AsyncStorage
@@ -40,7 +49,7 @@ The core goal is to support low-pressure communication through structured visual
 - Native Android attention routing
 - Background Firebase messaging support
 - Clear session support across Firestore and parent UI state
-- Send button guard while images are uploading
+- Send button guard while images are uploading or visuals are generating
 - Global visual retrieval cache using Firestore `visualCache`
 - OpenSymbols AAC pictogram retrieval
 - Commercial-safe symbol license filtering
@@ -50,21 +59,24 @@ The core goal is to support low-pressure communication through structured visual
 - Backend-only API key handling using Firebase Secrets
 - Future customer-provided AI API key hook
 - SVG visual support on native Android using WebView rendering
+- Pilot-safer Firestore security rules
+- Pilot-safer Firebase Storage security rules
 
 ---
 
 # Current Platform Support
 
-| Feature                         | Android | iOS        |
-| ------------------------------- | ------- | ---------- |
-| Parent Mode                     | Yes     | Yes        |
-| Child Mode                      | Yes     | Limited    |
-| Realtime Communication          | Yes     | Yes        |
-| Image Picker                    | Yes     | Yes        |
-| Firebase Storage Images         | Yes     | Yes        |
-| Overlay Attention Alerts        | Yes     | No         |
-| Full Attention Capture          | Yes     | No         |
-| Background Native Alert Routing | Yes     | No         |
+| Feature | Android | iOS | Web / Browser |
+|---|---:|---:|---:|
+| Parent Mode | Yes | Yes | Yes |
+| Child Mode | Yes | Limited | Limited |
+| Realtime Communication | Yes | Yes | Yes |
+| Image Picker | Yes | Yes | Yes |
+| Firebase Storage Images | Yes | Yes | Yes |
+| Saved Templates | Yes | Yes | Yes |
+| Overlay Attention Alerts | Yes | No | No |
+| Full Attention Capture | Yes | No | No |
+| Background Native Alert Routing | Yes | No | No |
 
 ---
 
@@ -98,7 +110,8 @@ The application:
 - Handles first-time setup flow
 - Routes user into Parent or Child mode
 - Stores draft question/options
-- Applies quick templates
+- Applies built-in quick templates
+- Loads and persists saved custom templates
 - Supports deep linking using:
 
 ```text
@@ -134,14 +147,17 @@ BLUE-48271
 Room pairing features:
 
 - Parent creates the room
+- Parent can copy the room code
 - Child joins using the parent room code
 - Room-code collision prevention
 - Firestore uniqueness validation
 - Child cannot create a new room by mistyping a code
 - Invalid child room codes show a “Room not found” message
+- Child setup checks Android overlay permission
+- Child setup can open Android “Display over other apps” settings
 - Setup is persisted using AsyncStorage
 
-This prevents accidental creation of fake Firestore rooms from child-side typos.
+This prevents accidental creation of fake Firestore rooms from child-side typos and makes the child attention-alert permission clearer during setup.
 
 ---
 
@@ -191,27 +207,42 @@ File:
 focus-test/app/ParentMode.tsx
 ```
 
+Parent Mode is organized into three tabs:
+
+```text
+Create
+History
+Templates
+```
+
+### Create Tab
+
+The Create tab is used to build and send a communication session.
+
 Responsibilities:
 
-- Create communication sessions
+- View child connection status
+- View the latest child response
 - Enter question/options
-- Apply quick templates
+- Apply built-in quick templates
+- Apply recently used saved templates
 - Add or change option images
 - Choose image source from camera or gallery
 - Upload selected images to Firebase Storage
+- Generate visuals through the backend visual pipeline
+- Remove unsuitable visuals from options
 - Preview the session before sending
+- Save the current question/options as a named custom template
 - Send session to child
-- View child response
-- View child connection status
 - Clear active session
 
-Current quick templates:
+Current built-in templates:
 
 ```text
 Food
 Feelings
 Activities
-Yes / No
+Yes/No
 ```
 
 Image flow:
@@ -225,7 +256,39 @@ Parent taps Add image
 → Child receives image card
 ```
 
-The Send button is disabled while an image upload is in progress to prevent incomplete sessions from being sent.
+The Send button is disabled while image upload or visual generation is in progress to prevent incomplete sessions from being sent.
+
+### History Tab
+
+The History tab shows recent child responses separately from the Create screen.
+
+Each history item includes:
+
+```text
+Selected answer
+Original question
+Timestamp
+```
+
+This keeps the parent creation flow shorter and avoids making the main screen too long on mobile.
+
+### Templates Tab
+
+The Templates tab allows the parent to reuse common question/answer sets.
+
+Supported behavior:
+
+- View built-in templates
+- View saved custom templates
+- Save current question/options as a named template
+- Apply saved templates
+- Delete saved templates
+- Recently used templates move to the top
+- Duplicate template names update the existing template instead of creating clutter
+- Create tab shows the most recently used saved templates for quick access
+- “View all” opens the full Templates tab
+
+Saved templates are currently stored locally using AsyncStorage. In a future production version, templates may be synced to authenticated parent accounts.
 
 ---
 
@@ -253,7 +316,8 @@ Child option card behavior:
 ```text
 If option.imageUrl works → show image
 If option.imageUrl fails → show emoji fallback
-If no imageUrl exists → show emoji fallback
+If no imageUrl exists → show emoji fallback if available
+If no visual exists → show text-only option card
 ```
 
 ---
@@ -271,9 +335,12 @@ Shared UI includes:
 
 - Reusable option cards
 - Image-ready card layout
+- Compact parent option rows
 - Compact parent preview cards
 - Large child-facing cards
 - Selected option checkmark
+- Create / History / Templates tab styles
+- Saved template UI styles
 - Calm visual styling
 - Shared screen layout styles
 
@@ -281,83 +348,131 @@ Shared UI includes:
 
 ## 7. Visual Retrieval and AI Fallback Pipeline
 
-The app now uses a layered visual retreival pipeline for option card visuals.
+The app uses a layered visual retrieval pipeline for option card visuals.
 
-Current Pipeline:
-```text 
+Current pipeline:
+
+```text
 Cache
--> OpenSymbols
--> Emoji API
--> Runware API fallback
--> Mock Fallback
-
-The design is retreival first
+→ OpenSymbols
+→ Emoji API
+→ Runware AI fallback
+→ Mock fallback
 ```
+
+The design is retrieval-first. AI generation is only used when cached visuals, OpenSymbols, and Emoji API do not provide a suitable result.
 
 ### Global Visual Cache
 
-Visual cache in Firestore using:
-> visualCache
+Visual cache is stored in Firestore using:
 
-Each cache may store: 
+```text
+visualCache
+```
+
+Each cache entry may store:
 
 - label
-- image Url
-- emoji 
-- source 
+- imageUrl
+- emoji
+- source
 - provider
 - license
-- license Url
+- licenseUrl
 - author
 - creation time
 - last used time
 - use count
 
-This allows retreived or generated visuals to be reussed globally instead of being fetched or generated repeatedly.
+This allows retrieved or generated visuals to be reused globally instead of being fetched or generated repeatedly.
 
-### Open Symbols Layer
+### OpenSymbols Layer
 
-OpenSymbols is used as the primary AAC-style pictogram source
+OpenSymbols is used as the primary AAC-style pictogram source.
 
-The backend filters symbol results to only allow comercially safer licenses such as:
- - CC0
- - CC BY
- - CC BY-SA
- 
-non commercial or no-deriviatves are blocked
+The backend filters symbol results to only allow commercially safer licenses such as:
 
-### Emoji API layer
+- CC0
+- CC BY
+- CC BY-SA
 
-If OpenSymbols doesnot return a suitable visual, the app falls back to the Emoji API.
-This layer is useful for simple concepts, common objects, emotions, apps, and device-related terms
+Non-commercial or no-derivatives licenses are blocked.
 
-### Runware AI Fallback Layer:
+### Emoji API Layer
 
-If both OpenSymbols and the Emoji API do not return a suitable visual, the backend calls Runware using `FLUX [KLEIN] 4b`
+If OpenSymbols does not return a suitable visual, the app falls back to the Emoji API.
 
-Runware is used only from the Firebase Cloud Functions. The API key is stored as a Firebase Secret and is never exposed to the frontend
+This layer is useful for simple concepts, common objects, emotions, apps, and device-related terms.
 
-Generated images are 
-``` text
+### Runware AI Fallback Layer
 
+If both OpenSymbols and the Emoji API do not return a suitable visual, the backend calls Runware using `FLUX KLEIN 4B`.
+
+Runware is used only from Firebase Cloud Functions. The API key is stored as a Firebase Secret and is never exposed to frontend code.
+
+Generated images are:
+
+```text
 Generated by Runware
--> downloaded by the backend
--> uploaded to the Firebase Storage
--> saved into visual cache
--> reused in future sessions
-
+→ downloaded by the backend
+→ uploaded to Firebase Storage
+→ saved into visualCache
+→ reused in future sessions
 ```
 
-This means each AI-generated visual only needs to be generated once, reducing the long term cost.
+This means each AI-generated visual only needs to be generated once, reducing long-term cost.
 
-The backend also includes a placeholder hook for future customer generated Runware/API keys. For now, this hook returns nothing and the system fallsback to the company Firebase Secret Key
+The backend also includes a placeholder hook for future customer-provided Runware/API keys. For now, this hook returns nothing and the system falls back to the company Firebase Secret key.
 
 ### Mock Fallback
 
-If all previous layers fail, the system uses default mock image fallback so the app can still return a usable visual response  
+If all previous layers fail, the system uses a default mock image fallback so the app can still return a usable visual response.
 
+Mock fallback visuals are treated as a safety net and should not be considered the main visual source.
 
-## 8. Native Android Focus Alert Module
+---
+
+## 8. Saved Templates
+
+Saved templates allow parents to reuse common communication sessions.
+
+Current behavior:
+
+```text
+Parent creates question/options
+→ Parent taps Save template
+→ Parent enters a template name
+→ Template is saved locally
+→ Template appears in Templates tab
+→ Parent can reuse or delete it later
+```
+
+Saved templates are stored using AsyncStorage.
+
+Template behavior:
+
+- Custom template names are supported
+- Duplicate names update the existing template
+- Recently used templates move to the top
+- Create tab shows the most recently used saved templates
+- Templates tab shows the full saved template list
+- Saved templates can be deleted from the Templates tab
+
+This feature is intended to support repeated real-world routines such as:
+
+```text
+Dinner choices
+Morning routine
+Going out options
+Calm-down choices
+Feeling check-in
+```
+
+Future production work may sync saved templates to parent accounts once authentication is added.
+
+---
+
+## 9. Native Android Focus Alert Module
 
 Local Expo module:
 
@@ -408,15 +523,15 @@ getFcmToken()
 
 ---
 
-## 8. Overlay Attention System
+## 10. Overlay Attention System
 
 The Android implementation supports:
 
-- Heads-up notifications
-- Full Screen Intents
 - Overlay alerts over external applications
 - Wake/attention behavior
 - Background Firebase message handling
+- Native Android lock-state detection
+- Deep link routing into the child alert flow
 
 Validated against:
 
@@ -424,8 +539,6 @@ Validated against:
 - Browser
 - Android settings
 - External applications
-
-The overlay currently covers approximately 80–90% of the device screen.
 
 Architecture rule:
 
@@ -435,6 +548,20 @@ Firestore = session state synchronization
 ```
 
 This avoids duplicate overlay triggers.
+
+Current main attention path:
+
+```text
+Child device unlocked
+→ Child is using another app
+→ Parent sends session
+→ Android receives FCM data message
+→ Native overlay appears
+→ Child taps Open message
+→ Child answers in app
+```
+
+Locked-device notification routing is not fully implemented yet and is lower priority because the primary use case is when the child is actively using the phone.
 
 ---
 
@@ -446,6 +573,7 @@ This avoids duplicate overlay triggers.
 - TypeScript
 - Expo Router
 - Expo Image Picker
+- Expo Clipboard
 - React Native WebView
 - Firebase Firestore
 - Firebase Storage
@@ -512,20 +640,19 @@ Restart Expo after changing environment variables.
 
 ## Firebase Cloud Function Secrets
 
-The backend visual pipeline uses Firebase secrets for third party API keys.
+The backend visual pipeline uses Firebase secrets for third-party API keys.
 
-Required secrets
+Required secrets:
 
-```TypeScript
+```text
 OPENSYMBOLS_SHARED_SECRET
 EMOJI_API_KEY
 RUNWARE_API_KEY
-
 ```
 
-Set Secrets using:
+Set secrets using:
 
-```bash 
+```bash
 firebase functions:secrets:set OPENSYMBOLS_SHARED_SECRET
 firebase functions:secrets:set EMOJI_API_KEY
 firebase functions:secrets:set RUNWARE_API_KEY
@@ -537,7 +664,53 @@ Deploy the visual generation function only using:
 firebase deploy --only functions:generateOptionVisuals
 ```
 
-The Runware API key is backend only and should never be stored in the frontend code or committed to Git
+The Runware API key is backend-only and should never be stored in frontend code or committed to Git.
+
+---
+
+# Firebase Security Rules
+
+The project includes pilot-safer Firestore and Storage rules.
+
+Local rule files:
+
+```text
+focus-test/firestore.rules
+focus-test/storage.rules
+```
+
+Configured in:
+
+```text
+focus-test/firebase.json
+```
+
+Current Firestore rule direction:
+
+- Rooms remain accessible by valid room-code format for prototype/pilot use
+- Room history follows room access
+- `visualCache` is readable by clients
+- Client writes to `visualCache` are blocked
+- Unknown collections are denied by default
+
+Current Storage rule direction:
+
+- Parent-uploaded option images are limited to image file uploads
+- Client update/delete access is blocked for uploaded option images
+- AI-generated visuals are readable by clients
+- Client writes to `generated_visuals` are blocked
+- Unknown Storage paths are denied by default
+
+These rules are safer than fully open development rules, but they are not final production rules. A production version should use Firebase Auth, parent/child ownership, and room membership checks.
+
+Deploy rules with:
+
+```bash
+firebase deploy --only firestore:rules
+firebase deploy --only storage
+```
+
+---
 
 # Run
 
@@ -571,21 +744,22 @@ Because this project uses a custom native Android module, Expo Go is not enough 
 4. Parent creates a room code
 5. Child enters the same room code
 6. Test wrong child room code rejection
-7. Parent selects a quick template or enters custom options
+7. Parent selects a quick template, saved template, or enters custom options
 8. Parent can add images manually or generate visuals through the backend visual pipeline
 9. Parent previews the session
 10. Parent sends the session
-11. Child receives overlay/notification
+11. Child receives overlay/attention alert
 12. Child sees the same visual cards as the parent
 13. Child selects an option
 14. Parent receives the answer in realtime
-15. Parent clears the session
+15. Parent checks the History tab
+16. Parent clears the session
 
 ---
 
 # Current Demo Flow
 
-Suggested Monday demo flow:
+Suggested demo flow:
 
 ```text
 1. Show parent setup and generated room code
@@ -593,27 +767,34 @@ Suggested Monday demo flow:
 3. Demonstrate invalid child room code rejection
 4. Apply Food template
 5. Add image using camera/gallery
-6. Preview parent session
-7. Send session
-8. Show Android overlay/attention capture
-9. Show child visual option cards
-10. Select answer on child screen
-11. Show parent receiving response
-12. Clear session
+6. Generate visuals through the visual pipeline
+7. Preview parent session
+8. Save the session as a custom template
+9. Send session
+10. Show Android overlay/attention capture
+11. Show child visual option cards
+12. Select answer on child screen
+13. Show parent receiving response
+14. Show History tab
+15. Show Templates tab
+16. Clear session
 ```
-## Cross-Platform Demo Flow
+
+---
+
+# Cross-Platform Demo Flow
 
 The current demo can be tested using a browser or iPhone as the parent device and an Android emulator as the child device.
 
-This setup is useful because the parent side does not depend on Android-only attention-capture features. The Android-specific behavior is mainly needed on the child side for notifications, overlays, and focus alerts.
+This setup is useful because the parent side does not depend on Android-only attention-capture features. The Android-specific behavior is mainly needed on the child side for overlays and focus alerts.
 
-### Recommended Demo Setup
+## Recommended Demo Setup
 
 - Parent device: iPhone Safari or desktop browser
 - Child device: Android emulator
 - Backend: Firebase Firestore, Firebase Cloud Messaging, Firebase Storage
 
-### Running the Android Child App
+## Running the Android Child App
 
 Run the Android app from the project folder:
 
@@ -624,9 +805,9 @@ npx expo run:android
 
 Set up the Android app as the child device and enter the room code created by the parent.
 
-### Running the Web Parent App
+## Running the Web Parent App
 
-Expo web development mode currently has issues with Metro/HMR in this project, so the web parent is tested using a production-style export.
+Expo web development mode has had Metro/HMR issues in this project, so the web parent is tested using a production-style export.
 
 ```bash
 cd D:\communication_support\focus-test
@@ -650,43 +831,47 @@ http://192.168.1.23:3000
 
 Do not use the `192.168.56.x` address because that is usually a virtual adapter address and may not be reachable from the phone.
 
-### Demo Flow
+## Demo Flow
 
 1. Open the parent web app on iPhone Safari or desktop browser.
 2. Create or enter a parent room.
 3. Open the Android emulator app as the child.
 4. Enter the same room code on the child device.
-5. Parent selects a quick template or types a question.
-6. Parent adds images manually or uses Generate demo visuals.
+5. Parent selects a quick template, saved template, or types a question.
+6. Parent adds images manually or uses Generate visuals.
 7. Parent sends the session.
-8. Android child receives the visual cards.
+8. Android child receives the visual cards and overlay attention alert.
 9. Child selects an option and sends the answer.
 10. Parent receives the child’s response in realtime.
-11. Parent clears the session and the room returns to idle.
+11. Parent checks the History tab.
+12. Parent clears the session and the room returns to idle.
 
-### Current Cross-Platform Behavior
+## Current Cross-Platform Behavior
 
 | Feature | Web Parent | Android Child |
 |---|---:|---:|
 | Room creation | Yes | Not needed |
 | Room joining | Yes | Yes |
 | Quick templates | Yes | Not needed |
+| Saved templates | Yes | Not needed |
 | Manual image selection | Yes | Not needed |
-| Generate demo visuals | Yes | Not needed |
+| Generate visuals | Yes | Not needed |
 | Send session | Yes | Not needed |
 | Receive visual cards | Not needed | Yes |
 | Select answer | Not needed | Yes |
 | Realtime parent response | Yes | Not needed |
 | Android attention overlay | Not applicable | Yes |
 
-### Notes
+## Notes
 
 - The parent flow works through the browser, including on iPhone Safari.
+- Parent Mode uses a centered layout on browser/laptop so the UI does not stretch across the full screen.
 - The child flow is currently Android-first because attention capture depends on Android native behavior.
 - Firebase Firestore is used for realtime session state.
-- Firebase Storage is used for uploaded option images.
+- Firebase Storage is used for uploaded option images and generated AI visuals.
 - Firebase Cloud Messaging and the native Android module handle child-side attention capture.
-- The Generate visuals feature now uses a backend visual pipeline: OpenSymbols, Emoji API, Runware AI fallback, and mock fallback.
+- The Generate visuals feature uses a backend visual pipeline: OpenSymbols, Emoji API, Runware AI fallback, and mock fallback.
+
 ---
 
 # Android Alert / FCM Notes
@@ -699,10 +884,14 @@ focustest
 
 - Overlay behavior depends on:
 
-  - notification permission
   - draw-over-apps permission
+  - app setup as child device
+  - child FCM token being available
 
-- Development FCM sender utility:
+- Notification permission does not affect the main unlocked overlay route.
+- Locked-device notification route is not fully implemented yet.
+
+Development FCM sender utility:
 
 ```text
 focus-test/fcm-sender/
@@ -717,10 +906,15 @@ Firebase service account files must never be committed to version control.
 - iOS does not support Android-style overlays
 - Full attention capture is currently Android-only
 - iOS child flow would need a different attention strategy
+- Locked-device notification route is not fully implemented; the main working attention path is unlocked-device overlay behavior
 - AI fallback quality depends on prompt quality and model output consistency
+- AI visuals are weaker for abstract concepts compared with concrete objects
 - Some OpenSymbols results are SVG files, which require special native rendering support
 - Current customer-provided API key support is only architecturally prepared, not exposed in the UI
-- Current authentication/security rules are prototype-level
+- Current access model still relies mainly on room-code access
+- Firestore and Storage rules are pilot-safer, but not fully production-authenticated
+- Firebase Auth, parent/child accounts, and room ownership are not implemented yet
+- Saved templates are currently stored locally using AsyncStorage and are not synced across devices
 - Expo template files still exist in repository
 - Root `firebaseConfig.ts` is legacy and should eventually be removed
 - More real-device testing is needed beyond emulator testing
@@ -729,19 +923,19 @@ Firebase service account files must never be committed to version control.
 
 # Planned Next Steps
 
+- Test the child flow on a real Android device
+- Continue improving Parent Mode mobile and browser layouts
+- Add parent/child authentication and account support
+- Design production parent-child room ownership model
+- Sync saved templates to parent accounts in the future
 - Improve visual consistency across OpenSymbols, emoji, and AI-generated images
 - Add UI/admin support for customer-provided AI API keys
-- Refine Runware prompt templates for better AAC-style outputs
-- Improve SVG/WebView rendering polish on Android
-- More communication templates
-- Better child selected-state and confirmation polish
-- Accessibility-focused UI refinement
-- Improved parent/child connection status UI
-- Better session history and analytics
-- Multi-device real-world testing
-- Improved onboarding flow
-- Stronger overlay customization
-- Production-ready Firestore and Storage security rules
+- Explore text simplification before AI image generation for abstract concepts
+- Explore opt-in community visual library for reusable non-private visuals
+- Improve onboarding flow for production use
+- Add monitoring, cost controls, and AI generation usage tracking
+- Prepare production-ready Firestore and Storage security rules with auth
+- Perform multi-device real-world testing
 
 ---
 

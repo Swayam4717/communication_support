@@ -210,7 +210,10 @@ export const styles = StyleSheet.create({
     gap: 16,
   },
   parentScrollContent: {
-    paddingHorizontal: 16,
+    width: "100%",
+    maxWidth: Platform.OS === "web" ? 620 : undefined,
+    alignSelf: "center",
+    paddingHorizontal: Platform.OS === "web" ? 20 : 16,
     paddingTop: 18,
     paddingBottom: 36,
   },
@@ -494,6 +497,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 14,
     overflow: "hidden",
+    resizeMode: "contain",
   },
   optionVisualBoxCompact: {
     width: 52,
@@ -501,14 +505,17 @@ export const styles = StyleSheet.create({
     minWidth: 52,
     maxWidth: 52,
     marginRight: 10,
+    resizeMode: "contain",
   },
   optionImage: {
     width: 58,
     height: 58,
+    resizeMode: "contain",
   },
   optionImageCompact: {
     width: 40,
     height: 40,
+    resizeMode: "contain",
   },
   optionEmoji: {
     fontSize: 38,

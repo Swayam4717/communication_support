@@ -30,6 +30,13 @@ import { OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
 
 type sessionTemplateId = "food" | "feelings" | "activities" | "yesNo";
+type savedSessionTemplate = {
+  id: string;
+  name: string;
+  question: string;
+  options: string[];
+  createdAt: number;
+};
 
 interface ParentModeScreenProps {
   question: string;
@@ -38,12 +45,16 @@ interface ParentModeScreenProps {
   showPreview: boolean;
   roomId: string;
   templateVersion: number;
+  savedTemplates: savedSessionTemplate[];
   onQuestionChange: (value: string) => void;
   onOptionLabelChange: (index: number, value: string) => void;
   onPreviewToggle: () => void;
   onSendToChild: () => void;
   onResetSetup: () => void;
   onApplyTemplate: (templateId: sessionTemplateId) => void;
+  onApplySavedTemplate: (templateId: string) => void;
+  onSaveCurrentTemplate: () => void;
+  onDeleteSavedTemplate: (templateId: string) => void;
   onClearSession: () => void;
 }
 
@@ -54,12 +65,16 @@ export default function ParentModeScreen({
   showPreview,
   roomId,
   templateVersion,
+  savedTemplates,
   onQuestionChange,
   onOptionLabelChange,
   onPreviewToggle,
   onSendToChild,
   onResetSetup,
   onApplyTemplate,
+  onApplySavedTemplate,
+  onSaveCurrentTemplate,
+  onDeleteSavedTemplate,
   onClearSession,
 }: ParentModeScreenProps) {
   const [fireSession, setFireSession] =
@@ -473,12 +488,10 @@ export default function ParentModeScreen({
             <Text style={styles.parentHeaderRoom}>
               Child: {isChildConnected ? "Connected" : "Not Connected"}
             </Text>
-            
           </View>
           <TouchableOpacity style={styles.resetButton} onPress={onResetSetup}>
             <Text style={styles.resetButtonText}>Reset</Text>
           </TouchableOpacity>
-          
         </View>
         <View style={styles.parentTabRow}>
           <TouchableOpacity
@@ -585,7 +598,58 @@ export default function ParentModeScreen({
                     <Text style={styles.previewToggleText}>Yes / No</Text>
                   </TouchableOpacity>
                 </View>
+                <View style={styles.savedTemplateSection}>
+                  <View style={styles.savedTemplateHeaderRow}>
+                    <Text style={styles.savedTemplateTitle}>
+                      Saved templates
+                    </Text>
 
+                    <TouchableOpacity
+                      style={styles.saveTemplateButton}
+                      onPress={onSaveCurrentTemplate}
+                    >
+                      <Text style={styles.saveTemplateButtonText}>
+                        Save current
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {savedTemplates.length > 0 ? (
+                    <View style={styles.templateChipRow}>
+                      {savedTemplates.map((template) => (
+                        <View
+                          key={template.id}
+                          style={styles.savedTemplateChip}
+                        >
+                          <TouchableOpacity
+                            style={styles.savedTemplateChipMain}
+                            onPress={() => onApplySavedTemplate(template.id)}
+                          >
+                            <Text
+                              style={styles.savedTemplateChipText}
+                              numberOfLines={1}
+                            >
+                              {template.name}
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.savedTemplateDeleteButton}
+                            onPress={() => onDeleteSavedTemplate(template.id)}
+                          >
+                            <Text style={styles.savedTemplateDeleteText}>
+                              ×
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={styles.savedTemplateEmptyText}>
+                      Save frequently used questions here.
+                    </Text>
+                  )}
+                </View>
                 <TouchableOpacity
                   disabled={isImageWorkInProgress}
                   style={[
@@ -626,10 +690,10 @@ export default function ParentModeScreen({
               <View style={styles.parentInputGroup}>
                 <Text style={styles.parentInputLabel}>Answer options</Text>
                 <Text style={styles.parentOptionsHint}>
-                  Add Images only when needed. Visuals can also be
-                  generated automatically.
+                  Add Images only when needed. Visuals can also be generated
+                  automatically.
                 </Text>
-                
+
                 <View style={styles.parentOptionsList}>
                   {optionLabels.map((label, index) => {
                     const visualRemoved = removedVisualIndexes.has(index);

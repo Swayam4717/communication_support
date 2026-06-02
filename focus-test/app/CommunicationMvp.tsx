@@ -21,6 +21,15 @@ import { styles } from "./communicationCommon";
 
 type AppState = "loading" | "welcome" | "setup" | "parent" | "child";
 type SessionTemplateId = "food" | "feelings" | "activities" | "yesNo";
+type savedSessionTemplate = {
+  id: string;
+  name: string;
+  question: string;
+  options: string[];
+  createdAt: number;
+}
+
+const SAVED_TEMPLATES_STORAGE_KEY = "savedSessionTemplates";
 
 const SESSION_TEMPLATES: Record<
   SessionTemplateId,
@@ -61,6 +70,7 @@ export default function CommunicationMvpApp() {
     null,
   );
   const [templateVersion, setTemplateVersion] = useState(0);
+  const [savedTemplates, setSavedTemplates] = useState<savedSessionTemplate[]>([]);
 
   // Load persisted setup on app launch
   useEffect(() => {
@@ -83,6 +93,22 @@ export default function CommunicationMvpApp() {
     };
 
     loadSetup();
+  }, []);
+  useEffect(() => {
+    const loadSavedTemplates = async () => {
+      try {
+        const rawTemplates = await AsyncStorage.getItem(SAVED_TEMPLATES_STORAGE_KEY);
+        if(!rawTemplates) return;
+
+        const parsedTemplates = JSON.parse(rawTemplates);
+        if(Array.isArray(parsedTemplates)){
+          setSavedTemplates(parsedTemplates);
+        }
+      } catch(error){
+        console.warn("Failed to load saved templates from AsyncStorage", error);
+      }
+    };
+    loadSavedTemplates();
   }, []);
 
   useEffect(() => {
@@ -195,6 +221,58 @@ export default function CommunicationMvpApp() {
     setTemplateVersion((value) => value + 1);
   };
 
+  const persistSavedTemplate = async (nextTemplate: savedSessionTemplate[],) => {
+    setSavedTemplates(nextTemplate);
+    await AsyncStorage.setItem(SAVED_TEMPLATES_STORAGE_KEY, JSON.stringify(nextTemplate));
+  };
+
+  const handleSaveCurrentTemplate = async (name: string) => {
+    const cleanedQuestion = draftQuestion.trim() || "Untitled Question";
+    const cleanedOptions = draftOptions.map((opt) => opt.trim());
+
+    if(cleanedOptions.every((option) => !option)) {
+      Alert.alert("Add options first", "Please add at least one option before saving the template." );
+      return;
+    }
+    const templateName = cleanedQuestion.length > 28 ? `${cleanedQuestion.slice(0,28)}...` : cleanedQuestion;
+
+    const nextTemplate: savedSessionTemplate = {
+      id: String(Date.now()),
+      name: templateName,
+      question: cleanedQuestion,
+      options: cleanedOptions,
+      createdAt: Date.now(),
+    };
+    const nextTemplates = [nextTemplate, ...savedTemplates].slice(0,10); // Keep only the 10 most recent templates
+    try{
+      await persistSavedTemplate(nextTemplates);
+
+      Alert.alert("Template Saved", `Your template "${templateName}" has been saved.`);
+    }catch(error){
+      console.warn("Failed to save template", error);
+      Alert.alert("Save Failed", "An error occurred while saving your template. Please try again.");
+    }
+  };
+
+  const handleApplySavedTemplate = (templateId: string) => {
+    const template = savedTemplates.find((item) => item.id === templateId);
+    if(!template) return;
+    setDraftQuestion(template.question);
+    setDraftOptions(template.options);
+    setSentSession(null);
+    setShowPreview(true);
+    setTemplateVersion((value) => value + 1);
+  };
+
+  const handleDeleteSavedTemplate = async (templateId: string) => {
+    const nextTemplates = savedTemplates.filter((item) => item.id !== templateId);
+    try{
+      await persistSavedTemplate(nextTemplates);
+    }catch (error){
+      console.warn("Failed to delete template", error);
+    }
+  };
+
   const handlePreviewToggle = () => setShowPreview((v) => !v);
 
   const handleSendToChild = () => {
@@ -238,9 +316,13 @@ export default function CommunicationMvpApp() {
           showPreview={showPreview}
           roomId={roomId}
           templateVersion={templateVersion}
+          savedTemplates={savedTemplates}
           onQuestionChange={handleQuestionChange}
           onOptionLabelChange={handleOptionLabelChange}
           onApplyTemplate={handleApplyTemplate}
+          onSaveCurrentTemplate={handleSaveCurrentTemplate}
+          onApplySavedTemplate={handleApplySavedTemplate}
+          onDeleteSavedTemplate={handleDeleteSavedTemplate}
           onPreviewToggle={handlePreviewToggle}
           onSendToChild={handleSendToChild}
           onResetSetup={handleResetSetup}

@@ -992,7 +992,7 @@ export const styles = StyleSheet.create({
     color: "#6F5D52",
   },
   generateVisualsHint: {
-    marginTop:8,
+    marginTop: 8,
     color: "#7D6E66",
     fontSize: 13,
     lineHeight: 17,
@@ -1054,7 +1054,87 @@ export const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 6,
   },
+  savedTemplateSection: {
+    marginTop: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: "#FBF7F1",
+    borderWidth: 1,
+    borderColor: "#E8D8C8",
+  },
 
+  savedTemplateHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+
+  savedTemplateTitle: {
+    color: "#2B1D18",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+
+  saveTemplateButton: {
+    borderRadius: 999,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#D8BFA8",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+
+  saveTemplateButtonText: {
+    color: "#8A5E3C",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+
+  savedTemplateEmptyText: {
+    color: "#8A7566",
+    fontSize: 12,
+    lineHeight: 16,
+  },
+
+  savedTemplateChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    maxWidth: "100%",
+    borderRadius: 999,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E0CBB8",
+    overflow: "hidden",
+  },
+
+  savedTemplateChipMain: {
+    maxWidth: 220,
+    paddingLeft: 12,
+    paddingRight: 8,
+    paddingVertical: 8,
+  },
+
+  savedTemplateChipText: {
+    color: "#4A372F",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+
+  savedTemplateDeleteButton: {
+    paddingHorizontal: 9,
+    paddingVertical: 8,
+    borderLeftWidth: 1,
+    borderLeftColor: "#E8D8C8",
+    backgroundColor: "#FFF7F2",
+  },
+
+  savedTemplateDeleteText: {
+    color: "#A65B4B",
+    fontSize: 14,
+    fontWeight: "900",
+  },
   parentTabRow: {
     flexDirection: "row",
     backgroundColor: "#EFE4D8",

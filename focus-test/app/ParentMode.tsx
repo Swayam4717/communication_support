@@ -638,7 +638,15 @@ export default function ParentModeScreen({
                   </TouchableOpacity>
                 </View>
                 <View style={styles.savedTemplateSection}>
-                  <Text style={styles.savedTemplateTitle}>My templates</Text>
+                  <View style={styles.savedTemplateMiniHeaderRow}>
+                    <Text style={styles.savedTemplateTitle}>My templates</Text>
+
+                    {savedTemplates.length > 3 ? (
+                      <TouchableOpacity onPress = {() => setActiveParentTab("templates")}>
+                        <Text style={styles.savedTemplateViewAllText}>View all</Text>
+                      </TouchableOpacity>
+                    ): null}
+                  </View>
 
                   {savedTemplates.length > 0 ? (
                     <View style={styles.templateChipRow}>

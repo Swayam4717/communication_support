@@ -1332,6 +1332,18 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "900",
   },
+  savedTemplateMiniHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 12,
+  },
+  savedTemplateViewAllText: {
+    color: "#8A5E3C",
+    fontSize: 12,
+    fontWeight: "900",
+  },
 });
 
 export default null;

@@ -105,9 +105,9 @@ export default function ParentModeScreen({
   );
 
   const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
-  const [activeParentTab, setActiveParentTab] = useState<"create" | "history">(
-    "create",
-  );
+  const [activeParentTab, setActiveParentTab] = useState<
+    "create" | "history" | "templates"
+  >("create");
 
   React.useEffect(() => {
     const unsub = subscribeToSession((s) => setFireSession(s), roomId);
@@ -529,6 +529,23 @@ export default function ParentModeScreen({
               History
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.parentTabButton,
+              activeParentTab === "templates" && styles.parentTabButtonActive,
+            ]}
+            onPress={() => setActiveParentTab("templates")}
+          >
+            <Text
+              style={[
+                styles.parentTabButtonText,
+                activeParentTab === "templates" &&
+                  styles.parentTabButtonTextActive,
+              ]}
+            >
+              Templates
+            </Text>
+          </TouchableOpacity>
         </View>
         {activeParentTab === "create" ? (
           <>
@@ -843,6 +860,123 @@ export default function ParentModeScreen({
               </View>
             )}
           </View>
+        ) : null}
+        {activeParentTab === "templates" ? (
+          <>
+            <View style={styles.parentBuildSection}>
+              <View style={styles.parentSectionHeader}>
+                <Text style={styles.parentSectionTitle}>Templates</Text>
+              </View>
+
+              <View style={styles.parentInputGroup}>
+                <Text style={styles.parentInputLabel}>Built-in templates</Text>
+
+                <View style={styles.templateChipRow}>
+                  <TouchableOpacity
+                    style={styles.previewToggleButton}
+                    onPress={() => {
+                      onApplyTemplate("food");
+                      setActiveParentTab("create");
+                    }}
+                  >
+                    <Text style={styles.previewToggleText}>Food</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.previewToggleButton}
+                    onPress={() => {
+                      onApplyTemplate("feelings");
+                      setActiveParentTab("create");
+                    }}
+                  >
+                    <Text style={styles.previewToggleText}>Feelings</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.previewToggleButton}
+                    onPress={() => {
+                      onApplyTemplate("activities");
+                      setActiveParentTab("create");
+                    }}
+                  >
+                    <Text style={styles.previewToggleText}>Activities</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.previewToggleButton}
+                    onPress={() => {
+                      onApplyTemplate("yesNo");
+                      setActiveParentTab("create");
+                    }}
+                  >
+                    <Text style={styles.previewToggleText}>Yes/No</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.parentInputGroup}>
+                <Text style={styles.parentInputLabel}>My templates</Text>
+
+                {savedTemplates.length > 0 ? (
+                  <View style={styles.templateCardList}>
+                    {savedTemplates.map((template) => (
+                      <View key={template.id} style={styles.templateManageCard}>
+                        <View style={styles.templateManageContent}>
+                          <Text
+                            style={styles.templateManageTitle}
+                            numberOfLines={1}
+                          >
+                            {template.name}
+                          </Text>
+
+                          <Text
+                            style={styles.templateManageQuestion}
+                            numberOfLines={2}
+                          >
+                            {template.question}
+                          </Text>
+
+                          <Text style={styles.templateManageMeta}>
+                            {template.options.filter(Boolean).length} options
+                          </Text>
+                        </View>
+
+                        <View style={styles.templateManageActions}>
+                          <TouchableOpacity
+                            style={styles.templateUseButton}
+                            onPress={() => {
+                              onApplySavedTemplate(template.id);
+                              setActiveParentTab("create");
+                            }}
+                          >
+                            <Text style={styles.templateUseButtonText}>
+                              Use
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.templateDeleteButton}
+                            onPress={() => onDeleteSavedTemplate(template.id)}
+                          >
+                            <Text style={styles.templateDeleteButtonText}>
+                              Delete
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.historyEmptyCard}>
+                    <Text style={styles.historyEmptyText}>
+                      Saved templates will appear here after you save one from
+                      the Create tab.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </>
         ) : null}
       </ScrollView>
     </KeyboardAvoidingView>

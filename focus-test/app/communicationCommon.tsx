@@ -1183,6 +1183,78 @@ export const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
   },
+  templateCardList: {
+    gap: 10,
+  },
+
+  templateManageCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#FFFDFC",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E5D8CF",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+
+  templateManageContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  templateManageTitle: {
+    color: "#2B1D18",
+    fontSize: 16,
+    fontWeight: "900",
+    marginBottom: 3,
+  },
+
+  templateManageQuestion: {
+    color: "#6F5D52",
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 17,
+    marginBottom: 5,
+  },
+
+  templateManageMeta: {
+    color: "#A8978B",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  templateManageActions: {
+    alignItems: "flex-end",
+    gap: 6,
+  },
+
+  templateUseButton: {
+    borderRadius: 999,
+    backgroundColor: "#EFE4D8",
+    borderWidth: 1,
+    borderColor: "#D6C3B4",
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+  },
+
+  templateUseButtonText: {
+    color: "#705642",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+
+  templateDeleteButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+
+  templateDeleteButtonText: {
+    color: "#A65B4B",
+    fontSize: 12,
+    fontWeight: "800",
+  },
 });
 
 export default null;

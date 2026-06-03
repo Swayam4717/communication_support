@@ -740,7 +740,7 @@ export default function ParentModeScreen({
                     style={styles.editTemplateCancelButton}
                     onPress={onCancelTemplateEdit}
                   >
-                    <Text style={styles.editTemplateCancelText}>Cancel</Text>
+                    <Text style={styles.editTemplateCancelText}>Stop Editing</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}

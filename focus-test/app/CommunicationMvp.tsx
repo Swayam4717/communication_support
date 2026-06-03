@@ -80,6 +80,9 @@ export default function CommunicationMvpApp() {
   const [savedTemplates, setSavedTemplates] = useState<savedSessionTemplate[]>(
     [],
   );
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(
+    null,
+  );
 
   // Load persisted setup on app launch
   useEffect(() => {
@@ -204,6 +207,7 @@ export default function CommunicationMvpApp() {
       setDraftQuestion(DEFAULT_QUESTION);
       setDraftOptions(DEFAULT_OPTIONS);
       setShowPreview(false);
+      setEditingTemplateId(null);
       setTemplateVersion((value) => value + 1);
     } catch (error) {
       console.warn("Failed to reset setup", error);
@@ -226,7 +230,8 @@ export default function CommunicationMvpApp() {
     setDraftQuestion(template.question);
     setDraftOptions(template.options);
     setSentSession(null);
-    setShowPreview(true);
+    setShowPreview(false);
+    setEditingTemplateId(null);
 
     // This tells ParentMode to clear any old image selections from the previous draft.
     setTemplateVersion((value) => value + 1);
@@ -261,18 +266,32 @@ export default function CommunicationMvpApp() {
 
     const finalTemplateName = cleanedTemplateName || fallbackName;
 
+    const editingTemplate = editingTemplateId
+      ? savedTemplates.find((template) => template.id === editingTemplateId)
+      : null;
+
     const existingTemplate = savedTemplates.find(
       (template) =>
+        template.id !== editingTemplateId &&
         template.name.trim().toLowerCase() ===
         finalTemplateName.trim().toLowerCase(),
     );
 
+    if (editingTemplate && existingTemplate) {
+      Alert.alert(
+        "Template name already exists",
+        "Please choose a different name before updating this template.",
+      );
+      return;
+    }
+
     const nextTemplate: savedSessionTemplate = {
-      id: existingTemplate?.id ?? String(Date.now()),
+      id: editingTemplate?.id ?? existingTemplate?.id ?? String(Date.now()),
       name: finalTemplateName,
       question: cleanedQuestion,
       options: cleanedOptions,
-      createdAt: existingTemplate?.createdAt ?? Date.now(),
+      createdAt:
+        editingTemplate?.createdAt ?? existingTemplate?.createdAt ?? Date.now(),
     };
 
     const nextTemplates = [
@@ -281,10 +300,15 @@ export default function CommunicationMvpApp() {
     ].slice(0, 10);
     try {
       await persistSavedTemplate(nextTemplates);
+      setEditingTemplateId(null);
 
       Alert.alert(
-        existingTemplate ? "Template updated" : "Template saved",
-        existingTemplate ? "The existing template has been updated and moved to the top" : "You can reuse this question and options from the Templates tab.",
+        editingTemplate || existingTemplate
+          ? "Template updated"
+          : "Template saved",
+        editingTemplate || existingTemplate
+          ? "The existing template has been updated and moved to the top"
+          : "You can reuse this question and options from the Templates tab.",
       );
     } catch (error) {
       console.warn("Failed to save template", error);
@@ -301,7 +325,8 @@ export default function CommunicationMvpApp() {
     setDraftQuestion(template.question);
     setDraftOptions(template.options);
     setSentSession(null);
-    setShowPreview(true);
+    setShowPreview(false);
+    setEditingTemplateId(null);
     setTemplateVersion((value) => value + 1);
 
     const reorderedTemplates = [
@@ -315,12 +340,31 @@ export default function CommunicationMvpApp() {
     }
   };
 
+  const handleEditSavedTemplate = (templateId: string) => {
+    const template = savedTemplates.find((item) => item.id === templateId);
+    if (!template) return;
+
+    setDraftQuestion(template.question);
+    setDraftOptions(template.options);
+    setSentSession(null);
+    setShowPreview(false);
+    setEditingTemplateId(template.id);
+    setTemplateVersion((value) => value + 1);
+  };
+
+  const handleCancelTemplateEdit = () => {
+    setEditingTemplateId(null);
+  };
+
   const handleDeleteSavedTemplate = async (templateId: string) => {
     const nextTemplates = savedTemplates.filter(
       (item) => item.id !== templateId,
     );
     try {
       await persistSavedTemplate(nextTemplates);
+      if (editingTemplateId === templateId) {
+        setEditingTemplateId(null);
+      }
     } catch (error) {
       console.warn("Failed to delete template", error);
     }
@@ -370,11 +414,17 @@ export default function CommunicationMvpApp() {
           roomId={roomId}
           templateVersion={templateVersion}
           savedTemplates={savedTemplates}
+          editingTemplateName={
+            savedTemplates.find((template) => template.id === editingTemplateId)
+              ?.name ?? null
+          }
           onQuestionChange={handleQuestionChange}
           onOptionLabelChange={handleOptionLabelChange}
           onApplyTemplate={handleApplyTemplate}
           onSaveCurrentTemplate={handleSaveCurrentTemplate}
           onApplySavedTemplate={handleApplySavedTemplate}
+          onEditSavedTemplate={handleEditSavedTemplate}
+          onCancelTemplateEdit={handleCancelTemplateEdit}
           onDeleteSavedTemplate={handleDeleteSavedTemplate}
           onPreviewToggle={handlePreviewToggle}
           onSendToChild={handleSendToChild}

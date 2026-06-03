@@ -47,6 +47,7 @@ interface ParentModeScreenProps {
   roomId: string;
   templateVersion: number;
   savedTemplates: savedSessionTemplate[];
+  editingTemplateName: string | null;
   onQuestionChange: (value: string) => void;
   onOptionLabelChange: (index: number, value: string) => void;
   onPreviewToggle: () => void;
@@ -54,6 +55,8 @@ interface ParentModeScreenProps {
   onResetSetup: () => void;
   onApplyTemplate: (templateId: sessionTemplateId) => void;
   onApplySavedTemplate: (templateId: string) => void;
+  onEditSavedTemplate: (templateId: string) => void;
+  onCancelTemplateEdit: () => void;
   onSaveCurrentTemplate: (templateName?: string) => void;
   onDeleteSavedTemplate: (templateId: string) => void;
   onClearSession: () => void;
@@ -127,6 +130,7 @@ export default function ParentModeScreen({
   roomId,
   templateVersion,
   savedTemplates,
+  editingTemplateName,
   onQuestionChange,
   onOptionLabelChange,
   onPreviewToggle,
@@ -134,6 +138,8 @@ export default function ParentModeScreen({
   onResetSetup,
   onApplyTemplate,
   onApplySavedTemplate,
+  onEditSavedTemplate,
+  onCancelTemplateEdit,
   onSaveCurrentTemplate,
   onDeleteSavedTemplate,
   onClearSession,
@@ -173,6 +179,20 @@ export default function ParentModeScreen({
   const [isSavedTemplateModalVisible, setIsSavedTemplateModalVisible] =
     useState(false);
   const [templateNameInput, setTemplateNameInput] = useState("");
+  const [templateNoticeVisible, setTemplateNoticeVisible] = useState(false);
+  const templateNoticeTimeoutRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
+  const isEditingTemplate = !!editingTemplateName;
+
+  React.useEffect(() => {
+    return () => {
+      if (templateNoticeTimeoutRef.current) {
+        clearTimeout(templateNoticeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   React.useEffect(() => {
     const unsub = subscribeToSession((s) => setFireSession(s), roomId);
@@ -358,10 +378,12 @@ export default function ParentModeScreen({
     }
   };
   const openSaveTemplateModal = () => {
+    const cleanedQuestion = question.trim();
     const defaultName =
-      question.trim().length > 28
-        ? `${question.trim().slice(0, 28)}...`
-        : question.trim();
+      editingTemplateName ??
+      (cleanedQuestion.length > 28
+        ? `${cleanedQuestion.slice(0, 28)}...`
+        : cleanedQuestion);
     setTemplateNameInput(defaultName);
     setIsSavedTemplateModalVisible(true);
   };
@@ -373,6 +395,27 @@ export default function ParentModeScreen({
   const handleCancelSaveTemplate = () => {
     setIsSavedTemplateModalVisible(false);
     setTemplateNameInput("");
+  };
+
+  const showTemplateAddedNotice = () => {
+    if (templateNoticeTimeoutRef.current) {
+      clearTimeout(templateNoticeTimeoutRef.current);
+    }
+
+    setTemplateNoticeVisible(true);
+    templateNoticeTimeoutRef.current = setTimeout(() => {
+      setTemplateNoticeVisible(false);
+    }, 2200);
+  };
+
+  const applyBuiltInTemplate = (templateId: sessionTemplateId) => {
+    onApplyTemplate(templateId);
+    showTemplateAddedNotice();
+  };
+
+  const applySavedTemplate = (templateId: string) => {
+    onApplySavedTemplate(templateId);
+    showTemplateAddedNotice();
   };
 
   const handleRemoveVisual = (index: number) => {
@@ -659,11 +702,47 @@ export default function ParentModeScreen({
 
             <View style={styles.parentBuildSection}>
               <View style={styles.parentSectionHeader}>
-                <Text style={styles.parentSectionTitle}>Create a session</Text>
+                <Text style={styles.parentSectionTitle}>
+                  {isEditingTemplate ? "Edit template" : "Create a session"}
+                </Text>
                 {sentSession && (
                   <Text style={styles.parentSectionBadge}>Live</Text>
                 )}
               </View>
+
+              {isEditingTemplate ? (
+                <View style={styles.editTemplateNotice}>
+                  <View style={styles.editTemplateNoticeTextWrap}>
+                    <Text style={styles.editTemplateNoticeLabel}>
+                      Editing template
+                    </Text>
+                    <Text
+                      style={styles.editTemplateNoticeName}
+                      numberOfLines={1}
+                    >
+                      {editingTemplateName}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.editTemplateCancelButton}
+                    onPress={onCancelTemplateEdit}
+                  >
+                    <Text style={styles.editTemplateCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
+              {templateNoticeVisible ? (
+                <View style={styles.templateAddedNotice}>
+                  <View style={styles.templateAddedIcon}>
+                    <Text style={styles.templateAddedIconText}>✓</Text>
+                  </View>
+                  <Text style={styles.templateAddedText}>
+                    Template added. You can edit it before sending.
+                  </Text>
+                </View>
+              ) : null}
 
               <View style={styles.parentInputGroup}>
                 <Text style={styles.parentInputLabel}>Quick templates</Text>
@@ -671,28 +750,28 @@ export default function ParentModeScreen({
                 <View style={styles.templateChipRow}>
                   <TouchableOpacity
                     style={styles.previewToggleButton}
-                    onPress={() => onApplyTemplate("food")}
+                    onPress={() => applyBuiltInTemplate("food")}
                   >
                     <Text style={styles.previewToggleText}>Food</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.previewToggleButton}
-                    onPress={() => onApplyTemplate("feelings")}
+                    onPress={() => applyBuiltInTemplate("feelings")}
                   >
                     <Text style={styles.previewToggleText}>Feelings</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.previewToggleButton}
-                    onPress={() => onApplyTemplate("activities")}
+                    onPress={() => applyBuiltInTemplate("activities")}
                   >
                     <Text style={styles.previewToggleText}>Activities</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.previewToggleButton}
-                    onPress={() => onApplyTemplate("yesNo")}
+                    onPress={() => applyBuiltInTemplate("yesNo")}
                   >
                     <Text style={styles.previewToggleText}>Yes / No</Text>
                   </TouchableOpacity>
@@ -714,7 +793,7 @@ export default function ParentModeScreen({
                         <TouchableOpacity
                           key={template.id}
                           style={styles.savedTemplateSimpleChip}
-                          onPress={() => onApplySavedTemplate(template.id)}
+                          onPress={() => applySavedTemplate(template.id)}
                         >
                           <Text
                             style={styles.savedTemplateSimpleChipText}
@@ -778,7 +857,7 @@ export default function ParentModeScreen({
                     disabled={isImageWorkInProgress}
                   >
                     <Text style={styles.saveTemplateInlineButtonText}>
-                      Save template
+                      {isEditingTemplate ? "Update template" : "Save template"}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -965,7 +1044,7 @@ export default function ParentModeScreen({
                   <TouchableOpacity
                     style={styles.previewToggleButton}
                     onPress={() => {
-                      onApplyTemplate("food");
+                      applyBuiltInTemplate("food");
                       setActiveParentTab("create");
                     }}
                   >
@@ -975,7 +1054,7 @@ export default function ParentModeScreen({
                   <TouchableOpacity
                     style={styles.previewToggleButton}
                     onPress={() => {
-                      onApplyTemplate("feelings");
+                      applyBuiltInTemplate("feelings");
                       setActiveParentTab("create");
                     }}
                   >
@@ -985,7 +1064,7 @@ export default function ParentModeScreen({
                   <TouchableOpacity
                     style={styles.previewToggleButton}
                     onPress={() => {
-                      onApplyTemplate("activities");
+                      applyBuiltInTemplate("activities");
                       setActiveParentTab("create");
                     }}
                   >
@@ -995,7 +1074,7 @@ export default function ParentModeScreen({
                   <TouchableOpacity
                     style={styles.previewToggleButton}
                     onPress={() => {
-                      onApplyTemplate("yesNo");
+                      applyBuiltInTemplate("yesNo");
                       setActiveParentTab("create");
                     }}
                   >
@@ -1036,9 +1115,21 @@ export default function ParentModeScreen({
 
                         <View style={styles.templateManageActions}>
                           <TouchableOpacity
+                            style={styles.templateEditButton}
+                            onPress={() => {
+                              onEditSavedTemplate(template.id);
+                              setActiveParentTab("create");
+                            }}
+                          >
+                            <Text style={styles.templateEditButtonText}>
+                              Edit
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
                             style={styles.templateUseButton}
                             onPress={() => {
-                              onApplySavedTemplate(template.id);
+                              applySavedTemplate(template.id);
                               setActiveParentTab("create");
                             }}
                           >
@@ -1080,10 +1171,14 @@ export default function ParentModeScreen({
       >
         <View style={styles.modalBackdrop}>
           <View style={styles.saveTemplateModalCard}>
-            <Text style={styles.saveTemplateModalTitle}>Save template</Text>
+            <Text style={styles.saveTemplateModalTitle}>
+              {isEditingTemplate ? "Update template" : "Save template"}
+            </Text>
 
             <Text style={styles.saveTemplateModalSubtitle}>
-              Give this set of question and options a name.
+              {isEditingTemplate
+                ? "Update the name, question, and options for this template."
+                : "Give this set of question and options a name."}
             </Text>
 
             <TextInput
@@ -1108,7 +1203,9 @@ export default function ParentModeScreen({
                 style={styles.saveTemplateModalSaveButton}
                 onPress={handleConfirmSaveTemplate}
               >
-                <Text style={styles.saveTemplateModalSaveText}>Save</Text>
+                <Text style={styles.saveTemplateModalSaveText}>
+                  {isEditingTemplate ? "Update" : "Save"}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

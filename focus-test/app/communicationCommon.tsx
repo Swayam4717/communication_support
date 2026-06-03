@@ -1116,6 +1116,90 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "900",
   },
+
+  editTemplateNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#F5EBDD",
+    borderWidth: 1,
+    borderColor: "#E1C8B2",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginBottom: 18,
+  },
+
+  editTemplateNoticeTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  editTemplateNoticeLabel: {
+    color: "#8A5E3C",
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    marginBottom: 3,
+  },
+
+  editTemplateNoticeName: {
+    color: "#2B1D18",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  editTemplateCancelButton: {
+    borderRadius: 999,
+    backgroundColor: "#FFFDFC",
+    borderWidth: 1,
+    borderColor: "#DCCABE",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+
+  editTemplateCancelText: {
+    color: "#705642",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+
+  templateAddedNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#F1F7EE",
+    borderWidth: 1,
+    borderColor: "#CFE3C9",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginBottom: 18,
+  },
+
+  templateAddedIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#7FA66F",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  templateAddedIconText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "900",
+    includeFontPadding: false,
+  },
+
+  templateAddedText: {
+    flex: 1,
+    color: "#3F5F38",
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
   parentTabRow: {
     flexDirection: "row",
     backgroundColor: "#EFE4D8",
@@ -1233,7 +1317,7 @@ export const styles = StyleSheet.create({
   templateManageActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
   },
 
   templateUseButton: {
@@ -1245,6 +1329,23 @@ export const styles = StyleSheet.create({
     borderColor: "#D6C3B4",
     paddingHorizontal: 13,
     paddingVertical: 9,
+  },
+
+  templateEditButton: {
+    flex: 1,
+    alignItems: "center",
+    borderRadius: 999,
+    backgroundColor: "#FFFDFC",
+    borderWidth: 1,
+    borderColor: "#DCCABE",
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+  },
+
+  templateEditButtonText: {
+    color: "#705642",
+    fontSize: 12,
+    fontWeight: "900",
   },
 
   templateUseButtonText: {

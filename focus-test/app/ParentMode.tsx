@@ -1026,7 +1026,10 @@ export default function ParentModeScreen({
                             {template.question}
                           </Text>
 
-                          <Text style={styles.templateManageMeta}>
+                          <Text
+                            style={styles.templateManageMeta}
+                            numberOfLines={1}
+                          >
                             {template.options.filter(Boolean).length} options
                           </Text>
                         </View>

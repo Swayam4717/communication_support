@@ -1195,15 +1195,13 @@ export const styles = StyleSheet.create({
   },
 
   templateManageCard: {
-    flexDirection: "row",
-    alignItems: "center",
     gap: 12,
     backgroundColor: "#FFFDFC",
     borderRadius: 18,
     borderWidth: 1,
     borderColor: "#E5D8CF",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
 
   templateManageContent: {
@@ -1223,7 +1221,7 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     lineHeight: 17,
-    marginBottom: 5,
+    marginBottom: 7,
   },
 
   templateManageMeta: {
@@ -1233,17 +1231,20 @@ export const styles = StyleSheet.create({
   },
 
   templateManageActions: {
-    alignItems: "flex-end",
-    gap: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
 
   templateUseButton: {
+    flex: 1,
+    alignItems: "center",
     borderRadius: 999,
     backgroundColor: "#EFE4D8",
     borderWidth: 1,
     borderColor: "#D6C3B4",
     paddingHorizontal: 13,
-    paddingVertical: 7,
+    paddingVertical: 9,
   },
 
   templateUseButtonText: {
@@ -1253,8 +1254,8 @@ export const styles = StyleSheet.create({
   },
 
   templateDeleteButton: {
-    paddingHorizontal: 4,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
   },
 
   templateDeleteButtonText: {

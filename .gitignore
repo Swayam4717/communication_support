@@ -7,3 +7,4 @@ android/app/build/
 .expo/
 dist/
 focus-test/fcm-sender/service-account.json
+focus-test/CODEX.md

@@ -59,6 +59,66 @@ interface ParentModeScreenProps {
   onClearSession: () => void;
 }
 
+const getOrdinalSuffix = (day: number) => {
+  if (day >= 11 && day <= 13) return "th";
+
+  switch (day % 10) {
+    case 1:
+      return "st";
+    case 2:
+      return "nd";
+    case 3:
+      return "rd";
+    default:
+      return "th";
+  }
+};
+
+const formatHistoryTimestamp = (timestamp: number) => {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const monthNames = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+
+  const isSameDay = (first: Date, second: Date) =>
+    first.getFullYear() === second.getFullYear() &&
+    first.getMonth() === second.getMonth() &&
+    first.getDate() === second.getDate();
+
+  const hours = date.getHours();
+  const displayHours = hours % 12 || 12;
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const period = hours >= 12 ? "pm" : "am";
+  const time = `${displayHours}:${minutes} ${period}`;
+
+  if (isSameDay(date, now)) {
+    return `Today, ${time}`;
+  }
+
+  if (isSameDay(date, yesterday)) {
+    return `Yesterday, ${time}`;
+  }
+
+  const day = date.getDate();
+  const month = monthNames[date.getMonth()];
+
+  return `${day}${getOrdinalSuffix(day)} ${month}, ${time}`;
+};
+
 export default function ParentModeScreen({
   question,
   optionLabels,
@@ -878,7 +938,7 @@ export default function ParentModeScreen({
                   <Text style={styles.historyQuestion}>{item.question}</Text>
 
                   <Text style={styles.historyTime}>
-                    {new Date(item.createdAt).toLocaleString()}
+                    {formatHistoryTimestamp(item.createdAt)}
                   </Text>
                 </View>
               ))

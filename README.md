@@ -420,6 +420,8 @@ The backend filters symbol results to only allow commercially safer licenses suc
 
 Non-commercial or no-derivatives licenses are blocked.
 
+OpenSymbols search is phrase-aware for short routines and avoids accepting weak connector/preposition words as the main visual concept. For example, labels such as `after bed` and `before bed` try the full phrase first, then meaningful candidates such as `bed` or `bedtime`; weak standalone matches like `after` or `before` are skipped so the pipeline can continue to Emoji API, Runware, or mock fallback instead of caching a poor symbol.
+
 ### Emoji API Layer
 
 If OpenSymbols does not return a suitable visual, the app falls back to the Emoji API.

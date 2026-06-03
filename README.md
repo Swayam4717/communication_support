@@ -85,6 +85,7 @@ The core goal is to support low-pressure communication through structured visual
 - Active app: `focus-test/`
 - Placeholder folders: `backend/`, `docs/`, `mobile-app/`
 - Legacy file at root: `firebaseConfig.ts`
+- Project-specific development guide: `focus-test/CODEX.md`
 
 The active application currently lives inside:
 
@@ -267,7 +268,21 @@ Each history item includes:
 ```text
 Selected answer
 Original question
-Timestamp
+Friendly timestamp
+```
+
+Timestamp display uses readable labels for recent responses, such as:
+
+```text
+Today, 3:45 pm
+Yesterday, 1:20 pm
+29th May, 3:45 pm
+```
+
+Recent response history is stored in Firestore under:
+
+```text
+rooms/{roomId}/history
 ```
 
 This keeps the parent creation flow shorter and avoids making the main screen too long on mobile.
@@ -362,6 +377,13 @@ Cache
 
 The design is retrieval-first. AI generation is only used when cached visuals, OpenSymbols, and Emoji API do not provide a suitable result.
 
+The backend validates visual generation requests before calling external services:
+
+- `optionLabels` must be an array
+- At least one non-empty option label is required
+- Up to 4 option labels are processed
+- Each option label must be 60 characters or shorter
+
 ### Global Visual Cache
 
 Visual cache is stored in Firestore using:
@@ -410,6 +432,8 @@ If both OpenSymbols and the Emoji API do not return a suitable visual, the backe
 
 Runware is used only from Firebase Cloud Functions. The API key is stored as a Firebase Secret and is never exposed to frontend code.
 
+Runware calls are protected with a request timeout so a slow image-generation response does not hang the whole visual pipeline indefinitely.
+
 Generated images are:
 
 ```text
@@ -429,6 +453,8 @@ The backend also includes a placeholder hook for future customer-provided Runwar
 If all previous layers fail, the system uses a default mock image fallback so the app can still return a usable visual response.
 
 Mock fallback visuals are treated as a safety net and should not be considered the main visual source.
+
+Mock fallback visuals are not permanently cached in `visualCache`, so temporary third-party failures do not poison future visual results.
 
 ---
 
@@ -675,7 +701,7 @@ The project includes pilot-safer Firestore and Storage rules.
 Local rule files:
 
 ```text
-focus-test/firestore.rules
+focus-test/firebase.rules
 focus-test/storage.rules
 ```
 
@@ -684,6 +710,8 @@ Configured in:
 ```text
 focus-test/firebase.json
 ```
+
+Note: `firebase.json` should point to the intended Firestore rules file before deploying rules. The current checked-in Firestore rules file is `firebase.rules`.
 
 Current Firestore rule direction:
 

@@ -154,32 +154,46 @@ export default function CommunicationMvpApp() {
     room: string,
   ) => {
     try {
-      console.log("Setup complete with role:", role, "and room:", room);
       await AsyncStorage.setItem("deviceRole", role);
       await AsyncStorage.setItem("roomId", room);
 
       // If this is a child device, fetch its FCM token and store it in the room document.
       if (role === "child") {
         try {
-          console.log("CHILD TOKEN SAVE STARTED");
-
           const token = await FocusAlert.getFcmToken();
-
 
           const roomRef = doc(db, "rooms", room);
 
-          await setDoc(
-            roomRef,
-            {
-              childFcmToken: token || "NO_TOKEN_RETURNED_TEST",
-              tokenSavedAt: Date.now(),
-            },
-            { merge: true },
-          );
+          if (!token) {
+            await setDoc(
+              roomRef,
+              {
+                childFcmToken: null,
+                tokenSavedAt: Date.now(),
+              },
+              { merge: true },
+            );
 
-          console.log("FIRESTORE TOKEN WRITE COMPLETE");
+            Alert.alert(
+              "Attention alerts may not work",
+              "This child device could not get an alert token. The child can still answer in the app, but overlay alerts may not appear.",
+            );
+          } else {
+            await setDoc(
+              roomRef,
+              {
+                childFcmToken: token,
+                tokenSavedAt: Date.now(),
+              },
+              { merge: true },
+            );
+          }
         } catch (tokenError) {
           console.warn("Failed to get or save FCM token", tokenError);
+          Alert.alert(
+            "Attention alerts may not work",
+            "This child device could not finish alert setup. The child can still answer in the app, but overlay alerts may not appear.",
+          );
         }
       }
 

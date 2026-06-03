@@ -254,7 +254,7 @@ export default function CommunicationMvpApp() {
         "Add options first",
         "Please add at least one option before saving a template.",
       );
-      return;
+      return false;
     }
 
     const cleanedTemplateName = templateName?.trim();
@@ -282,7 +282,7 @@ export default function CommunicationMvpApp() {
         "Template name already exists",
         "Please choose a different name before updating this template.",
       );
-      return;
+      return false;
     }
 
     const nextTemplate: savedSessionTemplate = {
@@ -310,12 +310,14 @@ export default function CommunicationMvpApp() {
           ? "The existing template has been updated and moved to the top"
           : "You can reuse this question and options from the Templates tab.",
       );
+      return true;
     } catch (error) {
       console.warn("Failed to save template", error);
       Alert.alert(
         "Could not save template",
         "Something went wrong while saving this template.",
       );
+      return false;
     }
   };
 

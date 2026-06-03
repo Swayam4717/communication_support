@@ -57,7 +57,7 @@ interface ParentModeScreenProps {
   onApplySavedTemplate: (templateId: string) => void;
   onEditSavedTemplate: (templateId: string) => void;
   onCancelTemplateEdit: () => void;
-  onSaveCurrentTemplate: (templateName?: string) => void;
+  onSaveCurrentTemplate: (templateName?: string) => Promise<boolean>;
   onDeleteSavedTemplate: (templateId: string) => void;
   onClearSession: () => void;
 }
@@ -378,6 +378,14 @@ export default function ParentModeScreen({
     }
   };
   const openSaveTemplateModal = () => {
+    if (optionLabels.every((label) => !label.trim())) {
+      Alert.alert(
+        "Add options first",
+        "Please add at least one option before saving a template.",
+      );
+      return;
+    }
+
     const cleanedQuestion = question.trim();
     const defaultName =
       editingTemplateName ??
@@ -387,8 +395,12 @@ export default function ParentModeScreen({
     setTemplateNameInput(defaultName);
     setIsSavedTemplateModalVisible(true);
   };
-  const handleConfirmSaveTemplate = () => {
-    onSaveCurrentTemplate(templateNameInput);
+  const handleConfirmSaveTemplate = async () => {
+    const saved = await onSaveCurrentTemplate(templateNameInput);
+    if (!saved) {
+      return;
+    }
+
     setIsSavedTemplateModalVisible(false);
     setTemplateNameInput("");
   };

@@ -135,6 +135,96 @@ function normalizeVisualKey(label){
     .replace(/\s+/g, "-");
 }
 
+const WEAK_VISUAL_SEARCH_WORDS = new Set([
+  "after",
+  "before",
+  "with",
+  "without",
+  "and",
+  "or",
+  "to",
+  "for",
+  "from",
+  "in",
+  "on",
+  "at",
+  "of",
+  "the",
+  "a",
+  "an",
+]);
+
+function normalizeVisualSearchText(value){
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, " ")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function getOpenSymbolsSearchCandidates(label){
+  const normalizedLabel = normalizeVisualSearchText(label);
+  const words = normalizedLabel.split(" ").filter(Boolean);
+  const meaningfulWords = words.filter((word) => !WEAK_VISUAL_SEARCH_WORDS.has(word));
+  const phraseCandidateMap = {
+    "after bed": ["bed", "bedtime"],
+    "before bed": ["bed", "bedtime"],
+  };
+
+  const candidates = [
+    words.length === 1 && WEAK_VISUAL_SEARCH_WORDS.has(words[0])
+      ? ""
+      : normalizedLabel,
+    ...(phraseCandidateMap[normalizedLabel] || []),
+    meaningfulWords.join(" "),
+    ...meaningfulWords,
+  ];
+
+  return [...new Set(candidates.filter(Boolean))];
+}
+
+function getOpenSymbolMatchText(symbol){
+  const imageName = String(symbol.image_url || "")
+    .split("?")[0]
+    .split("/")
+    .pop();
+
+  return normalizeVisualSearchText(
+    [
+      symbol.symbol_key,
+      symbol.name,
+      symbol.label,
+      symbol.title,
+      imageName,
+    ].filter(Boolean).join(" "),
+  );
+}
+
+function isWeakOnlyOpenSymbolMatch(symbol, query){
+  const queryWords = normalizeVisualSearchText(query).split(" ").filter(Boolean);
+  const symbolWords = getOpenSymbolMatchText(symbol).split(" ").filter(Boolean);
+  const startsWithWeakWord = WEAK_VISUAL_SEARCH_WORDS.has(queryWords[0]);
+
+  if(queryWords.length <= 1){
+    return false;
+  }
+
+  // For phrases like "after bed", skip symbols whose main searchable text is
+  // only a connector/preposition. Otherwise a weak word can be cached as the
+  // visual for the full phrase and block better fallbacks.
+  if(symbolWords.length === 0){
+    return startsWithWeakWord;
+  }
+
+  return startsWithWeakWord &&
+    symbolWords.some((word) => WEAK_VISUAL_SEARCH_WORDS.has(word)) &&
+    !queryWords.some(
+      (word) =>
+        !WEAK_VISUAL_SEARCH_WORDS.has(word) && symbolWords.includes(word),
+    );
+}
+
 async function getCachedVisual(label){
   const key = normalizeVisualKey(label);
   if(!key ){
@@ -207,7 +297,7 @@ async function resolveVisualForLabel(label, index = 0){
   }
   
   try{
-    const openSymbolVisual = await searchOpenSymbols(label); 
+    const openSymbolVisual = await searchOpenSymbols(label);
     if(openSymbolVisual){
       await saveVisualToCache(label, openSymbolVisual);
       return {
@@ -315,10 +405,27 @@ async function getOpenSymbolsAccessToken() {
   return data.access_token;
 }
 async function searchOpenSymbols(label){
+  const candidates = getOpenSymbolsSearchCandidates(label);
+  if(candidates.length === 0){
+    return null;
+  }
+
   const token = await getOpenSymbolsAccessToken();
+
+  for(const candidate of candidates){
+    const visual = await searchOpenSymbolsCandidate(label, candidate, token);
+    if(visual){
+      return visual;
+    }
+  }
+
+  return null;
+}
+
+async function searchOpenSymbolsCandidate(label, candidate, token){
   const url = new URL("https://www.opensymbols.org/api/v2/symbols");
   url.searchParams.set("access_token", token);
-  url.searchParams.set("q", label);
+  url.searchParams.set("q", candidate);
   url.searchParams.set("locale", "en");
   url.searchParams.set("safe", "1");
 
@@ -340,7 +447,8 @@ async function searchOpenSymbols(label){
       symbol &&
       symbol.image_url &&
       symbol.unsafe_result !== true &&
-      isComercialSafeLicense(symbol.license)
+      isComercialSafeLicense(symbol.license) &&
+      !isWeakOnlyOpenSymbolMatch(symbol, candidate)
     );
   });
   if(!safeResult){

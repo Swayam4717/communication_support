@@ -16,14 +16,8 @@ const visualCacheCollection = firestore.collection("visualCache");
 exports.sendFocusAlertOnSessionUpdate = onDocumentUpdated(
   "rooms/{roomId}",
   async (event) => {
-    console.log("FUNCTION TRIGGERED");
-    console.log("ROOM ID:", event.params.roomId);
-
     const before = event.data?.before?.data();
     const after = event.data?.after?.data();
-
-    console.log("BEFORE:", JSON.stringify(before));
-    console.log("AFTER:", JSON.stringify(after));
 
     if (!before || !after) {
       console.log("Missing before or after data");
@@ -33,22 +27,15 @@ exports.sendFocusAlertOnSessionUpdate = onDocumentUpdated(
     const beforeStatus = before.status;
     const afterStatus = after.status;
 
-    console.log("BEFORE STATUS:", beforeStatus);
-    console.log("AFTER STATUS:", afterStatus);
-
     if (beforeStatus === afterStatus) {
-      console.log("Status unchanged, skipping");
       return;
     }
 
     if (afterStatus !== "sent") {
-      console.log("After status is not sent, skipping");
       return;
     }
 
     const childFcmToken = after.childFcmToken;
-
-    console.log("CHILD TOKEN EXISTS:", !!childFcmToken);
 
     if (!childFcmToken) {
       console.log("No child FCM token found for room:", event.params.roomId);
@@ -70,7 +57,10 @@ exports.sendFocusAlertOnSessionUpdate = onDocumentUpdated(
 
     try {
       const response = await admin.messaging().send(message);
-      console.log("Focus alert sent:", response);
+      console.log("Focus alert sent", {
+        roomId: event.params.roomId,
+        messageId: response,
+      });
     } catch (error) {
       console.error("Failed to send focus alert:", error);
     }
@@ -703,9 +693,10 @@ exports.generateOptionVisuals = onCall(
         `Option labels must be at most ${MAX_LABEL_LENGTH} characters long.`
       );
     }
-    console.log("generateOptionVisuals Called");
-    console.log("Question:", question);
-    console.log("Option Labels:", JSON.stringify(cleanedLabels));
+    console.log("generateOptionVisuals called", {
+      optionCount: cleanedLabels.length,
+      hasQuestion: !!question,
+    });
     
     const images = await Promise.all(
       cleanedLabels.map((label, index) => resolveVisualForLabel(label, index))

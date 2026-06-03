@@ -1,11 +1,8 @@
 import React, { useEffect, useState } from "react";
 import {
   SafeAreaView,
-  Button,
   Linking,
   Alert,
-  TextInput,
-  View,
 } from "react-native";
 import FocusAlert from "focus-alert";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -63,7 +60,6 @@ const SESSION_TEMPLATES: Record<
   },
 };
 
-console.log("App Running");
 
 export default function CommunicationMvpApp() {
   // This component owns the top-level app state and decides which screen to show.
@@ -169,7 +165,6 @@ export default function CommunicationMvpApp() {
 
           const token = await FocusAlert.getFcmToken();
 
-          console.log("TOKEN FROM NATIVE:", token);
 
           const roomRef = doc(db, "rooms", room);
 

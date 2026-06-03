@@ -210,7 +210,6 @@ class FocusAlertModule : Module() {
         promise.resolve(null)
       } else {
         val token = task.result
-        Log.d("FOCUS_FCM", "FCM TOKEN: $token")
         promise.resolve(token)
       }
     }

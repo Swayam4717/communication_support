@@ -17,6 +17,5 @@ class FocusFirebaseMessagingService : FirebaseMessagingService() {
     }
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        Log.d("FOCUS_FCM", "New FCM Token: $token")
     }
 }

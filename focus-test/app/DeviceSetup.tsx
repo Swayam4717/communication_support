@@ -64,9 +64,7 @@ export default function DeviceSetupScreen({
   const [childOverlayAllowed, setChildOverlayAllowed] = useState(true);
 
   const checkChildOverlayPermission = React.useCallback(async () => {
-    console.log("Checking child overlay permission...");
-    console.log("Platform:", Platform.OS);
-
+    
     if (Platform.OS !== "android") {
       setChildOverlayAllowed(true);
       return true;
@@ -74,7 +72,6 @@ export default function DeviceSetupScreen({
 
     try {
       const allowed = await FocusAlertModule.canDrawOverlays();
-      console.log("Overlay permission allowed:", allowed);
       setChildOverlayAllowed(Boolean(allowed));
       return Boolean(allowed);
     } catch (error) {

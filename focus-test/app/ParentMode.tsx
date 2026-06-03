@@ -589,6 +589,10 @@ export default function ParentModeScreen({
       onSendToChild?.();
     } catch (e) {
       console.warn("sendSession failed", e);
+      Alert.alert(
+        "Could not send",
+        "Check your connection and try again.",
+      );
     }
   };
 

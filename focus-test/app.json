@@ -24,6 +24,7 @@
       "permissions": [
         "POST_NOTIFICATIONS",
         "INTERNET",
+        "RECORD_AUDIO",
         "VIBRATE",
         "USE_FULL_SCREEN_INTENT",
         "WAKE_LOCK",
@@ -36,6 +37,16 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow Focus Test to use the microphone for guided speech practice.",
+          "speechRecognitionPermission": "Allow Focus Test to recognize speech for guided speech practice.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
       [
         "expo-splash-screen",
         {

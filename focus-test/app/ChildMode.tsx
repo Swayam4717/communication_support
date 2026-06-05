@@ -1,5 +1,15 @@
 import React from "react";
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from "expo-speech-recognition";
 import type { CommunicationSession } from "./communicationHelpers";
 import { subscribeToSession, submitAnswer } from "./communicationHelpers";
 import { Header, OptionCard } from "./communicationUI";
@@ -89,6 +99,9 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   const [stage, setStage] = React.useState<"idle" | "incoming" | "choice" | "confirmation">("idle");
   const [selectedOptionId, setSelectedOptionId] = React.useState<string | null>(null);
   const [mockTranscript, setMockTranscript] = React.useState("");
+  const [isListening, setIsListening] = React.useState(false);
+  const [liveTranscript, setLiveTranscript] = React.useState("");
+  const [speechError, setSpeechError] = React.useState<string | null>(null);
   const [speechMessage, setSpeechMessage] = React.useState("You can say or tap an answer.");
 // Subscribe to session updates for the given roomId and update local state accordingly
  React.useEffect(() => {
@@ -100,6 +113,8 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
       setStage("idle");
       setSelectedOptionId(null);
       setMockTranscript("");
+      setLiveTranscript("");
+      setSpeechError(null);
       setSpeechMessage("You can say or tap an answer.");
       return;
     }
@@ -118,9 +133,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
 }, [roomId]);
 
   const selectedOption = session?.options.find((o) => o.id === selectedOptionId) ?? null;
-  const handleMockTranscriptChange = (value: string) => {
-    setMockTranscript(value);
-
+  const applyTranscriptMatch = React.useCallback((value: string) => {
     if (!session) {
       return;
     }
@@ -135,6 +148,77 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
 
     setSelectedOptionId(null);
     setSpeechMessage("Try again. You can say or tap an answer.");
+  }, [session]);
+
+  useSpeechRecognitionEvent("result", (event) => {
+    const transcript = event.results[0]?.transcript?.trim();
+
+    if (!transcript) {
+      return;
+    }
+
+    setLiveTranscript(transcript);
+    setSpeechError(null);
+    applyTranscriptMatch(transcript);
+  });
+
+  useSpeechRecognitionEvent("end", () => {
+    setIsListening(false);
+  });
+
+  useSpeechRecognitionEvent("error", () => {
+    setIsListening(false);
+    setSpeechError("Microphone is off. You can still tap an answer.");
+    setSpeechMessage("Microphone is off. You can still tap an answer.");
+  });
+
+  React.useEffect(() => {
+    return () => {
+      ExpoSpeechRecognitionModule.abort();
+    };
+  }, []);
+
+  const startListening = async () => {
+    try {
+      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+
+      if (!permission.granted || !ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+        setSpeechError("Microphone is off. You can still tap an answer.");
+        setSpeechMessage("Microphone is off. You can still tap an answer.");
+        return;
+      }
+
+      setLiveTranscript("");
+      setSpeechError(null);
+      setSpeechMessage("Listening...");
+      ExpoSpeechRecognitionModule.start({
+        lang: "en-US",
+        interimResults: true,
+        maxAlternatives: 1,
+        contextualStrings: session?.options.map((option) => option.label) ?? [],
+      });
+      setIsListening(true);
+    } catch {
+      setIsListening(false);
+      setSpeechError("Microphone is off. You can still tap an answer.");
+      setSpeechMessage("Microphone is off. You can still tap an answer.");
+    }
+  };
+
+  const stopListening = async () => {
+    try {
+      ExpoSpeechRecognitionModule.stop();
+    } catch {
+      setSpeechError("Microphone is off. You can still tap an answer.");
+      setSpeechMessage("Microphone is off. You can still tap an answer.");
+    } finally {
+      setIsListening(false);
+    }
+  };
+
+  const handleMockTranscriptChange = (value: string) => {
+    setMockTranscript(value);
+    applyTranscriptMatch(value);
   };
 
   return (
@@ -177,6 +261,44 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
           <Text style={styles.questionTitle}>{session.title}</Text>
 
           <View style={styles.choiceList}>
+            <View style={styles.speechPracticeCard}>
+              <Text style={styles.speechPracticeTitle}>Practice saying answer</Text>
+              <View style={styles.speechSupportBoard}>
+                {session.options.map((option) => (
+                  <View key={option.id} style={styles.speechSupportChip}>
+                    <Text style={styles.speechSupportChipText}>{option.label}</Text>
+                  </View>
+                ))}
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.speechListenButton,
+                  isListening && styles.speechListenButtonActive,
+                ]}
+                onPress={isListening ? stopListening : startListening}
+              >
+                <Text style={styles.speechListenButtonText}>
+                  {isListening ? "Stop listening" : "Start speaking"}
+                </Text>
+              </TouchableOpacity>
+              {liveTranscript ? (
+                <Text style={styles.speechLiveTranscript}>
+                  Live: {liveTranscript}
+                </Text>
+              ) : null}
+              <TextInput
+                value={mockTranscript}
+                onChangeText={handleMockTranscriptChange}
+                placeholder="Type mock transcript"
+                placeholderTextColor="#A8978B"
+                style={styles.speechTranscriptInput}
+              />
+              <Text style={styles.speechPracticeMessage}>{speechMessage}</Text>
+              {speechError ? (
+                <Text style={styles.speechErrorText}>{speechError}</Text>
+              ) : null}
+            </View>
+
             {session.options.map((option) => (
               <OptionCard
                 key={option.id}
@@ -185,25 +307,6 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                 onPress={() => setSelectedOptionId(option.id)}
               />
             ))}
-          </View>
-
-          <View style={styles.speechPracticeCard}>
-            <Text style={styles.speechPracticeTitle}>Practice saying answer</Text>
-            <View style={styles.speechSupportBoard}>
-              {session.options.map((option) => (
-                <View key={option.id} style={styles.speechSupportChip}>
-                  <Text style={styles.speechSupportChipText}>{option.label}</Text>
-                </View>
-              ))}
-            </View>
-            <TextInput
-              value={mockTranscript}
-              onChangeText={handleMockTranscriptChange}
-              placeholder="Type mock transcript"
-              placeholderTextColor="#A8978B"
-              style={styles.speechTranscriptInput}
-            />
-            <Text style={styles.speechPracticeMessage}>{speechMessage}</Text>
           </View>
 
           <TouchableOpacity

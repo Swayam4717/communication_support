@@ -496,6 +496,27 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
   },
+  speechListenButton: {
+    backgroundColor: "#CFA87A",
+    borderRadius: 16,
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  speechListenButtonActive: {
+    backgroundColor: "#9B5E3E",
+  },
+  speechListenButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  speechLiveTranscript: {
+    color: "#2B1D18",
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
   speechTranscriptInput: {
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
@@ -512,6 +533,12 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     lineHeight: 18,
+  },
+  speechErrorText: {
+    color: "#9B5E3E",
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 17,
   },
   optionCard: {
     backgroundColor: "#FBF9F6",

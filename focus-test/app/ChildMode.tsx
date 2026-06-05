@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import type { CommunicationSession } from "./communicationHelpers";
 import { subscribeToSession, submitAnswer } from "./communicationHelpers";
 import { Header, OptionCard } from "./communicationUI";
@@ -8,6 +8,71 @@ import { styles } from "./communicationCommon";
 interface ChildModeScreenProps {
   roomId: string;
   onResetSetup: () => void;
+}
+
+function normalizeSpeechText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getSpeechTextVariants(value: string) {
+  const normalizedValue = normalizeSpeechText(value);
+  const variants = [normalizedValue];
+
+  if (
+    normalizedValue.length > 4 &&
+    normalizedValue.endsWith("s") &&
+    !normalizedValue.endsWith("ss")
+  ) {
+    variants.push(normalizedValue.slice(0, -1));
+  }
+
+  return variants;
+}
+
+function findSpokenOption(
+  transcript: string,
+  options: CommunicationSession["options"],
+) {
+  const normalizedTranscript = normalizeSpeechText(transcript);
+  const transcriptVariants = getSpeechTextVariants(transcript);
+
+  if (!normalizedTranscript) {
+    return null;
+  }
+
+  const normalizedOptions = options.map((option) => ({
+    option,
+    label: normalizeSpeechText(option.label),
+    variants: getSpeechTextVariants(option.label),
+  }));
+
+  const exactMatch = normalizedOptions.find(
+    ({ variants }) =>
+      variants.some((labelVariant) =>
+        transcriptVariants.some(
+          (transcriptVariant) =>
+            labelVariant && labelVariant === transcriptVariant,
+        ),
+      ),
+  );
+
+  if (exactMatch) {
+    return exactMatch.option;
+  }
+
+  const containsMatches = normalizedOptions.filter(
+    ({ variants }) =>
+      variants.some(
+        (labelVariant) =>
+          labelVariant && normalizedTranscript.includes(labelVariant),
+      ),
+  );
+
+  return containsMatches.length === 1 ? containsMatches[0].option : null;
 }
 /**
  * ChildModeScreen - Simulates the child's experience
@@ -23,6 +88,8 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   const [session, setSession] = React.useState<CommunicationSession | null>(null);
   const [stage, setStage] = React.useState<"idle" | "incoming" | "choice" | "confirmation">("idle");
   const [selectedOptionId, setSelectedOptionId] = React.useState<string | null>(null);
+  const [mockTranscript, setMockTranscript] = React.useState("");
+  const [speechMessage, setSpeechMessage] = React.useState("You can say or tap an answer.");
 // Subscribe to session updates for the given roomId and update local state accordingly
  React.useEffect(() => {
   const unsub = subscribeToSession((s) => {
@@ -32,6 +99,8 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     if (!s || s.status === "idle") {
       setStage("idle");
       setSelectedOptionId(null);
+      setMockTranscript("");
+      setSpeechMessage("You can say or tap an answer.");
       return;
     }
 
@@ -49,6 +118,25 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
 }, [roomId]);
 
   const selectedOption = session?.options.find((o) => o.id === selectedOptionId) ?? null;
+  const handleMockTranscriptChange = (value: string) => {
+    setMockTranscript(value);
+
+    if (!session) {
+      return;
+    }
+
+    const matchedOption = findSpokenOption(value, session.options);
+
+    if (matchedOption) {
+      setSelectedOptionId(matchedOption.id);
+      setSpeechMessage(`I heard: ${matchedOption.label}`);
+      return;
+    }
+
+    setSelectedOptionId(null);
+    setSpeechMessage("Try again. You can say or tap an answer.");
+  };
+
   React.useEffect(() => {
     console.log("CHILD SESSION OPTION:", JSON.stringify(session?.options, null, 2))
   }, [session]);
@@ -100,6 +188,25 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                 onPress={() => setSelectedOptionId(option.id)}
               />
             ))}
+          </View>
+
+          <View style={styles.speechPracticeCard}>
+            <Text style={styles.speechPracticeTitle}>Practice saying answer</Text>
+            <View style={styles.speechSupportBoard}>
+              {session.options.map((option) => (
+                <View key={option.id} style={styles.speechSupportChip}>
+                  <Text style={styles.speechSupportChipText}>{option.label}</Text>
+                </View>
+              ))}
+            </View>
+            <TextInput
+              value={mockTranscript}
+              onChangeText={handleMockTranscriptChange}
+              placeholder="Type mock transcript"
+              placeholderTextColor="#A8978B"
+              style={styles.speechTranscriptInput}
+            />
+            <Text style={styles.speechPracticeMessage}>{speechMessage}</Text>
           </View>
 
           <TouchableOpacity

@@ -137,9 +137,6 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     setSpeechMessage("Try again. You can say or tap an answer.");
   };
 
-  React.useEffect(() => {
-    console.log("CHILD SESSION OPTION:", JSON.stringify(session?.options, null, 2))
-  }, [session]);
   return (
     <ScrollView
       contentContainerStyle={styles.scrollContent}

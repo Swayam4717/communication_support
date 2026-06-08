@@ -48,7 +48,7 @@ The core goal is to support low-pressure communication through structured visual
 - Child-side Guided Speech Practice with Android speech recognition
 - Mock transcript fallback for guided speech matching tests
 - Persistent device setup using AsyncStorage
-- Child connection status tracking
+- Child attention-alert readiness status
 - Native Android attention routing
 - Background Firebase messaging support
 - Clear session support across Firestore and parent UI state
@@ -160,9 +160,11 @@ Room pairing features:
 - Invalid child room codes show a “Room not found” message
 - Child setup checks Android overlay permission
 - Child setup can open Android “Display over other apps” settings
+- Child setup checks microphone permission for Guided Speech Practice
+- Child FCM alert-token setup happens after child setup is completed
 - Setup is persisted using AsyncStorage
 
-This prevents accidental creation of fake Firestore rooms from child-side typos and makes the child attention-alert permission clearer during setup.
+This prevents accidental creation of fake Firestore rooms from child-side typos and makes child attention-alert and speech-practice readiness clearer during setup. Missing overlay, microphone, or alert-token readiness does not block in-app tap-to-answer.
 
 ---
 
@@ -226,7 +228,7 @@ The Create tab is used to build and send a communication session.
 
 Responsibilities:
 
-- View child connection status
+- View attention-alert readiness status
 - View the latest child response
 - Enter question/options
 - Apply built-in quick templates
@@ -261,7 +263,7 @@ Parent taps Add image
 → Child receives image card
 ```
 
-The Send button is disabled while image upload or visual generation is in progress to prevent incomplete sessions from being sent.
+The Send button is disabled while image upload or visual generation is in progress to prevent incomplete sessions from being sent. If sending or clearing a session fails, Parent Mode shows a clear retry message instead of failing silently.
 
 ### History Tab
 
@@ -329,6 +331,7 @@ Responsibilities:
 - Allow optional guided speech practice using the known answer labels
 - Show a clear selected-state checkmark
 - Submit selected answer
+- Show a clear retry message if answer submission fails
 - Show confirmation state
 
 Child option card behavior:

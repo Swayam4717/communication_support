@@ -19,7 +19,6 @@ import {
   CommunicationSession,
   DEFAULT_ROOM_ID,
   db,
-  roomExists,
 } from "./communicationHelpers";
 import { styles } from "./communicationCommon";
 

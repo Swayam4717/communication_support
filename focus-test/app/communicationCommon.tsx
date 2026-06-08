@@ -565,6 +565,13 @@ export const styles = StyleSheet.create({
     borderColor: "#B9824F",
     borderWidth: 3,
   },
+  selectionDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#B9824F",
+    marginLeft: 12,
+  },
   optionVisualBox: {
     width: 76,
     height: 76,

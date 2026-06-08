@@ -255,7 +255,7 @@ export async function saveSessionHistory(
     id: session.id || String(Date.now()),
     question: session.title,
     answer: selectedOption.label,
-    answerEmoji: selectedOption.emoji,
+    answerEmoji: selectedOption.emoji ?? undefined,
     createdAt: Date.now(),
   };
 

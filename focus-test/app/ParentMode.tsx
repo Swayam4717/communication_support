@@ -275,7 +275,7 @@ export default function ParentModeScreen({
     }
   }, [fireSession, roomId, savedHistorySessionId]);
 
-  const isChildConnected = !!fireSession?.childFcmToken;
+  const areAttentionAlertsReady = !!fireSession?.childFcmToken;
 
   const setOptionImageUrl = (index: number, imageUrl: string) => {
     setResolvedOptions(null);
@@ -603,6 +603,10 @@ export default function ParentModeScreen({
       onClearSession();
     } catch (e) {
       console.warn("resetSession failed", e);
+      Alert.alert(
+        "Could not clear session",
+        "Check your connection and try again.",
+      );
     }
   };
 
@@ -627,7 +631,7 @@ export default function ParentModeScreen({
             <Text style={styles.parentHeaderTitle}>Parent Mode</Text>
             <Text style={styles.parentHeaderRoom}>Room: {roomId}</Text>
             <Text style={styles.parentHeaderRoom}>
-              Child: {isChildConnected ? "Connected" : "Not Connected"}
+              Attention alerts: {areAttentionAlertsReady ? "Ready" : "Not ready"}
             </Text>
           </View>
           <TouchableOpacity style={styles.resetButton} onPress={onResetSetup}>

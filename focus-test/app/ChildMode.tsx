@@ -326,7 +326,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
               <TextInput
                 value={mockTranscript}
                 onChangeText={handleMockTranscriptChange}
-                placeholder="Type mock transcript"
+                placeholder="Type an answer to practice"
                 placeholderTextColor="#A8978B"
                 style={styles.speechTranscriptInput}
               />

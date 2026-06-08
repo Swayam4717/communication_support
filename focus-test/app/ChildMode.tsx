@@ -98,11 +98,29 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   const [session, setSession] = React.useState<CommunicationSession | null>(null);
   const [stage, setStage] = React.useState<"idle" | "incoming" | "choice" | "confirmation">("idle");
   const [selectedOptionId, setSelectedOptionId] = React.useState<string | null>(null);
+  const [selectionSource, setSelectionSource] = React.useState<"tap" | "speech" | null>(null);
   const [mockTranscript, setMockTranscript] = React.useState("");
   const [isListening, setIsListening] = React.useState(false);
   const [liveTranscript, setLiveTranscript] = React.useState("");
   const [speechError, setSpeechError] = React.useState<string | null>(null);
   const [speechMessage, setSpeechMessage] = React.useState("You can say or tap an answer.");
+  const previousSessionIdRef = React.useRef<string | null>(null);
+  const abortSpeechRecognition = React.useCallback(() => {
+    try {
+      ExpoSpeechRecognitionModule.abort();
+    } catch {
+      // Speech recognition can already be stopped when session state changes.
+    }
+  }, []);
+
+  const resetSpeechPracticeState = React.useCallback(() => {
+    setSelectedOptionId(null);
+    setSelectionSource(null);
+    setMockTranscript("");
+    setLiveTranscript("");
+    setSpeechError(null);
+    setSpeechMessage("You can say or tap an answer.");
+  }, []);
 // Subscribe to session updates for the given roomId and update local state accordingly
  React.useEffect(() => {
   const unsub = subscribeToSession((s) => {
@@ -111,26 +129,40 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
 // Handle session status changes to update the UI stage and trigger alerts
     if (!s || s.status === "idle") {
       setStage("idle");
-      setSelectedOptionId(null);
-      setMockTranscript("");
-      setLiveTranscript("");
-      setSpeechError(null);
-      setSpeechMessage("You can say or tap an answer.");
+      previousSessionIdRef.current = s?.id ?? null;
+      abortSpeechRecognition();
+      setIsListening(false);
+      resetSpeechPracticeState();
       return;
     }
 
     if (s.status === "sent") {
+      if (s.id !== previousSessionIdRef.current) {
+        abortSpeechRecognition();
+        setIsListening(false);
+        resetSpeechPracticeState();
+      }
+
+      previousSessionIdRef.current = s.id;
       setStage("incoming");
       return;
     }
 
     if (s.status === "answered") {
+      previousSessionIdRef.current = s.id;
       setStage("confirmation");
     }
   }, roomId);
 
   return () => unsub();
-}, [roomId]);
+}, [abortSpeechRecognition, resetSpeechPracticeState, roomId]);
+
+  React.useEffect(() => {
+    if (stage !== "choice" && isListening) {
+      abortSpeechRecognition();
+      setIsListening(false);
+    }
+  }, [abortSpeechRecognition, isListening, stage]);
 
   const selectedOption = session?.options.find((o) => o.id === selectedOptionId) ?? null;
   const applyTranscriptMatch = React.useCallback((value: string) => {
@@ -142,13 +174,18 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
 
     if (matchedOption) {
       setSelectedOptionId(matchedOption.id);
+      setSelectionSource("speech");
       setSpeechMessage(`I heard: ${matchedOption.label}`);
       return;
     }
 
-    setSelectedOptionId(null);
+    if (selectionSource === "speech") {
+      setSelectedOptionId(null);
+      setSelectionSource(null);
+    }
+
     setSpeechMessage("Try again. You can say or tap an answer.");
-  }, [session]);
+  }, [selectionSource, session]);
 
   useSpeechRecognitionEvent("result", (event) => {
     const transcript = event.results[0]?.transcript?.trim();
@@ -304,7 +341,10 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                 key={option.id}
                 option={option}
                 selected={option.id === selectedOptionId}
-                onPress={() => setSelectedOptionId(option.id)}
+                onPress={() => {
+                  setSelectedOptionId(option.id);
+                  setSelectionSource("tap");
+                }}
               />
             ))}
           </View>

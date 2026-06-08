@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { ExpoSpeechRecognitionModule } from "expo-speech-recognition";
 import FocusAlertModule from "../modules/focus-alert";
 import { styles } from "./communicationCommon";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -20,6 +21,7 @@ interface DeviceSetupProps {
 }
 
 type SetupStage = "role-select" | "room-setup";
+type ReadinessState = boolean | null;
 
 const ROOM_WORDS = [
   "CALM",
@@ -61,7 +63,11 @@ export default function DeviceSetupScreen({
   const [roomCode, setRoomCode] = useState("");
   const [isCheckingRoom, setIsCheckingRoom] = useState(false);
   const [useExistingRoom, setUseExistingRoom] = useState(false);
-  const [childOverlayAllowed, setChildOverlayAllowed] = useState(true);
+  const [childOverlayAllowed, setChildOverlayAllowed] =
+    useState<ReadinessState>(null);
+  const [childMicrophoneReady, setChildMicrophoneReady] =
+    useState<ReadinessState>(null);
+  const [isCheckingReadiness, setIsCheckingReadiness] = useState(false);
 
   const checkChildOverlayPermission = React.useCallback(async () => {
     
@@ -114,6 +120,69 @@ export default function DeviceSetupScreen({
     }
   };
 
+  const checkChildMicrophonePermission = async () => {
+    if (Platform.OS !== "android") {
+      setChildMicrophoneReady(true);
+      return true;
+    }
+
+    try {
+      const permission = await ExpoSpeechRecognitionModule.getPermissionsAsync();
+      setChildMicrophoneReady(Boolean(permission.granted));
+      return Boolean(permission.granted);
+    } catch (error) {
+      console.warn("Failed to check microphone permission:", error);
+      setChildMicrophoneReady(false);
+      return false;
+    }
+  };
+
+  const handleRequestChildMicrophonePermission = async () => {
+    try {
+      const permission =
+        await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      setChildMicrophoneReady(Boolean(permission.granted));
+    } catch (error) {
+      console.warn("Failed to request microphone permission:", error);
+      setChildMicrophoneReady(false);
+      Alert.alert(
+        "Permission unavailable",
+        "Could not request microphone permission. The child can still tap an answer.",
+      );
+    }
+  };
+
+  const checkChildReadiness = React.useCallback(
+    async (room = roomCode.trim().toUpperCase()) => {
+      if (selectedRole !== "child") {
+        return {
+          overlayReady: true,
+          microphoneReady: true,
+        };
+      }
+
+      setIsCheckingReadiness(true);
+
+      try {
+        const [overlayReady, microphoneReady] = await Promise.all([
+          checkChildOverlayPermission(),
+          checkChildMicrophonePermission(),
+        ]);
+
+        return {
+          roomReady: room.trim().toUpperCase()
+            ? await checkChildRoomExists(room.trim().toUpperCase())
+            : false,
+          overlayReady,
+          microphoneReady,
+        };
+      } finally {
+        setIsCheckingReadiness(false);
+      }
+    },
+    [checkChildOverlayPermission, roomCode, selectedRole],
+  );
+
   const handleContinueToRoom = async () => {
     if (!selectedRole) return;
 
@@ -129,7 +198,9 @@ export default function DeviceSetupScreen({
       }
     } else {
       setRoomCode("");
+      setChildMicrophoneReady(null);
       checkChildOverlayPermission();
+      checkChildMicrophonePermission();
     }
 
     setStage("room-setup");
@@ -206,9 +277,9 @@ export default function DeviceSetupScreen({
         return;
       }
 
-      const roomExists = await checkChildRoomExists(normalizedRoomCode);
+      const readiness = await checkChildReadiness(normalizedRoomCode);
 
-      if (!roomExists) {
+      if (!readiness.roomReady) {
         Alert.alert(
           "Room not found",
           "Please check the room code shown on the parent device and try again.",
@@ -216,9 +287,7 @@ export default function DeviceSetupScreen({
         return;
       }
 
-      const overlayAllowed = await checkChildOverlayPermission();
-
-      if (Platform.OS === "android" && !overlayAllowed) {
+      if (Platform.OS === "android" && !readiness.overlayReady) {
         Alert.alert(
           "Attention alerts need permission",
           "To show messages over other apps, please allow Display over other apps before completing child setup.",
@@ -248,6 +317,45 @@ export default function DeviceSetupScreen({
       setIsCheckingRoom(false);
     }
   };
+
+  const renderReadinessRow = ({
+    title,
+    description,
+    ready,
+    actionLabel,
+    onAction,
+  }: {
+    title: string;
+    description: string;
+    ready: ReadinessState;
+    actionLabel?: string;
+    onAction?: () => void;
+  }) => (
+    <View style={styles.setupChecklistRow}>
+      <View style={styles.setupChecklistTextWrap}>
+        <Text style={styles.setupChecklistTitle}>{title}</Text>
+        <Text style={styles.setupChecklistDescription}>
+          {ready === null ? "Not checked yet." : ready ? "Ready" : description}
+        </Text>
+      </View>
+      <Text
+        style={[
+          styles.setupChecklistStatus,
+          ready ? styles.setupChecklistStatusReady : styles.setupChecklistStatusWarning,
+        ]}
+      >
+        {ready ? "Ready" : "Needs setup"}
+      </Text>
+      {!ready && actionLabel && onAction ? (
+        <TouchableOpacity
+          style={styles.setupChecklistAction}
+          onPress={onAction}
+        >
+          <Text style={styles.setupChecklistActionText}>{actionLabel}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
 
   return (
     <ScrollView
@@ -323,24 +431,32 @@ export default function DeviceSetupScreen({
             </Text>
           </View>
 
-          {selectedRole === "child" &&
-          Platform.OS === "android" &&
-          !childOverlayAllowed ? (
-            <View style={styles.panelCard}>
-              <Text style={styles.sectionLabel}>
-                Attention alerts need permission
-              </Text>
-              <Text style={styles.inputHint}>
-                To show messages over other apps, please allow Display over
-                other apps for this child device.
-              </Text>
-
+          {selectedRole === "child" ? (
+            <View style={styles.setupChecklistCard}>
+              <Text style={styles.sectionLabel}>Child setup checklist</Text>
+              {renderReadinessRow({
+                title: "Attention Alerts Permission",
+                description: "Needed for attention alerts over other apps.",
+                ready: childOverlayAllowed,
+                actionLabel: "Enable overlay permission",
+                onAction: handleRequestChildOverlayPermission,
+              })}
+              {renderReadinessRow({
+                title: "Microphone Permission",
+                description: "Needed for Guided Speech Practice.",
+                ready: childMicrophoneReady,
+                actionLabel: "Enable microphone",
+                onAction: handleRequestChildMicrophonePermission,
+              })}
               <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={handleRequestChildOverlayPermission}
+                style={styles.setupChecklistRecheckButton}
+                onPress={() => checkChildReadiness()}
+                disabled={isCheckingReadiness}
               >
-                <Text style={styles.secondaryButtonText}>
-                  Enable overlay permission
+                <Text style={styles.setupChecklistActionText}>
+                  {isCheckingReadiness
+                    ? "Checking..."
+                    : "Re-check permissions"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -428,12 +544,13 @@ export default function DeviceSetupScreen({
             <TouchableOpacity
               disabled={
                 isCheckingRoom ||
+                isCheckingReadiness ||
                 ((selectedRole === "child" || useExistingRoom) &&
                   !roomCode.trim())
               }
               style={[
                 styles.primaryButton,
-                (!roomCode.trim() || isCheckingRoom) &&
+                (!roomCode.trim() || isCheckingRoom || isCheckingReadiness) &&
                   styles.primaryButtonDisabled,
               ]}
               onPress={handleCompleteSetup}

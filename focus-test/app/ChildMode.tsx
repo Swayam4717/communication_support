@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  Alert,
   ScrollView,
   Text,
   TextInput,
@@ -361,6 +362,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                 await submitAnswer(selectedOption.id, roomId);
               } catch (e) {
                 console.warn("submitAnswer failed", e);
+                Alert.alert("Could not send", "Please try again.");
               }
             }}
           >

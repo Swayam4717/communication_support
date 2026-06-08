@@ -1,65 +1,53 @@
-# Welcome to your Expo app 👋
+# Focus-Test
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Focus-Test is the active Expo React Native app for the Communication Support prototype. The full project overview, architecture notes, Firebase setup, testing flow, and current limitations live in the root repository README:
 
-## Get started
+```text
+../README.md
+```
 
-1. Install dependencies
+This app uses Firebase, a local Android native module, and `expo-speech-recognition`, so Expo Go is not enough for the full child-side attention-alert and speech-practice flow. Use a native Android build for those features.
+
+Do not run `npm install` inside `modules/focus-alert`. Install dependencies from this folder only.
+
+## Get Started
+
+1. Install dependencies from this folder:
 
    ```bash
    npm install
    ```
 
-2. Start the app
+2. Start Metro:
 
    ```bash
-   npx expo start
+   npm run start
    ```
 
-In the output, you'll find options to open the app in a
+3. Build/run Android for native overlay, FCM, and speech recognition behavior:
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+   ```bash
+   npm run android
+   ```
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Firebase Setup
 
-## Firebase setup
+Create `.env` in this folder with the Expo public Firebase values:
 
-1. Copy `.env.example` to `.env`
-2. Fill in your Firebase web app values
-3. Restart Expo after changing env vars
-
-The app reads these variables:
-
-- `EXPO_PUBLIC_FIREBASE_API_KEY`
-- `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`
-- `EXPO_PUBLIC_FIREBASE_PROJECT_ID`
-- `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
-- `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
-- `EXPO_PUBLIC_FIREBASE_APP_ID`
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```env
+EXPO_PUBLIC_FIREBASE_API_KEY=...
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+EXPO_PUBLIC_FIREBASE_APP_ID=...
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Restart Expo after changing environment variables.
 
-## Learn more
+## Notes
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- Parent Mode can run on web/browser for demos.
+- Child attention alerts and Guided Speech Practice are Android-first.
+- Saved templates are local-only through AsyncStorage.
+- Uploaded option images should not include sensitive personal photos during pilot testing because current pilot Storage rules allow readable image URLs.

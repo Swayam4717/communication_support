@@ -1,23 +1,43 @@
-# Next Step: Real AI Visual Generation
-
-## Goal
-Replace mock image URLs in `generateOptionVisuals` with real AI-generated images.
+# Visual Generation Integration
 
 ## Current State
-- Parent app calls Firebase callable function `generateOptionVisuals`
-- Cloud Function receives question + option labels
-- Cloud Function currently returns mock/demo image URLs
-- Parent preview and child visual cards already work with returned URLs
 
-## Next Implementation Steps
-1. Choose image generation API/provider
-2. Store API key securely in Firebase Functions config/secret manager
-3. Update Cloud Function to call image generation API per option
-4. Download/generated image output
-5. Upload generated images to Firebase Storage
-6. Return Firebase Storage download URLs to parent app
-7. Add error fallback if generation fails
-8. Test web/iPhone parent → Android child flow
+The app already uses a backend visual pipeline through the Firebase callable function `generateOptionVisuals`.
 
-## Important Safety Rule
-Do not call the AI API directly from the React Native app. API keys must stay in the backend Cloud Function.
+Current lookup order:
+
+```text
+Firestore visualCache
+-> OpenSymbols
+-> Emoji API
+-> Runware AI fallback
+-> mock fallback
+```
+
+The parent app sends the question and option labels to the Cloud Function. The backend returns visual metadata for each option, and Parent/Child Mode render uploaded images, generated visuals, emoji fallback, or text-only cards as needed.
+
+## Provider Notes
+
+- OpenSymbols is the first external AAC pictogram source.
+- OpenSymbols results are filtered for commercially safer licenses.
+- Phrase-aware OpenSymbols handling avoids weak standalone words such as `after` or `before` for labels like `after bed`.
+- Emoji API is used for simple concepts when OpenSymbols has no suitable result.
+- Runware is used as the AI fallback and uploads generated images to Firebase Storage.
+- Mock fallback keeps the app usable if all external providers fail.
+- Mock fallback visuals are not permanently cached.
+
+## Security Rule
+
+Do not call visual-generation APIs directly from the React Native app. API keys must stay in Firebase Cloud Functions secrets.
+
+Required Firebase secrets:
+
+```text
+OPENSYMBOLS_SHARED_SECRET
+EMOJI_API_KEY
+RUNWARE_API_KEY
+```
+
+## Pilot Privacy Note
+
+Parent-uploaded option images and generated visuals are readable by URL under the current pilot Storage rules so child devices can display them. Do not upload sensitive personal photos during pilot testing.

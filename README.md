@@ -79,7 +79,7 @@ The core goal is to support low-pressure communication through structured visual
 | Firebase Storage Images | Yes | Yes | Yes |
 | Saved Templates | Yes | Yes | Yes |
 | Overlay Attention Alerts | Yes | No | No |
-| Full Attention Capture | Yes | No | No |
+| Unlocked Overlay Attention | Yes | No | No |
 | Background Native Alert Routing | Yes | No | No |
 
 ---
@@ -749,7 +749,7 @@ The project includes pilot-safer Firestore and Storage rules.
 Local rule files:
 
 ```text
-focus-test/firebase.rules
+focus-test/firestore.rules
 focus-test/storage.rules
 ```
 
@@ -759,7 +759,7 @@ Configured in:
 focus-test/firebase.json
 ```
 
-Note: `firebase.json` should point to the intended Firestore rules file before deploying rules. The current checked-in Firestore rules file is `firebase.rules`.
+The checked-in Firestore rules file used by Firebase deploy is `firestore.rules`.
 
 Current Firestore rule direction:
 
@@ -772,10 +772,13 @@ Current Firestore rule direction:
 Current Storage rule direction:
 
 - Parent-uploaded option images are limited to image file uploads
+- Parent-uploaded option images are readable by URL so child devices can display them
 - Client update/delete access is blocked for uploaded option images
 - AI-generated visuals are readable by clients
 - Client writes to `generated_visuals` are blocked
 - Unknown Storage paths are denied by default
+
+Pilot privacy note: do not upload sensitive personal photos during testing. The current pilot Storage rules allow uploaded option images to be read by URL.
 
 These rules are safer than fully open development rules, but they are not final production rules. A production version should use Firebase Auth, parent/child ownership, and room membership checks.
 
@@ -809,6 +812,8 @@ npm run android
 ```
 
 Because this project uses a custom native Android module, Expo Go is not enough for the full Android attention-capture behavior. Use a native Android build.
+
+Install dependencies only from `focus-test/`. Do not run `npm install` inside `modules/focus-alert`, because nested React Native dependencies can cause duplicate native/runtime issues.
 
 ---
 
@@ -946,6 +951,7 @@ Do not use the `192.168.56.x` address because that is usually a virtual adapter 
 - The parent flow works through the browser, including on iPhone Safari.
 - Parent Mode uses a centered layout on browser/laptop so the UI does not stretch across the full screen.
 - The child flow is currently Android-first because attention capture depends on Android native behavior.
+- Emulator testing is useful for layout and basic flow, but overlay, FCM, and speech recognition should be verified on a real Android phone before a pilot.
 - Firebase Firestore is used for realtime session state.
 - Firebase Storage is used for uploaded option images and generated AI visuals.
 - Firebase Cloud Messaging and the native Android module handle child-side attention capture.
@@ -967,6 +973,8 @@ focustest
   - draw-over-apps permission
   - app setup as child device
   - child FCM token being available
+
+Parent Mode's attention-alert status is based on the child FCM token. If alerts are not ready, in-app answering can still work.
 
 - Guided Speech Practice depends on:
 
@@ -990,7 +998,7 @@ Firebase service account files must never be committed to version control.
 # Known Limitations
 
 - iOS does not support Android-style overlays
-- Full attention capture is currently Android-only
+- Unlocked overlay attention is currently Android-only
 - iOS child flow would need a different attention strategy
 - Locked-device notification route is not fully implemented; the main working attention path is unlocked-device overlay behavior
 - AI fallback quality depends on prompt quality and model output consistency

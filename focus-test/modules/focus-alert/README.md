@@ -1,37 +1,50 @@
 # focus-alert
 
-My new module
+Local Expo native module used by Focus-Test for Android attention alerts.
 
-<!-- Placeholder README for the local native module; it should describe the actual JS bridge and Android behavior. -->
+This module is consumed from the app through:
 
-# API documentation
-
-- [Documentation for the latest stable release](https://docs.expo.dev/versions/latest/sdk/focus-alert/)
-- [Documentation for the main branch](https://docs.expo.dev/versions/unversioned/sdk/focus-alert/)
-
-# Installation in managed Expo projects
-
-For [managed](https://docs.expo.dev/archive/managed-vs-bare/) Expo projects, please follow the installation instructions in the [API documentation for the latest stable release](#api-documentation). If you follow the link and there is no documentation available then this library is not yet usable within managed projects &mdash; it is likely to be included in an upcoming Expo SDK release.
-
-# Installation in bare React Native projects
-
-For bare React Native projects, you must ensure that you have [installed and configured the `expo` package](https://docs.expo.dev/bare/installing-expo-modules/) before continuing.
-
-### Add the package to your npm dependencies
-
-```
-npm install focus-alert
+```json
+"focus-alert": "file:modules/focus-alert"
 ```
 
-### Configure for Android
+Do not run `npm install` inside this module folder. Install dependencies from `focus-test/` only. A nested `node_modules` here can introduce duplicate React Native/native module versions and cause confusing Android runtime or reload failures.
 
+## Android Behavior
 
+The module supports the current Android child attention path:
 
+```text
+FCM data message
+-> FocusFirebaseMessagingService
+-> FocusAlertManager
+-> unlocked-device overlay
+-> deep link back into the child app
+```
 
-### Configure for iOS
+The reliable demo path is active/unlocked Android overlay behavior. Locked-device notification routing exists as an experimental path and is not production-ready.
 
-Run `npx pod-install` after installing the npm package.
+## JS Bridge Methods
 
-# Contributing
+The app currently uses these methods:
 
-Contributions are very welcome! Please refer to guidelines described in the [contributing guide]( https://github.com/expo/expo#contributing).
+```text
+getFcmToken()
+canDrawOverlays()
+requestOverlayPermission()
+triggerFocusAlert()
+showTestNotification()
+showOverlayAlert()
+```
+
+## Files
+
+- `android/src/main/java/expo/modules/focusalert/FocusAlertModule.kt`: JS bridge methods
+- `android/src/main/java/expo/modules/focusalert/FocusAlertManager.kt`: overlay routing and duplicate-overlay guard
+- `android/src/main/java/expo/modules/focusalert/FocusFirebaseMessagingService.kt`: receives FCM messages
+
+## Testing Notes
+
+- Overlay behavior requires Android `Display over other apps` permission.
+- FCM alert behavior requires a real child FCM token.
+- Expo Go is not enough for this module; use a native Android build.

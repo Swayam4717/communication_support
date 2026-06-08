@@ -16,6 +16,7 @@ The system works through a parent device and a child device:
 - Parent can save frequently used question/option sets as reusable templates
 - Child receives the prompt in realtime
 - Child selects one answer visually
+- Child can optionally practice saying one of the known answers using guided speech recognition
 - Parent receives the selected answer immediately
 - Android child devices can trigger focus alerts and overlays to capture attention even while other applications are open
 
@@ -44,6 +45,8 @@ The core goal is to support low-pressure communication through structured visual
 - Browser-friendly centered Parent Mode layout for laptop/web use
 - Android overlay attention alerts
 - Firebase Cloud Messaging integration
+- Child-side Guided Speech Practice with Android speech recognition
+- Mock transcript fallback for guided speech matching tests
 - Persistent device setup using AsyncStorage
 - Child connection status tracking
 - Native Android attention routing
@@ -71,6 +74,7 @@ The core goal is to support low-pressure communication through structured visual
 | Parent Mode | Yes | Yes | Yes |
 | Child Mode | Yes | Limited | Limited |
 | Realtime Communication | Yes | Yes | Yes |
+| Guided Speech Practice | Yes | Limited | No |
 | Image Picker | Yes | Yes | Yes |
 | Firebase Storage Images | Yes | Yes | Yes |
 | Saved Templates | Yes | Yes | Yes |
@@ -322,6 +326,7 @@ Responsibilities:
 - Show images when available
 - Fall back to emojis when image is missing or fails
 - Allow child to select one option
+- Allow optional guided speech practice using the known answer labels
 - Show a clear selected-state checkmark
 - Submit selected answer
 - Show confirmation state
@@ -334,6 +339,42 @@ If option.imageUrl fails → show emoji fallback
 If no imageUrl exists → show emoji fallback if available
 If no visual exists → show text-only option card
 ```
+
+### Guided Speech Practice
+
+Child Mode includes an optional Guided Speech Practice section during the choice stage.
+
+The feature is designed as a support aid, not a separate answer-submission path:
+
+```text
+Child starts speaking
+-> App shows live recognized transcript
+-> Transcript is matched against known answer options
+-> Matching option is selected
+-> Child still presses Send Answer manually
+```
+
+Speech practice behavior:
+
+- Uses `expo-speech-recognition`
+- Requests microphone/speech permission when the child taps Start speaking
+- Shows live recognized words when available
+- Reuses the same option-matching logic as the mock transcript input
+- Normalizes lowercase, punctuation, extra spaces, and simple singular/plural cases
+- Prefers exact matches
+- Allows contains matching only when one option clearly matches
+- Does not auto-submit answers
+- Keeps visual tap-to-answer fully usable
+- Stops listening when leaving the choice stage or when a new session arrives
+- Resets speech state for new incoming sessions
+- Keeps manually tapped answers selected if unclear speech/noise is heard
+- Shows a calm fallback message if microphone or speech recognition fails:
+
+```text
+Microphone is off. You can still tap an answer.
+```
+
+The mock transcript input currently remains visible as a development/testing fallback. It is useful for verifying the matching logic without speaking, but should likely be hidden or clearly marked before a polished stakeholder demo.
 
 ---
 
@@ -356,6 +397,7 @@ Shared UI includes:
 - Selected option checkmark
 - Create / History / Templates tab styles
 - Saved template UI styles
+- Guided Speech Practice UI styles
 - Calm visual styling
 - Shared screen layout styles
 
@@ -602,6 +644,7 @@ Locked-device notification routing is not fully implemented yet and is lower pri
 - Expo Router
 - Expo Image Picker
 - Expo Clipboard
+- Expo Speech Recognition
 - React Native WebView
 - Firebase Firestore
 - Firebase Storage
@@ -780,10 +823,11 @@ Because this project uses a custom native Android module, Expo Go is not enough 
 10. Parent sends the session
 11. Child receives overlay/attention alert
 12. Child sees the same visual cards as the parent
-13. Child selects an option
-14. Parent receives the answer in realtime
-15. Parent checks the History tab
-16. Parent clears the session
+13. Child either taps an option or uses Guided Speech Practice to select one
+14. Child presses Send Answer manually
+15. Parent receives the answer in realtime
+16. Parent checks the History tab
+17. Parent clears the session
 
 ---
 
@@ -803,11 +847,12 @@ Suggested demo flow:
 9. Send session
 10. Show Android overlay/attention capture
 11. Show child visual option cards
-12. Select answer on child screen
-13. Show parent receiving response
-14. Show History tab
-15. Show Templates tab
-16. Clear session
+12. Demonstrate Guided Speech Practice selecting an answer, or tap a visual card as fallback
+13. Press Send Answer manually on the child screen
+14. Show parent receiving response
+15. Show History tab
+16. Show Templates tab
+17. Clear session
 ```
 
 ---
@@ -888,6 +933,7 @@ Do not use the `192.168.56.x` address because that is usually a virtual adapter 
 | Generate visuals | Yes | Not needed |
 | Send session | Yes | Not needed |
 | Receive visual cards | Not needed | Yes |
+| Guided speech practice | Not needed | Yes |
 | Select answer | Not needed | Yes |
 | Realtime parent response | Yes | Not needed |
 | Android attention overlay | Not applicable | Yes |
@@ -901,6 +947,7 @@ Do not use the `192.168.56.x` address because that is usually a virtual adapter 
 - Firebase Storage is used for uploaded option images and generated AI visuals.
 - Firebase Cloud Messaging and the native Android module handle child-side attention capture.
 - The Generate visuals feature uses a backend visual pipeline: OpenSymbols, Emoji API, Runware AI fallback, and mock fallback.
+- Guided Speech Practice uses native Android speech recognition through `expo-speech-recognition`; it requires a native Android build, not Expo Go.
 
 ---
 
@@ -917,6 +964,12 @@ focustest
   - draw-over-apps permission
   - app setup as child device
   - child FCM token being available
+
+- Guided Speech Practice depends on:
+
+  - microphone permission
+  - Android speech recognition service availability
+  - a native Android build
 
 - Notification permission does not affect the main unlocked overlay route.
 - Locked-device notification route is not fully implemented yet.
@@ -940,6 +993,9 @@ Firebase service account files must never be committed to version control.
 - AI fallback quality depends on prompt quality and model output consistency
 - AI visuals are weaker for abstract concepts compared with concrete objects
 - Some OpenSymbols results are SVG files, which require special native rendering support
+- Guided Speech Practice currently remains a prototype feature
+- Guided Speech Practice depends on Android speech recognition service availability and may vary by device/noise level
+- Mock transcript input is still visible for development fallback and should be hidden or relabeled before a polished demo
 - Current customer-provided API key support is only architecturally prepared, not exposed in the UI
 - Current access model still relies mainly on room-code access
 - Firestore and Storage rules are pilot-safer, but not fully production-authenticated
@@ -954,6 +1010,7 @@ Firebase service account files must never be committed to version control.
 # Planned Next Steps
 
 - Test the child flow on a real Android device
+- Continue refining Guided Speech Practice UI and real-device behavior
 - Continue improving Parent Mode mobile and browser layouts
 - Add parent/child authentication and account support
 - Design production parent-child room ownership model

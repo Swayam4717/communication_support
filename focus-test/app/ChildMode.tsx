@@ -297,13 +297,25 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
       {session && stage === "choice" ? (
         <View style={styles.choiceCard}>
           <Text style={styles.questionTitle}>{session.title}</Text>
+          <Text style={styles.choiceInstructionText}>
+            You can say an answer or tap a card.
+          </Text>
 
           <View style={styles.choiceList}>
             <View style={styles.speechPracticeCard}>
-              <Text style={styles.speechPracticeTitle}>Practice saying answer</Text>
+              <Text style={styles.speechPracticeTitle}>Practice saying an answer</Text>
+              <Text style={styles.speechPracticeHint}>
+                Say one of these choices.
+              </Text>
               <View style={styles.speechSupportBoard}>
                 {session.options.map((option) => (
-                  <View key={option.id} style={styles.speechSupportChip}>
+                  <View
+                    key={option.id}
+                    style={[
+                      styles.speechSupportChip,
+                      option.id === selectedOptionId && styles.speechSupportChipSelected,
+                    ]}
+                  >
                     <Text style={styles.speechSupportChipText}>{option.label}</Text>
                   </View>
                 ))}
@@ -324,17 +336,15 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                   Live: {liveTranscript}
                 </Text>
               ) : null}
+              <Text style={styles.speechFallbackLabel}>Practise by typing</Text>
               <TextInput
                 value={mockTranscript}
                 onChangeText={handleMockTranscriptChange}
-                placeholder="Type an answer to practice"
+                placeholder="Type an answer to practise"
                 placeholderTextColor="#A8978B"
                 style={styles.speechTranscriptInput}
               />
               <Text style={styles.speechPracticeMessage}>{speechMessage}</Text>
-              {speechError ? (
-                <Text style={styles.speechErrorText}>{speechError}</Text>
-              ) : null}
             </View>
 
             {session.options.map((option) => (
@@ -348,6 +358,18 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                 }}
               />
             ))}
+          </View>
+
+          <View
+            style={[
+              styles.selectedAnswerPanel,
+              !selectedOption && styles.selectedAnswerPanelEmpty,
+            ]}
+          >
+            <Text style={styles.selectedAnswerLabel}>Selected answer</Text>
+            <Text style={styles.selectedAnswerText}>
+              {selectedOption ? selectedOption.label : "Say or tap an answer first"}
+            </Text>
           </View>
 
           <TouchableOpacity

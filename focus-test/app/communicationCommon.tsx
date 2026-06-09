@@ -1246,6 +1246,20 @@ export const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 24,
   },
+  parentSendNotice: {
+    backgroundColor: "#F1F7EE",
+    borderWidth: 1,
+    borderColor: "#CFE3C9",
+    borderRadius: 14,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+  },
+  parentSendNoticeText: {
+    color: "#3F5F38",
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
   roomCodeActionRow: {
     flexDirection: "row",
     justifyContent: "flex-end",

@@ -24,6 +24,7 @@ import {
   subscribeToSession,
   uploadOptionImage,
   generateOptionVisualsFromCloud,
+  getCurrentSession,
   saveSessionHistory,
   subscribeToSessionHistory,
 } from "./communicationHelpers";
@@ -180,7 +181,11 @@ export default function ParentModeScreen({
     useState(false);
   const [templateNameInput, setTemplateNameInput] = useState("");
   const [templateNoticeVisible, setTemplateNoticeVisible] = useState(false);
+  const [sendNoticeMessage, setSendNoticeMessage] = useState("");
   const templateNoticeTimeoutRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const sendNoticeTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
 
@@ -190,6 +195,9 @@ export default function ParentModeScreen({
     return () => {
       if (templateNoticeTimeoutRef.current) {
         clearTimeout(templateNoticeTimeoutRef.current);
+      }
+      if (sendNoticeTimeoutRef.current) {
+        clearTimeout(sendNoticeTimeoutRef.current);
       }
     };
   }, []);
@@ -585,7 +593,37 @@ export default function ParentModeScreen({
     const session = buildDraftSession();
 
     try {
+      let latestAttentionAlertsReady = areAttentionAlertsReady;
+
+      try {
+        const currentSession = await getCurrentSession(roomId);
+        latestAttentionAlertsReady = !!currentSession?.childFcmToken;
+      } catch (readError) {
+        console.warn("Could not check alert readiness before send", readError);
+      }
+
       await sendSession(session, roomId);
+
+      try {
+        const latestSession = await getCurrentSession(roomId);
+        latestAttentionAlertsReady =
+          latestAttentionAlertsReady && !!latestSession?.childFcmToken;
+      } catch (readError) {
+        console.warn("Could not refresh alert readiness after send", readError);
+      }
+
+      setSendNoticeMessage(
+        latestAttentionAlertsReady
+          ? "Sent to child."
+          : "Sent. Child can still answer in the app, but attention alerts may not appear.",
+      );
+      if (sendNoticeTimeoutRef.current) {
+        clearTimeout(sendNoticeTimeoutRef.current);
+      }
+      sendNoticeTimeoutRef.current = setTimeout(() => {
+        setSendNoticeMessage("");
+        sendNoticeTimeoutRef.current = null;
+      }, 3500);
       onSendToChild?.();
     } catch (e) {
       console.warn("sendSession failed", e);
@@ -1010,6 +1048,14 @@ export default function ParentModeScreen({
                       : "Send To Child"}
                 </Text>
               </TouchableOpacity>
+
+              {sendNoticeMessage ? (
+                <View style={styles.parentSendNotice}>
+                  <Text style={styles.parentSendNoticeText}>
+                    {sendNoticeMessage}
+                  </Text>
+                </View>
+              ) : null}
 
               {sentSession && (
                 <TouchableOpacity

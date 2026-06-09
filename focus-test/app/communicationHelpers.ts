@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { collection,doc,getFirestore, limit,  onSnapshot, orderBy, query,  setDoc, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getFirestore, limit, onSnapshot, orderBy, query, setDoc, updateDoc } from "firebase/firestore";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import {getFunctions, httpsCallable} from "firebase/functions";
 
@@ -159,6 +159,16 @@ const getRoomHistoryCollection = (roomId: string) => collection(db, "rooms", roo
 
 export async function sendSession(session: CommunicationSession, roomId: string) {
   await setDoc(getRoomsDoc(roomId), session, { merge: true });
+}
+
+export async function getCurrentSession(roomId: string) {
+  const snap = await getDoc(getRoomsDoc(roomId));
+
+  if (!snap.exists()) {
+    return null;
+  }
+
+  return snap.data() as CommunicationSession;
 }
 
 export function subscribeToSession(

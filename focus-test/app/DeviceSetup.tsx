@@ -289,11 +289,11 @@ export default function DeviceSetupScreen({
 
       if (Platform.OS === "android" && !readiness.overlayReady) {
         Alert.alert(
-          "Attention alerts need permission",
-          "To show messages over other apps, please allow Display over other apps before completing child setup.",
+          "Show alerts over other apps",
+          "This is needed so parent messages can appear while the child is using another app.",
           [
             {
-              text: "Enable permission",
+              text: "Enable alerts",
               onPress: handleRequestChildOverlayPermission,
             },
             {
@@ -438,15 +438,15 @@ export default function DeviceSetupScreen({
             <View style={styles.setupChecklistCard}>
               <Text style={styles.sectionLabel}>Child setup checklist</Text>
               {renderReadinessRow({
-                title: "Attention Alerts Permission",
-                description: "Needed for attention alerts over other apps.",
+                title: "Show alerts over other apps",
+                description: "Needed so parent messages can appear while the child is using another app.",
                 ready: childOverlayAllowed,
-                actionLabel: "Enable overlay permission",
+                actionLabel: "Enable alerts",
                 onAction: handleRequestChildOverlayPermission,
               })}
               {renderReadinessRow({
-                title: "Microphone Permission",
-                description: "Needed for Guided Speech Practice.",
+                title: "Use microphone for speech practice",
+                description: "Needed for Guided Speech Practice. The child can still tap an answer if this is off.",
                 ready: childMicrophoneReady,
                 actionLabel: "Enable microphone",
                 onAction: handleRequestChildMicrophonePermission,

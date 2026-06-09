@@ -209,6 +209,11 @@ export const styles = StyleSheet.create({
     paddingBottom: 28,
     gap: 16,
   },
+  onboardingScrollContent: {
+    width: "100%",
+    maxWidth: Platform.OS === "web" ? 680 : undefined,
+    alignSelf: "center",
+  },
   parentScrollContent: {
     width: "100%",
     maxWidth: Platform.OS === "web" ? 620 : undefined,

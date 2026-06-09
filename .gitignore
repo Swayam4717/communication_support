@@ -10,3 +10,6 @@ focus-test/fcm-sender/service-account.json
 focus-test/CODEX.md
 dist/
 .firebase/
+release-builds/
+.apk
+.aab

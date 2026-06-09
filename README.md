@@ -29,9 +29,9 @@ This is still an MVP/prototype for controlled pilot use, not a production-ready 
 
 Tester-facing install and run instructions are in:
 
-```text
+
 [Tester Install Guide](docs/tester-install-guide.md)
-```
+
 
 ---
 

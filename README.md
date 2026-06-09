@@ -27,6 +27,12 @@ The current reliable attention path is an active/unlocked Android overlay. Locke
 
 This is still an MVP/prototype for controlled pilot use, not a production-ready deployment.
 
+Tester-facing install and run instructions are in:
+
+```text
+[Tester Install Guide](docs/tester-install-guide.md)
+```
+
 ---
 
 # Core Features
@@ -296,6 +302,8 @@ Frontend Firebase web config is read from `focus-test/.env` through `EXPO_PUBLIC
 
 # End-To-End Test Flow
 
+For a shorter tester-facing version of this flow, use `docs/tester-intsall-guide.md`.
+
 Use this checklist for the deployed parent + installed Android child flow:
 
 1. Open the hosted parent URL.
@@ -349,4 +357,3 @@ Use this checklist for the deployed parent + installed Android child flow:
 - Do not remove the mock/typed speech input until real speech has been retested after any speech changes.
 - Do not casually modify `ChildMode.tsx` speech state/reset logic; it has been stabilized after real-device testing.
 - Do not overclaim production readiness in demos or documentation. Use wording such as MVP, prototype, controlled pilot, and current reliable path.
-

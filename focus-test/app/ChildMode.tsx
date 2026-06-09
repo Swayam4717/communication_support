@@ -104,7 +104,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   const [isListening, setIsListening] = React.useState(false);
   const [liveTranscript, setLiveTranscript] = React.useState("");
   const [speechError, setSpeechError] = React.useState<string | null>(null);
-  const [speechMessage, setSpeechMessage] = React.useState("You can say or tap an answer.");
+  const [speechMessage, setSpeechMessage] = React.useState("Say one of the choices.");
   const previousSessionIdRef = React.useRef<string | null>(null);
   const abortSpeechRecognition = React.useCallback(() => {
     try {
@@ -120,7 +120,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     setMockTranscript("");
     setLiveTranscript("");
     setSpeechError(null);
-    setSpeechMessage("You can say or tap an answer.");
+    setSpeechMessage("Say one of the choices.");
   }, []);
 // Subscribe to session updates for the given roomId and update local state accordingly
  React.useEffect(() => {
@@ -185,7 +185,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
       setSelectionSource(null);
     }
 
-    setSpeechMessage("Try again. You can say or tap an answer.");
+    setSpeechMessage("Try again, or tap your answer.");
   }, [selectionSource, session]);
 
   useSpeechRecognitionEvent("result", (event) => {
@@ -303,9 +303,9 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
 
           <View style={styles.choiceList}>
             <View style={styles.speechPracticeCard}>
-              <Text style={styles.speechPracticeTitle}>Practice saying an answer</Text>
+              <Text style={styles.speechPracticeTitle}>Try saying your answer</Text>
               <Text style={styles.speechPracticeHint}>
-                Say one of these choices.
+                Say one of the choices. You can also tap an answer.
               </Text>
               <View style={styles.speechSupportBoard}>
                 {session.options.map((option) => (
@@ -368,7 +368,9 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
           >
             <Text style={styles.selectedAnswerLabel}>Selected answer</Text>
             <Text style={styles.selectedAnswerText}>
-              {selectedOption ? selectedOption.label : "Say or tap an answer first"}
+              {selectedOption
+                ? `${selectedOption.label} is selected. Press Send Answer when ready.`
+                : "Say or tap an answer first"}
             </Text>
           </View>
 

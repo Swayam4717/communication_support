@@ -1211,6 +1211,13 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 17,
   },
+  parentVisualGenerationStatus: {
+    marginTop: 6,
+    color: "#8A5A44",
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 17,
+  },
   previewToggleButton: {
     borderWidth: 1,
     borderColor: "#DCCABE",

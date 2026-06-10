@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -173,6 +173,7 @@ export default function ParentModeScreen({
   );
 
   const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
+  const isGeneratingVisualsRef = useRef(false);
   const [activeParentTab, setActiveParentTab] = useState<
     "create" | "history" | "templates"
   >("create");
@@ -479,7 +480,13 @@ export default function ParentModeScreen({
   };
 
   const handleGenerateVisuals = async () => {
-    if (isImageWorkInProgress) {
+    if (isImageWorkInProgress || isGeneratingVisualsRef.current) {
+      if (isGeneratingVisualsRef.current) {
+        showMessage(
+          "Visuals are still loading",
+          "Please wait for the current visuals to finish before trying again.",
+        );
+      }
       return;
     }
     const cleanedLabels = optionLabels
@@ -501,6 +508,7 @@ export default function ParentModeScreen({
       );
       return;
     }
+    isGeneratingVisualsRef.current = true;
     setIsGeneratingVisuals(true);
 
     try {
@@ -516,18 +524,31 @@ export default function ParentModeScreen({
         generatedOptions.map((option) => option.imageUrl ?? ""),
       );
 
+      const hasSimpleFallbackVisuals = generatedOptions.some((option) => {
+        const source = option.source?.toLowerCase() ?? "";
+        const provider = option.provider?.toLowerCase() ?? "";
+        return (
+          source.includes("fallback") ||
+          source.includes("emoji") ||
+          provider.includes("mock")
+        );
+      });
+
       showMessage(
-        "Visuals generated",
-        "Visuals have been added to the option cards.",
+        "Visuals ready",
+        hasSimpleFallbackVisuals
+          ? "Some options used simpler fallback visuals. You can keep them, remove them, or add your own images before sending."
+          : "Visuals were added to the option cards. Review them before sending.",
       );
     } catch (error) {
       console.error("Failed to generate visuals:", error);
 
       showMessage(
         "Could not generate visuals",
-        "The visual service has faced some difficulties. You can still send the session without the visuals, or add your own images from the gallery or camera.",
+        "Visuals could not be generated right now. You can still send with text, use emoji, or add your own images.",
       );
     } finally {
+      isGeneratingVisualsRef.current = false;
       setIsGeneratingVisuals(false);
     }
   };
@@ -887,6 +908,12 @@ export default function ParentModeScreen({
                   Symbols and Emoji are tried first. AI works better for
                   concrete objects.
                 </Text>
+
+                {isGeneratingVisuals ? (
+                  <Text style={styles.parentVisualGenerationStatus}>
+                    Finding clear visuals. This can take a moment.
+                  </Text>
+                ) : null}
               </View>
 
               <View style={styles.parentInputGroup}>

@@ -253,9 +253,21 @@ export default function CommunicationMvpApp() {
     );
   };
 
-  const handleSaveCurrentTemplate = async (templateName?: string) => {
-    const cleanedQuestion = draftQuestion.trim() || "Untitled question";
-    const cleanedOptions = draftOptions.map((option) => option.trim());
+  const saveTemplateFromValues = async ({
+    question,
+    options,
+    templateName,
+    editingTemplateIdToUse,
+    showSuccessAlert,
+  }: {
+    question: string;
+    options: string[];
+    templateName?: string;
+    editingTemplateIdToUse?: string | null;
+    showSuccessAlert: boolean;
+  }) => {
+    const cleanedQuestion = question.trim() || "Untitled question";
+    const cleanedOptions = options.map((option) => option.trim());
 
     if (cleanedOptions.every((option) => !option)) {
       Alert.alert(
@@ -274,13 +286,13 @@ export default function CommunicationMvpApp() {
 
     const finalTemplateName = cleanedTemplateName || fallbackName;
 
-    const editingTemplate = editingTemplateId
-      ? savedTemplates.find((template) => template.id === editingTemplateId)
+    const editingTemplate = editingTemplateIdToUse
+      ? savedTemplates.find((template) => template.id === editingTemplateIdToUse)
       : null;
 
     const existingTemplate = savedTemplates.find(
       (template) =>
-        template.id !== editingTemplateId &&
+        template.id !== editingTemplateIdToUse &&
         template.name.trim().toLowerCase() ===
         finalTemplateName.trim().toLowerCase(),
     );
@@ -310,14 +322,16 @@ export default function CommunicationMvpApp() {
       await persistSavedTemplate(nextTemplates);
       setEditingTemplateId(null);
 
-      Alert.alert(
-        editingTemplate || existingTemplate
-          ? "Template updated"
-          : "Template saved",
-        editingTemplate || existingTemplate
-          ? "The existing template has been updated and moved to the top"
-          : "You can reuse this question and options from the Templates tab.",
-      );
+      if (showSuccessAlert) {
+        Alert.alert(
+          editingTemplate || existingTemplate
+            ? "Template updated"
+            : "Template saved",
+          editingTemplate || existingTemplate
+            ? "The existing template has been updated and moved to the top"
+            : "You can reuse this question and options from the Templates tab.",
+        );
+      }
       return true;
     } catch (error) {
       console.warn("Failed to save template", error);
@@ -328,6 +342,26 @@ export default function CommunicationMvpApp() {
       return false;
     }
   };
+
+  const handleSaveCurrentTemplate = async (templateName?: string) =>
+    saveTemplateFromValues({
+      question: draftQuestion,
+      options: draftOptions,
+      templateName,
+      editingTemplateIdToUse: editingTemplateId,
+      showSuccessAlert: true,
+    });
+
+  const handleSaveHistoryTemplate = async (
+    historyQuestion: string,
+    historyOptions: string[],
+  ) =>
+    saveTemplateFromValues({
+      question: historyQuestion,
+      options: historyOptions,
+      editingTemplateIdToUse: null,
+      showSuccessAlert: false,
+    });
 
   const handleApplySavedTemplate = async (templateId: string) => {
     const template = savedTemplates.find((item) => item.id === templateId);
@@ -436,6 +470,7 @@ export default function CommunicationMvpApp() {
           onEditSavedTemplate={handleEditSavedTemplate}
           onCancelTemplateEdit={handleCancelTemplateEdit}
           onDeleteSavedTemplate={handleDeleteSavedTemplate}
+          onSaveHistoryTemplate={handleSaveHistoryTemplate}
           onPreviewToggle={handlePreviewToggle}
           onSendToChild={handleSendToChild}
           onResetSetup={handleResetSetup}

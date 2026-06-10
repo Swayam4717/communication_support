@@ -1498,6 +1498,11 @@ export const styles = StyleSheet.create({
     fontWeight: "900",
     marginBottom: 4,
   },
+  historyActionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
   historyReuseButton: {
     alignSelf: "flex-start",
     borderRadius: 999,

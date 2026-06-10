@@ -59,6 +59,10 @@ interface ParentModeScreenProps {
   onEditSavedTemplate: (templateId: string) => void;
   onCancelTemplateEdit: () => void;
   onSaveCurrentTemplate: (templateName?: string) => Promise<boolean>;
+  onSaveHistoryTemplate: (
+    question: string,
+    options: string[],
+  ) => Promise<boolean>;
   onDeleteSavedTemplate: (templateId: string) => void;
   onClearSession: () => void;
 }
@@ -142,6 +146,7 @@ export default function ParentModeScreen({
   onEditSavedTemplate,
   onCancelTemplateEdit,
   onSaveCurrentTemplate,
+  onSaveHistoryTemplate,
   onDeleteSavedTemplate,
   onClearSession,
 }: ParentModeScreenProps) {
@@ -182,8 +187,7 @@ export default function ParentModeScreen({
     useState(false);
   const [templateNameInput, setTemplateNameInput] = useState("");
   const [templateNoticeVisible, setTemplateNoticeVisible] = useState(false);
-  const [historyReuseNoticeVisible, setHistoryReuseNoticeVisible] =
-    useState(false);
+  const [historyNoticeMessage, setHistoryNoticeMessage] = useState("");
   const [sendNoticeMessage, setSendNoticeMessage] = useState("");
   const templateNoticeTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
@@ -437,14 +441,14 @@ export default function ParentModeScreen({
     }, 2200);
   };
 
-  const showHistoryReuseNotice = () => {
+  const showHistoryNotice = (message: string) => {
     if (historyReuseNoticeTimeoutRef.current) {
       clearTimeout(historyReuseNoticeTimeoutRef.current);
     }
 
-    setHistoryReuseNoticeVisible(true);
+    setHistoryNoticeMessage(message);
     historyReuseNoticeTimeoutRef.current = setTimeout(() => {
-      setHistoryReuseNoticeVisible(false);
+      setHistoryNoticeMessage("");
     }, 2600);
   };
 
@@ -486,7 +490,22 @@ export default function ParentModeScreen({
       optionLabels.map((_, index) => historyOptions[index]?.imageUrl ?? ""),
     );
     setActiveParentTab("create");
-    showHistoryReuseNotice();
+    showHistoryNotice("Loaded from history. You can edit before sending.");
+  };
+
+  const handleSaveHistoryTemplate = async (item: SessionHistoryItem) => {
+    if (!item.options || item.options.length === 0) {
+      return;
+    }
+
+    const saved = await onSaveHistoryTemplate(
+      item.question,
+      item.options.map((option) => option.label),
+    );
+
+    if (saved) {
+      showHistoryNotice("Saved as template.");
+    }
   };
 
   const handleRemoveVisual = (index: number) => {
@@ -873,10 +892,10 @@ export default function ParentModeScreen({
                 </View>
               ) : null}
 
-              {historyReuseNoticeVisible ? (
+              {historyNoticeMessage ? (
                 <View style={styles.templateAddedNotice}>
                   <Text style={styles.templateAddedText}>
-                    Loaded from history. You can edit before sending.
+                    {historyNoticeMessage}
                   </Text>
                 </View>
               ) : null}
@@ -1157,6 +1176,14 @@ export default function ParentModeScreen({
           <View style={styles.parentStatusSection}>
             <Text style={styles.parentStatusLabel}>Recent history</Text>
 
+            {historyNoticeMessage ? (
+              <View style={styles.templateAddedNotice}>
+                <Text style={styles.templateAddedText}>
+                  {historyNoticeMessage}
+                </Text>
+              </View>
+            ) : null}
+
             {fireSession?.status === "sent" ? (
               <View style={[styles.historyCard, styles.historyPendingCard]}>
                 <View style={styles.historyHeaderRow}>
@@ -1193,14 +1220,27 @@ export default function ParentModeScreen({
                     {item.answer || "No answer recorded"}
                   </Text>
 
-                  <TouchableOpacity
-                    style={styles.historyReuseButton}
-                    onPress={() => handleUseHistoryItem(item)}
-                  >
-                    <Text style={styles.historyReuseButtonText}>
-                      Use again
-                    </Text>
-                  </TouchableOpacity>
+                  <View style={styles.historyActionRow}>
+                    <TouchableOpacity
+                      style={styles.historyReuseButton}
+                      onPress={() => handleUseHistoryItem(item)}
+                    >
+                      <Text style={styles.historyReuseButtonText}>
+                        Use again
+                      </Text>
+                    </TouchableOpacity>
+
+                    {item.options && item.options.length > 0 ? (
+                      <TouchableOpacity
+                        style={styles.historyReuseButton}
+                        onPress={() => handleSaveHistoryTemplate(item)}
+                      >
+                        <Text style={styles.historyReuseButtonText}>
+                          Save as template
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                 </View>
               ))
             ) : (

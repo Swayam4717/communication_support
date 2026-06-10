@@ -1267,6 +1267,13 @@ export const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 18,
   },
+  parentSubtleFooterText: {
+    color: "#9A8D85",
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 17,
+    textAlign: "center",
+  },
   roomCodeActionRow: {
     flexDirection: "row",
     justifyContent: "flex-end",

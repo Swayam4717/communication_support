@@ -606,8 +606,8 @@ export default function ParentModeScreen({
       showMessage(
         "Visuals ready",
         hasSimpleFallbackVisuals
-          ? "Some options used simpler fallback visuals. You can keep them, remove them, or add your own images before sending."
-          : "Visuals were added to the option cards. Review them before sending.",
+          ? "Some options used simpler fallback visuals. Please check each image before sending. You can keep, change, or remove any visual."
+          : "Generated visuals are suggestions. Please check that each image matches the option before sending. You can change or remove any visual.",
       );
     } catch (error) {
       console.error("Failed to generate visuals:", error);
@@ -1169,6 +1169,11 @@ export default function ParentModeScreen({
                   <Text style={styles.secondaryButtonText}>Clear session</Text>
                 </TouchableOpacity>
               )}
+
+              <Text style={styles.parentSubtleFooterText}>
+                Generated visuals are suggestions. Check each image before
+                sending. You can change or remove any visual.
+              </Text>
             </View>
           </>
         ) : null}

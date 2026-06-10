@@ -1498,6 +1498,20 @@ export const styles = StyleSheet.create({
     fontWeight: "900",
     marginBottom: 4,
   },
+  historyReuseButton: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    backgroundColor: "#EFE4D8",
+    borderWidth: 1,
+    borderColor: "#D6C3B4",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  historyReuseButtonText: {
+    color: "#705642",
+    fontSize: 12,
+    fontWeight: "900",
+  },
   historyPendingAnswer: {
     color: "#8A5E3C",
     fontSize: 16,

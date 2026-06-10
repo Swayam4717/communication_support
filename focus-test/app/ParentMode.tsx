@@ -182,8 +182,13 @@ export default function ParentModeScreen({
     useState(false);
   const [templateNameInput, setTemplateNameInput] = useState("");
   const [templateNoticeVisible, setTemplateNoticeVisible] = useState(false);
+  const [historyReuseNoticeVisible, setHistoryReuseNoticeVisible] =
+    useState(false);
   const [sendNoticeMessage, setSendNoticeMessage] = useState("");
   const templateNoticeTimeoutRef = React.useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const historyReuseNoticeTimeoutRef = React.useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
   const sendNoticeTimeoutRef = React.useRef<ReturnType<
@@ -196,6 +201,9 @@ export default function ParentModeScreen({
     return () => {
       if (templateNoticeTimeoutRef.current) {
         clearTimeout(templateNoticeTimeoutRef.current);
+      }
+      if (historyReuseNoticeTimeoutRef.current) {
+        clearTimeout(historyReuseNoticeTimeoutRef.current);
       }
       if (sendNoticeTimeoutRef.current) {
         clearTimeout(sendNoticeTimeoutRef.current);
@@ -429,6 +437,17 @@ export default function ParentModeScreen({
     }, 2200);
   };
 
+  const showHistoryReuseNotice = () => {
+    if (historyReuseNoticeTimeoutRef.current) {
+      clearTimeout(historyReuseNoticeTimeoutRef.current);
+    }
+
+    setHistoryReuseNoticeVisible(true);
+    historyReuseNoticeTimeoutRef.current = setTimeout(() => {
+      setHistoryReuseNoticeVisible(false);
+    }, 2600);
+  };
+
   const applyBuiltInTemplate = (templateId: sessionTemplateId) => {
     onApplyTemplate(templateId);
     showTemplateAddedNotice();
@@ -437,6 +456,37 @@ export default function ParentModeScreen({
   const applySavedTemplate = (templateId: string) => {
     onApplySavedTemplate(templateId);
     showTemplateAddedNotice();
+  };
+
+  const handleUseHistoryItem = (item: SessionHistoryItem) => {
+    if (isEditingTemplate) {
+      onCancelTemplateEdit();
+    }
+
+    const historyOptions =
+      item.options && item.options.length > 0
+        ? item.options
+        : [
+            {
+              id: "1",
+              label: item.answer,
+              emoji: item.answerEmoji,
+            },
+          ];
+
+    onQuestionChange(item.question);
+    optionLabels.forEach((_, index) => {
+      onOptionLabelChange(index, historyOptions[index]?.label ?? "");
+    });
+    setResolvedOptions(
+      item.options && item.options.length > 0 ? item.options : null,
+    );
+    setRemovedVisualIndexes(new Set());
+    setOptionImageUrls(
+      optionLabels.map((_, index) => historyOptions[index]?.imageUrl ?? ""),
+    );
+    setActiveParentTab("create");
+    showHistoryReuseNotice();
   };
 
   const handleRemoveVisual = (index: number) => {
@@ -823,6 +873,14 @@ export default function ParentModeScreen({
                 </View>
               ) : null}
 
+              {historyReuseNoticeVisible ? (
+                <View style={styles.templateAddedNotice}>
+                  <Text style={styles.templateAddedText}>
+                    Loaded from history. You can edit before sending.
+                  </Text>
+                </View>
+              ) : null}
+
               <View style={styles.parentInputGroup}>
                 <Text style={styles.parentInputLabel}>Quick templates</Text>
 
@@ -1134,6 +1192,15 @@ export default function ParentModeScreen({
                     {item.answerEmoji ? `${item.answerEmoji} ` : ""}
                     {item.answer || "No answer recorded"}
                   </Text>
+
+                  <TouchableOpacity
+                    style={styles.historyReuseButton}
+                    onPress={() => handleUseHistoryItem(item)}
+                  >
+                    <Text style={styles.historyReuseButtonText}>
+                      Use again
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               ))
             ) : (

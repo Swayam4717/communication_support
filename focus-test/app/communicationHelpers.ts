@@ -54,6 +54,7 @@ export interface CommunicationSession {
 export interface SessionHistoryItem{
   id: string;
   question: string;
+  options?: SessionOption[];
   answer: string;
   answerEmoji?: string;
   createdAt: number;
@@ -264,6 +265,7 @@ export async function saveSessionHistory(
   const historyItem: SessionHistoryItem = {
     id: session.id || String(Date.now()),
     question: session.title,
+    options: session.options,
     answer: selectedOption.label,
     answerEmoji: selectedOption.emoji ?? undefined,
     createdAt: Date.now(),

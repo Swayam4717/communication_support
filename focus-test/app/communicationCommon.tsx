@@ -1460,6 +1460,30 @@ export const styles = StyleSheet.create({
     paddingVertical: 14,
     marginBottom: 10,
   },
+  historyPendingCard: {
+    backgroundColor: "#FFF8F1",
+    borderColor: "#E7CDB4",
+  },
+  historyHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 10,
+  },
+  historyStatusText: {
+    color: "#8A5E3C",
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  historyLabel: {
+    color: "#A8978B",
+    fontSize: 11,
+    fontWeight: "900",
+    marginBottom: 3,
+    textTransform: "uppercase",
+  },
 
   historyAnswer: {
     color: "#2B1D18",
@@ -1467,18 +1491,25 @@ export const styles = StyleSheet.create({
     fontWeight: "900",
     marginBottom: 4,
   },
+  historyPendingAnswer: {
+    color: "#8A5E3C",
+    fontSize: 16,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
 
   historyQuestion: {
     color: "#6F5D52",
     fontSize: 14,
     fontWeight: "700",
-    marginBottom: 6,
+    marginBottom: 10,
   },
 
   historyTime: {
     color: "#A8978B",
     fontSize: 12,
     fontWeight: "600",
+    flexShrink: 0,
   },
 
   historyEmptyCard: {
@@ -1494,6 +1525,7 @@ export const styles = StyleSheet.create({
     color: "#7D6E66",
     fontSize: 15,
     fontWeight: "700",
+    lineHeight: 21,
   },
   templateCardList: {
     gap: 10,

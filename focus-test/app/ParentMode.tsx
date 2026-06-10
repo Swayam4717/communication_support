@@ -1072,25 +1072,48 @@ export default function ParentModeScreen({
           <View style={styles.parentStatusSection}>
             <Text style={styles.parentStatusLabel}>Recent history</Text>
 
+            {fireSession?.status === "sent" ? (
+              <View style={[styles.historyCard, styles.historyPendingCard]}>
+                <View style={styles.historyHeaderRow}>
+                  <Text style={styles.historyStatusText}>Waiting for answer</Text>
+                  <Text style={styles.historyTime}>
+                    {formatHistoryTimestamp(fireSession.createdAt)}
+                  </Text>
+                </View>
+                <Text style={styles.historyLabel}>Question</Text>
+                <Text style={styles.historyQuestion}>{fireSession.title}</Text>
+                <Text style={styles.historyLabel}>Child answer</Text>
+                <Text style={styles.historyPendingAnswer}>
+                  Not answered yet
+                </Text>
+              </View>
+            ) : null}
+
             {sessionHistory.length > 0 ? (
               sessionHistory.map((item) => (
                 <View key={item.id} style={styles.historyCard}>
-                  <Text style={styles.historyAnswer}>
-                    {item.answerEmoji ? `${item.answerEmoji} ` : ""}
-                    {item.answer}
-                  </Text>
+                  <View style={styles.historyHeaderRow}>
+                    <Text style={styles.historyStatusText}>Answered</Text>
+                    <Text style={styles.historyTime}>
+                      {formatHistoryTimestamp(item.createdAt)}
+                    </Text>
+                  </View>
 
+                  <Text style={styles.historyLabel}>Question</Text>
                   <Text style={styles.historyQuestion}>{item.question}</Text>
 
-                  <Text style={styles.historyTime}>
-                    {formatHistoryTimestamp(item.createdAt)}
+                  <Text style={styles.historyLabel}>Child answer</Text>
+                  <Text style={styles.historyAnswer}>
+                    {item.answerEmoji ? `${item.answerEmoji} ` : ""}
+                    {item.answer || "No answer recorded"}
                   </Text>
                 </View>
               ))
             ) : (
               <View style={styles.historyEmptyCard}>
                 <Text style={styles.historyEmptyText}>
-                  No previous responses yet.
+                  No answered sessions yet. Responses will appear here after
+                  the child sends an answer.
                 </Text>
               </View>
             )}

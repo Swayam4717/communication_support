@@ -63,6 +63,10 @@ export const DEFAULT_ROOM_ID = "demo-room";
 
 export const DEFAULT_QUESTION = "What would you like to eat?";
 export const DEFAULT_OPTIONS = ["Rice", "Noodles", "Pizza", "Sandwich"];
+const MAX_HISTORY_OPTIONS = 4;
+const MAX_HISTORY_LABEL_LENGTH = 60;
+const MAX_HISTORY_META_LENGTH = 80;
+const MAX_HISTORY_IMAGE_URL_LENGTH = 2048;
 export const FALLBACK_EMOJIS = ["🌿", "☁️", "✨", "🫧"];
 
 export function getEmojiForLabel(label: string, index: number) {
@@ -96,6 +100,57 @@ export function buildSessionOptions(
       ...(cleanedImageUrl ? { imageUrl: cleanedImageUrl } : {}),
     };
   });
+}
+
+function getSafeHistoryText(value: unknown, maxLength: number) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+}
+
+function getSafeHistoryImageUrl(value: unknown) {
+  const imageUrl = getSafeHistoryText(value, MAX_HISTORY_IMAGE_URL_LENGTH);
+
+  if (!/^https?:\/\//i.test(imageUrl)) {
+    return "";
+  }
+
+  return imageUrl;
+}
+
+function sanitizeHistoryOptions(options: SessionOption[]) {
+  return options.slice(0, MAX_HISTORY_OPTIONS).reduce<SessionOption[]>(
+    (safeOptions, option, index) => {
+      const label = getSafeHistoryText(
+        option.label,
+        MAX_HISTORY_LABEL_LENGTH,
+      );
+
+      if (!label) {
+        return safeOptions;
+      }
+
+      const emoji = getSafeHistoryText(option.emoji, MAX_HISTORY_META_LENGTH);
+      const imageUrl = getSafeHistoryImageUrl(option.imageUrl);
+      const source = getSafeHistoryText(option.source, MAX_HISTORY_META_LENGTH);
+      const provider = getSafeHistoryText(
+        option.provider,
+        MAX_HISTORY_META_LENGTH,
+      );
+
+      safeOptions.push({
+        id:
+          getSafeHistoryText(option.id, MAX_HISTORY_META_LENGTH) ||
+          String(index + 1),
+        label,
+        ...(emoji ? { emoji } : {}),
+        ...(imageUrl ? { imageUrl } : {}),
+        ...(source ? { source } : {}),
+        ...(provider ? { provider } : {}),
+      });
+
+      return safeOptions;
+    },
+    [],
+  );
 }
 
 export function createSession(
@@ -265,7 +320,7 @@ export async function saveSessionHistory(
   const historyItem: SessionHistoryItem = {
     id: session.id || String(Date.now()),
     question: session.title,
-    options: session.options,
+    options: sanitizeHistoryOptions(session.options),
     answer: selectedOption.label,
     answerEmoji: selectedOption.emoji ?? undefined,
     createdAt: Date.now(),

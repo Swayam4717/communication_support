@@ -40,6 +40,12 @@ type savedSessionTemplate = {
   createdAt: number;
 };
 
+const MIN_REUSABLE_HISTORY_OPTIONS = 2;
+const MAX_REUSABLE_HISTORY_OPTIONS = 4;
+const MAX_REUSABLE_HISTORY_LABEL_LENGTH = 60;
+const MAX_REUSABLE_HISTORY_META_LENGTH = 80;
+const MAX_REUSABLE_HISTORY_IMAGE_URL_LENGTH = 2048;
+
 interface ParentModeScreenProps {
   question: string;
   optionLabels: string[];
@@ -125,6 +131,66 @@ const formatHistoryTimestamp = (timestamp: number) => {
   const month = monthNames[date.getMonth()];
 
   return `${day}${getOrdinalSuffix(day)} ${month}, ${time}`;
+};
+
+const getSafeHistoryActionText = (value: unknown, maxLength: number) =>
+  typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+
+const getSafeHistoryActionImageUrl = (value: unknown) => {
+  const imageUrl = getSafeHistoryActionText(
+    value,
+    MAX_REUSABLE_HISTORY_IMAGE_URL_LENGTH,
+  );
+
+  return /^https?:\/\//i.test(imageUrl) ? imageUrl : "";
+};
+
+const getReusableHistoryOptions = (item: SessionHistoryItem) => {
+  if (!Array.isArray(item.options)) {
+    return [];
+  }
+
+  return item.options
+    .slice(0, MAX_REUSABLE_HISTORY_OPTIONS)
+    .reduce<SessionOption[]>((safeOptions, option, index) => {
+      const label = getSafeHistoryActionText(
+        option?.label,
+        MAX_REUSABLE_HISTORY_LABEL_LENGTH,
+      );
+
+      if (!label) {
+        return safeOptions;
+      }
+
+      const emoji = getSafeHistoryActionText(
+        option?.emoji,
+        MAX_REUSABLE_HISTORY_META_LENGTH,
+      );
+      const imageUrl = getSafeHistoryActionImageUrl(option?.imageUrl);
+      const source = getSafeHistoryActionText(
+        option?.source,
+        MAX_REUSABLE_HISTORY_META_LENGTH,
+      );
+      const provider = getSafeHistoryActionText(
+        option?.provider,
+        MAX_REUSABLE_HISTORY_META_LENGTH,
+      );
+
+      safeOptions.push({
+        id:
+          getSafeHistoryActionText(
+            option?.id,
+            MAX_REUSABLE_HISTORY_META_LENGTH,
+          ) || String(index + 1),
+        label,
+        ...(emoji ? { emoji } : {}),
+        ...(imageUrl ? { imageUrl } : {}),
+        ...(source ? { source } : {}),
+        ...(provider ? { provider } : {}),
+      });
+
+      return safeOptions;
+    }, []);
 };
 
 export default function ParentModeScreen({
@@ -463,28 +529,24 @@ export default function ParentModeScreen({
   };
 
   const handleUseHistoryItem = (item: SessionHistoryItem) => {
+    const historyOptions = getReusableHistoryOptions(item);
+
+    if (historyOptions.length < MIN_REUSABLE_HISTORY_OPTIONS) {
+      showHistoryNotice(
+        "This older history item cannot be reused because its full options were not saved.",
+      );
+      return;
+    }
+
     if (isEditingTemplate) {
       onCancelTemplateEdit();
     }
-
-    const historyOptions =
-      item.options && item.options.length > 0
-        ? item.options
-        : [
-            {
-              id: "1",
-              label: item.answer,
-              emoji: item.answerEmoji,
-            },
-          ];
 
     onQuestionChange(item.question);
     optionLabels.forEach((_, index) => {
       onOptionLabelChange(index, historyOptions[index]?.label ?? "");
     });
-    setResolvedOptions(
-      item.options && item.options.length > 0 ? item.options : null,
-    );
+    setResolvedOptions(historyOptions);
     setRemovedVisualIndexes(new Set());
     setOptionImageUrls(
       optionLabels.map((_, index) => historyOptions[index]?.imageUrl ?? ""),
@@ -494,13 +556,18 @@ export default function ParentModeScreen({
   };
 
   const handleSaveHistoryTemplate = async (item: SessionHistoryItem) => {
-    if (!item.options || item.options.length === 0) {
+    const historyOptions = getReusableHistoryOptions(item);
+
+    if (historyOptions.length < MIN_REUSABLE_HISTORY_OPTIONS) {
+      showHistoryNotice(
+        "This older history item cannot be saved as a template because its full options were not saved.",
+      );
       return;
     }
 
     const saved = await onSaveHistoryTemplate(
       item.question,
-      item.options.map((option) => option.label),
+      historyOptions.map((option) => option.label),
     );
 
     if (saved) {
@@ -1207,7 +1274,12 @@ export default function ParentModeScreen({
             ) : null}
 
             {sessionHistory.length > 0 ? (
-              sessionHistory.map((item) => (
+              sessionHistory.map((item) => {
+                const reusableOptions = getReusableHistoryOptions(item);
+                const canUseHistoryActions =
+                  reusableOptions.length >= MIN_REUSABLE_HISTORY_OPTIONS;
+
+                return (
                 <View key={item.id} style={styles.historyCard}>
                   <View style={styles.historyHeaderRow}>
                     <Text style={styles.historyStatusText}>Answered</Text>
@@ -1225,17 +1297,17 @@ export default function ParentModeScreen({
                     {item.answer || "No answer recorded"}
                   </Text>
 
-                  <View style={styles.historyActionRow}>
-                    <TouchableOpacity
-                      style={styles.historyReuseButton}
-                      onPress={() => handleUseHistoryItem(item)}
-                    >
-                      <Text style={styles.historyReuseButtonText}>
-                        Use again
-                      </Text>
-                    </TouchableOpacity>
+                  {canUseHistoryActions ? (
+                    <View style={styles.historyActionRow}>
+                      <TouchableOpacity
+                        style={styles.historyReuseButton}
+                        onPress={() => handleUseHistoryItem(item)}
+                      >
+                        <Text style={styles.historyReuseButtonText}>
+                          Use again
+                        </Text>
+                      </TouchableOpacity>
 
-                    {item.options && item.options.length > 0 ? (
                       <TouchableOpacity
                         style={styles.historyReuseButton}
                         onPress={() => handleSaveHistoryTemplate(item)}
@@ -1244,10 +1316,15 @@ export default function ParentModeScreen({
                           Save as template
                         </Text>
                       </TouchableOpacity>
-                    ) : null}
-                  </View>
+                    </View>
+                  ) : (
+                    <Text style={styles.historyUnavailableText}>
+                      Reuse is unavailable for this older history item.
+                    </Text>
+                  )}
                 </View>
-              ))
+                );
+              })
             ) : (
               <View style={styles.historyEmptyCard}>
                 <Text style={styles.historyEmptyText}>

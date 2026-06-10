@@ -1524,6 +1524,12 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "900",
   },
+  historyUnavailableText: {
+    color: "#9A8D85",
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 17,
+  },
   historyPendingAnswer: {
     color: "#8A5E3C",
     fontSize: 16,

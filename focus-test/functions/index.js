@@ -154,6 +154,38 @@ const WEAK_VISUAL_SEARCH_WORDS = new Set([
   "an",
 ]);
 
+const SPORTS_CONTEXT_WORDS = new Set([
+  "sport",
+  "sports",
+  "play",
+  "game",
+  "match",
+]);
+
+const KNOWN_SPORT_WORDS = new Set([
+  "football",
+  "basketball",
+  "tennis",
+  "badminton",
+  "cricket",
+  "soccer",
+  "baseball",
+  "swimming",
+  "running",
+  "boxing",
+  "rugby",
+  "volleyball",
+]);
+
+const SPORTS_AMBIGUOUS_QUERY_MAP = {
+  cricket: "cricket sport",
+  football: "football sport",
+  squash: "squash sport",
+  boxing: "boxing sport",
+  baseball: "baseball sport",
+  tennis: "tennis sport",
+};
+
 function normalizeVisualSearchText(value){
   return String(value || "")
     .trim()
@@ -163,16 +195,62 @@ function normalizeVisualSearchText(value){
     .replace(/\s+/g, " ");
 }
 
-function getOpenSymbolsSearchCandidates(label){
+function getSportsDisambiguatedQuery(normalizedLabel, context = {}){
+  if(!context.isSportsContext){
+    return null;
+  }
+
+  return SPORTS_AMBIGUOUS_QUERY_MAP[normalizedLabel] || null;
+}
+
+function getVisualContext(question, optionLabels){
+  const questionWords = normalizeVisualSearchText(question)
+    .split(" ")
+    .filter(Boolean);
+  const optionWords = optionLabels.flatMap((label) =>
+    normalizeVisualSearchText(label).split(" ").filter(Boolean)
+  );
+
+  return {
+    isSportsContext:
+      questionWords.some((word) => SPORTS_CONTEXT_WORDS.has(word)) ||
+      optionWords.some((word) => KNOWN_SPORT_WORDS.has(word)),
+  };
+}
+
+function getVisualCacheKey(label, context = {}){
+  const key = normalizeVisualKey(label);
+  const normalizedLabel = normalizeVisualSearchText(label);
+
+  if(!key){
+    return "";
+  }
+
+  if(getSportsDisambiguatedQuery(normalizedLabel, context)){
+    return `${key}-sport`;
+  }
+
+  return key;
+}
+
+function getOpenSymbolsSearchCandidates(label, context = {}){
   const normalizedLabel = normalizeVisualSearchText(label);
   const words = normalizedLabel.split(" ").filter(Boolean);
   const meaningfulWords = words.filter((word) => !WEAK_VISUAL_SEARCH_WORDS.has(word));
+  const sportsDisambiguatedQuery = getSportsDisambiguatedQuery(
+    normalizedLabel,
+    context,
+  );
   const phraseCandidateMap = {
     "after bed": ["bed", "bedtime"],
     "before bed": ["bed", "bedtime"],
   };
 
   const candidates = [
+    // Ambiguous labels such as "cricket" need the question/options context.
+    // In a sports set, try "cricket sport" first so OpenSymbols does not cache
+    // an insect as the visual for the child communication option.
+    sportsDisambiguatedQuery,
     words.length === 1 && WEAK_VISUAL_SEARCH_WORDS.has(words[0])
       ? ""
       : normalizedLabel,
@@ -225,8 +303,8 @@ function isWeakOnlyOpenSymbolMatch(symbol, query){
     );
 }
 
-async function getCachedVisual(label){
-  const key = normalizeVisualKey(label);
+async function getCachedVisual(label, context = {}){
+  const key = getVisualCacheKey(label, context);
   if(!key ){
     return null;
   }
@@ -255,12 +333,13 @@ async function getCachedVisual(label){
     license : data.license || null,
     provider: data.provider || null,
     emoji: data.emoji || null,
+    query: data.query || null,
   };
 
 }
 
-async function saveVisualToCache(label, visual){
-  const key = normalizeVisualKey(label);
+async function saveVisualToCache(label, visual, context = {}){
+  const key = getVisualCacheKey(label, context);
 
   if(!key || (!visual?.imageUrl && !visual?.emoji)) {
     return;
@@ -272,6 +351,8 @@ async function saveVisualToCache(label, visual){
       imageUrl: visual.imageUrl,
       source: visual.source,
       provider: visual.provider || visual.source,
+      query: visual.query || null,
+      contextKey: context.isSportsContext ? "sports" : "default",
       license: visual.license || null,
       licenseUrl: visual.licenseUrl || null,
       author: visual.author || null,
@@ -287,8 +368,8 @@ async function saveVisualToCache(label, visual){
   );
 }
 
-async function resolveVisualForLabel(label, index = 0){
-  const cachedVisual = await getCachedVisual(label);
+async function resolveVisualForLabel(label, index = 0, context = {}){
+  const cachedVisual = await getCachedVisual(label, context);
   if(cachedVisual){
     return {
       ...cachedVisual,
@@ -297,9 +378,9 @@ async function resolveVisualForLabel(label, index = 0){
   }
   
   try{
-    const openSymbolVisual = await searchOpenSymbols(label);
+    const openSymbolVisual = await searchOpenSymbols(label, context);
     if(openSymbolVisual){
-      await saveVisualToCache(label, openSymbolVisual);
+      await saveVisualToCache(label, openSymbolVisual, context);
       return {
         ...openSymbolVisual,
       };
@@ -314,7 +395,7 @@ async function resolveVisualForLabel(label, index = 0){
     const emojiVisual = await searchEmojiApi(label);
 
     if(emojiVisual){
-      await saveVisualToCache(label, emojiVisual);
+      await saveVisualToCache(label, emojiVisual, context);
       return emojiVisual;
     }
   }catch(error){
@@ -326,7 +407,7 @@ async function resolveVisualForLabel(label, index = 0){
     const runwareVisual = await generateRunwareVisual(label);
 
     if(runwareVisual){
-      await saveVisualToCache(label, runwareVisual);
+      await saveVisualToCache(label, runwareVisual, context);
       return {...runwareVisual};
     }
   }catch(error){
@@ -404,8 +485,8 @@ async function getOpenSymbolsAccessToken() {
 
   return data.access_token;
 }
-async function searchOpenSymbols(label){
-  const candidates = getOpenSymbolsSearchCandidates(label);
+async function searchOpenSymbols(label, context = {}){
+  const candidates = getOpenSymbolsSearchCandidates(label, context);
   if(candidates.length === 0){
     return null;
   }
@@ -459,6 +540,7 @@ async function searchOpenSymbolsCandidate(label, candidate, token){
     imageUrl: safeResult.image_url,
     source: "opensymbols",
     provider: safeResult.repo_key || "opensymbols",
+    query: candidate,
     license: safeResult.license || null,
     licenseUrl: safeResult.license_url || null,
     author: safeResult.author || null,
@@ -805,9 +887,13 @@ exports.generateOptionVisuals = onCall(
       optionCount: cleanedLabels.length,
       hasQuestion: !!question,
     });
+
+    const visualContext = getVisualContext(question, cleanedLabels);
     
     const images = await Promise.all(
-      cleanedLabels.map((label, index) => resolveVisualForLabel(label, index))
+      cleanedLabels.map((label, index) =>
+        resolveVisualForLabel(label, index, visualContext)
+      )
     );
 
     return {

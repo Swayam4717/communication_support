@@ -45,9 +45,12 @@ Tester-facing install and run instructions are in:
 - Visual answer options with generated visuals, uploaded images, emoji fallback, and text fallback.
 - Manual image upload from camera/gallery.
 - Remove visual option when a generated/uploaded visual is unsuitable.
+- Visual generation gives clearer loading, fallback, and error feedback during testing.
 - Parent alert readiness wording that refers to attention-alert readiness, not whether in-app answering works.
 - Visible feedback when sending or clearing/resetting a session fails.
-- Recent history with friendly timestamps.
+- Recent history with friendly timestamps, answer status, and clearer repeated-test actions.
+- History items can be loaded back into Create with Use again.
+- History items can be saved as local custom templates when their options are available.
 
 ## Saved Templates
 
@@ -78,6 +81,8 @@ Firestore visualCache
 ```
 
 OpenSymbols search avoids weak connector/preposition matches for multi-word labels such as `after bed` and `before bed`, so weak words like `after` or `before` are not accepted as the main visual concept.
+
+If the pipeline uses a simpler fallback visual, the parent UI treats it as usable but reviewable. Parents can keep the fallback, remove it, or upload their own image before sending.
 
 API keys stay in Firebase backend secrets, not frontend code.
 
@@ -302,7 +307,7 @@ Frontend Firebase web config is read from `focus-test/.env` through `EXPO_PUBLIC
 
 # End-To-End Test Flow
 
-For a shorter tester-facing version of this flow, use `docs/tester-intsall-guide.md`.
+For a shorter tester-facing version of this flow, use `docs/tester-install-guide.md`.
 
 Use this checklist for the deployed parent + installed Android child flow:
 
@@ -325,6 +330,8 @@ Use this checklist for the deployed parent + installed Android child flow:
 17. Child manually presses Send Answer.
 18. Parent receives the answer in realtime.
 19. Confirm History updates.
+20. In History, use `Use again` to load a previous question/options into Create.
+21. In History, use `Save as template` to save a previous question/options for the Templates tab.
 
 ---
 

@@ -16,7 +16,9 @@
 4. Enter the parent room code.
 5. Enable overlay permission.
 6. Enable microphone permission.
-7. Continue to Child Mode.
+7. Confirm notifications are enabled.
+8. Set background/battery usage to unrestricted or allowed if the phone offers this setting.
+9. Continue to Child Mode.
 
 ## Test Flow
 
@@ -32,7 +34,7 @@
 
 ## Physical Device Validation
 
-The hosted parent web app and installed Android child APK were validated together on a physical OnePlus Android device.
+The hosted parent web app and installed Android child APK were validated together on a physical OnePlus Android device. The demo flow passed with the required Android permissions and background settings enabled.
 
 Validated flows:
 
@@ -46,18 +48,38 @@ Validated flows:
 - Child answers using Guided Speech Practice.
 - Parent receives child responses in realtime.
 
+## Boss Demo Flow
+
+1. Parent opens the hosted web app.
+2. Child opens the installed Android APK and joins the room.
+3. Parent sends a session.
+4. Child receives and opens the native overlay alert.
+5. Child answers by tapping or using Guided Speech Practice.
+6. Child presses Send Answer.
+7. Parent receives the answer in realtime.
+
 Required phone settings:
 
 - Display over other apps enabled.
 - Notifications enabled.
 - Microphone permission enabled.
 - Background/battery usage unrestricted or allowed.
+- Do not force-close the child app before testing.
 
-For debugging, native Android logs use the tag `FocusAlertDebug`. They trace FCM receipt, lock state, overlay permission, overlay display, and deep-link launch.
+## Debugging Native Alerts
+
+Native Android logs use the tag `FocusAlertDebug`. They trace FCM receipt, message type, room ID, lock state, overlay permission, overlay display, and deep-link launch.
+
+```bash
+adb logcat -s FocusAlertDebug
+```
+
+## Known Limitation: Long-Idle Android/FCM Delivery Delay
+
+Android overlay reliability can vary by device/OEM battery settings. On the tested OnePlus device, alerts worked after required permissions and battery/background settings were enabled. After extended screen-off idle time, Android/OxygenOS may delay FCM data-message delivery. During that delay, no `FocusAlertDebug` logs appear because the app has not received the FCM message yet. When delivery occurs, the native overlay appears correctly. Future hardening may add a system notification fallback for long-idle/OEM-restricted states.
 
 ## Notes
 
-- Android overlay reliability can vary by device/OEM battery settings. On the tested OnePlus device, alerts worked after required permissions and battery/background settings were enabled.
 - Locked-device notification behavior is future work.
 - Guided Speech Practice selects an option but does not auto-send.
 - Visual generation may use fallback/simple visuals; testers can keep them, remove them, or upload their own image.

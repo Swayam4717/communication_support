@@ -2,7 +2,7 @@
 
 Focus-Test is an Expo React Native + Firebase MVP for structured parent-child communication. It is built for a controlled pilot/demo where a parent uses a hosted web app to send simple visual communication sessions, and a child uses an installed Android app to answer through visual choices or guided speech practice.
 
-The current reliable attention path is an active/unlocked Android overlay. Locked-device notification behavior is not production-ready yet.
+The current validated attention path is the native Android overlay. Android/OEM battery behavior can still affect long-idle FCM delivery timing, so locked-device notification fallback remains future hardening.
 
 ---
 
@@ -12,6 +12,7 @@ The current reliable attention path is an active/unlocked Android overlay. Locke
 - Child Android side has been built as a standalone release APK.
 - The standalone APK opens without Metro, Expo dev server, or localhost.
 - Hosted parent web app and installed Android child APK have been tested together successfully.
+- The physical OnePlus Android boss/demo flow passed with required permissions and battery/background settings enabled.
 - End-to-end flow has been verified:
   - parent creates or uses a room,
   - child joins the room,
@@ -52,16 +53,42 @@ Validated physical-device flows:
 - Child replies using Guided Speech Practice.
 - Parent receives child responses in realtime.
 
+# Demo Flow
+
+The tested demo path is:
+
+1. Parent opens the hosted web app.
+2. Child opens the installed Android APK and joins the room.
+3. Parent sends a session from the web app.
+4. Android child receives the native overlay alert.
+5. Child opens the message from the overlay.
+6. Child answers by tapping an option or using Guided Speech Practice.
+7. Child manually presses Send Answer.
+8. Parent receives the response in realtime.
+
+# Required Android/OnePlus Settings
+
 Required phone settings for successful Android alert behavior:
 
 - Display over other apps enabled.
 - Notifications enabled.
 - Microphone permission enabled.
 - Background/battery usage unrestricted or allowed.
+- Do not force-close the child app before testing.
 
-Native Android debug logs are available under the tag `FocusAlertDebug`. These logs trace FCM receipt, lock state, overlay permission, overlay display, and deep-link launch.
+# Debugging Native Alerts
 
-Android overlay reliability can vary by device/OEM battery settings. On the tested OnePlus device, alerts worked after required permissions and battery/background settings were enabled.
+Native Android debug logs are available under the tag `FocusAlertDebug`. These logs trace FCM receipt, message type, room ID, lock state, overlay permission, overlay display, and deep-link launch.
+
+Useful command:
+
+```bash
+adb logcat -s FocusAlertDebug
+```
+
+# Known Limitation: Long-Idle Android/FCM Delivery Delay
+
+Android overlay reliability can vary by device/OEM battery settings. On the tested OnePlus device, alerts worked after required permissions and battery/background settings were enabled. After extended screen-off idle time, Android/OxygenOS may delay FCM data-message delivery. During that delay, no `FocusAlertDebug` logs appear because the app has not received the FCM message yet. When delivery occurs, the native overlay appears correctly. Future hardening may add a system notification fallback for long-idle/OEM-restricted states.
 
 
 ---
@@ -368,7 +395,7 @@ Use this checklist for the deployed parent + installed Android child flow:
 
 # Known Limitations
 
-- Android overlay reliability can vary by device/OEM battery settings. On the tested OnePlus device, alerts worked after required permissions and battery/background settings were enabled.
+- Android overlay reliability can vary by device/OEM battery settings. On the tested OnePlus device, alerts worked after required permissions and battery/background settings were enabled. After extended screen-off idle time, Android/OxygenOS may delay FCM data-message delivery. When delivery occurs, the native overlay appears correctly. Future hardening may add a system notification fallback for long-idle/OEM-restricted states.
 - Locked-device notification behavior is future work and not production-ready.
 - Saved templates are local-only through AsyncStorage.
 - Uploaded option images should avoid sensitive personal photos because pilot Storage rules allow readable image URLs.

@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { ExpoSpeechRecognitionModule } from "expo-speech-recognition";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import FocusAlertModule from "../modules/focus-alert";
 import { styles } from "./communicationCommon";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -22,6 +23,7 @@ interface DeviceSetupProps {
 
 type SetupStage = "role-select" | "room-setup";
 type ReadinessState = boolean | null;
+const CHILD_BATTERY_ACK_KEY = "focusTestChildBatterySettingsAcknowledged";
 
 const ROOM_WORDS = [
   "CALM",
@@ -67,7 +69,33 @@ export default function DeviceSetupScreen({
     useState<ReadinessState>(null);
   const [childMicrophoneReady, setChildMicrophoneReady] =
     useState<ReadinessState>(null);
+  const [childBatteryReady, setChildBatteryReady] =
+    useState<ReadinessState>(null);
   const [isCheckingReadiness, setIsCheckingReadiness] = useState(false);
+
+  const checkChildBatterySettings = React.useCallback(async () => {
+    if (Platform.OS !== "android") {
+      setChildBatteryReady(true);
+      return true;
+    }
+
+    try {
+      const [isIgnoringBatteryOptimizations, acknowledged] =
+        await Promise.all([
+          FocusAlertModule.isIgnoringBatteryOptimizations(),
+          AsyncStorage.getItem(CHILD_BATTERY_ACK_KEY),
+        ]);
+      const ready = Boolean(isIgnoringBatteryOptimizations) || acknowledged === "true";
+      setChildBatteryReady(ready);
+      return ready;
+    } catch (error) {
+      console.warn("Failed to check child battery settings:", error);
+      const acknowledged = await AsyncStorage.getItem(CHILD_BATTERY_ACK_KEY);
+      const ready = acknowledged === "true";
+      setChildBatteryReady(ready);
+      return ready;
+    }
+  }, []);
 
   const checkChildOverlayPermission = React.useCallback(async () => {
     
@@ -94,15 +122,17 @@ export default function DeviceSetupScreen({
     }
 
     checkChildOverlayPermission();
+    checkChildBatterySettings();
 
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") {
         checkChildOverlayPermission();
+        checkChildBatterySettings();
       }
     });
 
     return () => subscription.remove();
-  }, [selectedRole, checkChildOverlayPermission]);
+  }, [selectedRole, checkChildBatterySettings, checkChildOverlayPermission]);
 
   const handleRequestChildOverlayPermission = async () => {
     if (Platform.OS !== "android") {
@@ -152,6 +182,34 @@ export default function DeviceSetupScreen({
     }
   };
 
+  const handleOpenBatterySettings = async () => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+
+    try {
+      const opened = await FocusAlertModule.openBatterySettings();
+
+      if (!opened) {
+        Alert.alert(
+          "Settings unavailable",
+          "Could not open app settings automatically. Please open Android Settings, find Focus-Test, then set Battery usage to unrestricted or allow background activity.",
+        );
+      }
+    } catch (error) {
+      console.warn("Failed to open battery settings:", error);
+      Alert.alert(
+        "Settings unavailable",
+        "Could not open app settings automatically. Please open Android Settings, find Focus-Test, then set Battery usage to unrestricted or allow background activity.",
+      );
+    }
+  };
+
+  const handleAcknowledgeBatterySettings = async () => {
+    await AsyncStorage.setItem(CHILD_BATTERY_ACK_KEY, "true");
+    setChildBatteryReady(true);
+  };
+
   const checkChildReadiness = React.useCallback(
     async (room = roomCode.trim().toUpperCase()) => {
       if (selectedRole !== "child") {
@@ -164,9 +222,10 @@ export default function DeviceSetupScreen({
       setIsCheckingReadiness(true);
 
       try {
-        const [overlayReady, microphoneReady] = await Promise.all([
+        const [overlayReady, microphoneReady, batteryReady] = await Promise.all([
           checkChildOverlayPermission(),
           checkChildMicrophonePermission(),
+          checkChildBatterySettings(),
         ]);
 
         return {
@@ -175,12 +234,13 @@ export default function DeviceSetupScreen({
             : false,
           overlayReady,
           microphoneReady,
+          batteryReady,
         };
       } finally {
         setIsCheckingReadiness(false);
       }
     },
-    [checkChildOverlayPermission, roomCode, selectedRole],
+    [checkChildBatterySettings, checkChildOverlayPermission, roomCode, selectedRole],
   );
 
   const handleContinueToRoom = async () => {
@@ -199,8 +259,10 @@ export default function DeviceSetupScreen({
     } else {
       setRoomCode("");
       setChildMicrophoneReady(null);
+      setChildBatteryReady(null);
       checkChildOverlayPermission();
       checkChildMicrophonePermission();
+      checkChildBatterySettings();
     }
 
     setStage("room-setup");
@@ -357,6 +419,57 @@ export default function DeviceSetupScreen({
     </View>
   );
 
+  const renderBatteryGuidanceRow = ({
+    title,
+    description,
+    ready,
+    onOpenSettings,
+    onConfirm,
+  }: {
+    title: string;
+    description: string;
+    ready: ReadinessState;
+    onOpenSettings: () => void;
+    onConfirm: () => void;
+  }) => (
+    <View style={styles.setupChecklistRow}>
+      <View style={styles.setupChecklistTextWrap}>
+        <Text style={styles.setupChecklistTitle}>{title}</Text>
+        <Text style={styles.setupChecklistDescription}>
+          {ready ? "Marked done." : description}
+        </Text>
+      </View>
+      <Text
+        style={[
+          styles.setupChecklistStatus,
+          ready ? styles.setupChecklistStatusReady : styles.setupChecklistStatusWarning,
+        ]}
+      >
+        {ready ? "Ready" : "Check settings"}
+      </Text>
+      {!ready ? (
+        <>
+          <TouchableOpacity
+            style={styles.setupChecklistAction}
+            onPress={onOpenSettings}
+          >
+            <Text style={styles.setupChecklistActionText}>
+              Open app settings
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.setupChecklistAction}
+            onPress={onConfirm}
+          >
+            <Text style={styles.setupChecklistActionText}>
+              I've enabled this
+            </Text>
+          </TouchableOpacity>
+        </>
+      ) : null}
+    </View>
+  );
+
   return (
     <ScrollView
       contentContainerStyle={[
@@ -443,6 +556,13 @@ export default function DeviceSetupScreen({
                 ready: childOverlayAllowed,
                 actionLabel: "Enable alerts",
                 onAction: handleRequestChildOverlayPermission,
+              })}
+              {renderBatteryGuidanceRow({
+                title: "Background activity allowed",
+                description: "Open App Info, then go to Battery usage and set Focus-Test to Unrestricted or Allow background activity.",
+                ready: childBatteryReady,
+                onOpenSettings: handleOpenBatterySettings,
+                onConfirm: handleAcknowledgeBatterySettings,
               })}
               {renderReadinessRow({
                 title: "Use microphone for speech practice",

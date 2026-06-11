@@ -8,6 +8,8 @@ declare class FocusAlertModule extends NativeModule<FocusAlertModuleEvents> {
   showTestNotification():void;
   canDrawOverlays(): boolean;
   requestOverlayPermission(): void;
+  isIgnoringBatteryOptimizations(): boolean;
+  openBatterySettings(): boolean;
   showOverlayAlert(): void;
   triggerFocusAlert(): void;
   getFcmToken(): string;

@@ -15,6 +15,7 @@ import android.content.pm.PackageManager
 import android.graphics.PixelFormat
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
@@ -35,6 +36,28 @@ class FocusAlertModule : Module() {
   private val debugTag = "FocusAlertDebug"
   private val channelId = "focus_alerts"
   private var activeOverlay: android.view.View? = null
+
+  private fun startSettingsIntent(context: Context, intent: Intent): Boolean {
+    return try {
+      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      context.startActivity(intent)
+      true
+    } catch (error: Exception) {
+      Log.w(debugTag, "Could not open settings intent: ${intent.action}", error)
+      false
+    }
+  }
+
+  private fun openAppSettings(context: Context): Boolean {
+    return startSettingsIntent(
+      context,
+      Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.parse("package:${context.packageName}")
+      )
+    )
+  }
+
   private fun openChildAlert(context: Context) {
     Log.d(debugTag, "Module launching child alert deep link")
     val intent = Intent(
@@ -275,6 +298,28 @@ class FocusAlertModule : Module() {
       }
 
       return@Function null
+    }
+
+    Function("isIgnoringBatteryOptimizations") {
+      val context = appContext.reactContext ?: return@Function false
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        val powerManager =
+          context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        val ignoring =
+          powerManager.isIgnoringBatteryOptimizations(context.packageName)
+        Log.d(debugTag, "Module isIgnoringBatteryOptimizations returned $ignoring")
+        return@Function ignoring
+      }
+
+      Log.d(debugTag, "Module isIgnoringBatteryOptimizations returned true for pre-Marshmallow")
+      return@Function true
+    }
+
+    Function("openBatterySettings") {
+      val context = appContext.reactContext ?: return@Function false
+      Log.d(debugTag, "Module opening app settings for battery/background setup")
+      return@Function openAppSettings(context)
     }
 
     Function("showOverlayAlert") {

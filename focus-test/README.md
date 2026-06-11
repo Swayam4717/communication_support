@@ -50,7 +50,7 @@ Restart Expo after changing environment variables.
 - Parent Mode can run on web/browser for demos.
 - Child attention alerts and Guided Speech Practice are Android-first.
 - Hosted parent web + installed Android APK were physically validated on a OnePlus Android device with overlay, notifications, microphone, and battery/background usage allowed.
-- Child setup includes an `Open app settings` button for background activity. On Android/OnePlus, use it to open Focus-Test App Info, go to Battery usage, set Unrestricted or Allow background activity, then return and tap `I've enabled this`.
+- Child setup includes an `Open app settings` button for background activity. On Android/OnePlus, use it to open Focus-Test App Info, go to Battery usage, set Unrestricted or Allow background activity, then return and tap `I've enabled this`. This is partly manual because OEM background settings vary.
 - Native Android alert logs use `FocusAlertDebug`; run `adb logcat -s FocusAlertDebug` while testing FCM/overlay delivery.
 - After extended screen-off idle time, Android/OxygenOS may delay FCM data-message delivery. When delivery reaches the phone, the native overlay appears correctly.
 - Saved templates are local-only through AsyncStorage.

@@ -29,6 +29,8 @@ For background activity setup:
 
 This helps reduce delayed parent alerts after long idle, but Android/OEM idle behavior can still vary by device.
 
+The app cannot fully verify every OnePlus/OEM background setting automatically. Use I've enabled this after manually checking the Battery usage setting.
+
 ## Main Parent-To-Child Overlay Flow
 
 1. Open the hosted parent web app.

@@ -71,6 +71,8 @@ Required phone settings:
 
 For background activity setup, use the child setup `Open app settings` button. It opens the Focus-Test App Info/App Management page. From there, go to Battery usage, set Focus-Test to Unrestricted battery usage or Allow background activity, return to the app, and tap `I've enabled this`. This helps reduce delayed parent alerts after long idle, but Android/OEM idle behavior can still vary by device.
 
+The app cannot fully verify every OnePlus/OEM background setting automatically. Use `I've enabled this` after manually checking the Battery usage setting.
+
 ## Debugging Native Alerts
 
 Native Android logs use the tag `FocusAlertDebug`. They trace FCM receipt, message type, room ID, lock state, overlay permission, overlay display, and deep-link launch.

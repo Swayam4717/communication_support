@@ -35,6 +35,37 @@ Tester-facing install and run instructions are in:
 
 ---
 
+# Physical Device Validation
+
+The hosted parent web app and installed Android child APK were validated together on a physical OnePlus Android device. The boss/demo flow passed with the required Android permissions and background settings enabled.
+
+Validated physical-device flows:
+
+- Parent sends message while child app is open.
+- Parent sends message while child phone is on the home screen.
+- Parent sends message while another app is open.
+- Parent sends message after lock/unlock.
+- Parent sends message after a 2-minute lock.
+- Parent sends message after a 5-minute lock.
+- Child opens message from the overlay.
+- Child replies by tapping an answer.
+- Child replies using Guided Speech Practice.
+- Parent receives child responses in realtime.
+
+Required phone settings for successful Android alert behavior:
+
+- Display over other apps enabled.
+- Notifications enabled.
+- Microphone permission enabled.
+- Background/battery usage unrestricted or allowed.
+
+Native Android debug logs are available under the tag `FocusAlertDebug`. These logs trace FCM receipt, lock state, overlay permission, overlay display, and deep-link launch.
+
+Android overlay reliability can vary by device/OEM battery settings. On the tested OnePlus device, alerts worked after required permissions and battery/background settings were enabled.
+
+
+---
+
 # Core Features
 
 ## Parent Features
@@ -337,7 +368,7 @@ Use this checklist for the deployed parent + installed Android child flow:
 
 # Known Limitations
 
-- Current reliable attention path is active/unlocked Android overlay.
+- Android overlay reliability can vary by device/OEM battery settings. On the tested OnePlus device, alerts worked after required permissions and battery/background settings were enabled.
 - Locked-device notification behavior is future work and not production-ready.
 - Saved templates are local-only through AsyncStorage.
 - Uploaded option images should avoid sensitive personal photos because pilot Storage rules allow readable image URLs.

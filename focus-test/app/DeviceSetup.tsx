@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   Alert,
   AppState,
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
   Text,
@@ -471,10 +472,16 @@ export default function DeviceSetupScreen({
   );
 
   return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 24 : 0}
+      style={styles.flexFill}
+    >
     <ScrollView
       contentContainerStyle={[
         styles.scrollContent,
         styles.onboardingScrollContent,
+        { paddingBottom: Platform.OS === "android" ? 160 : 80 },
       ]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
@@ -686,5 +693,6 @@ export default function DeviceSetupScreen({
         </View>
       ) : null}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

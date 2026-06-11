@@ -11,6 +11,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
@@ -23,23 +24,51 @@ import android.widget.TextView
 
 object FocusAlertManager {
 
+  private const val debugTag = "FocusAlertDebug"
   private var activeOverlay: android.view.View? = null
 
   fun triggerFocusAlert(context: Context) {
-    Log.d("FOCUS_ALERT", "triggerFocusAlert called from manager")
+    Log.d(debugTag, "Manager triggerFocusAlert called")
 
     Handler(Looper.getMainLooper()).post {
-      if (isDeviceLocked(context)) {
-        Log.d("FOCUS_ALERT", "Device locked → notification route")
+      val keyguardManager =
+        context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+      val powerManager =
+        context.getSystemService(Context.POWER_SERVICE) as PowerManager
+      val isKeyguardLocked = keyguardManager.isKeyguardLocked
+      val isDeviceLocked =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+          keyguardManager.isDeviceLocked
+        } else {
+          false
+        }
+      val isInteractive =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+          powerManager.isInteractive
+        } else {
+          @Suppress("DEPRECATION")
+          powerManager.isScreenOn
+        }
+      val lockedForAlert = isDeviceLocked(context)
+
+      Log.d(
+        debugTag,
+        "Lock state: keyguardLocked=$isKeyguardLocked, deviceLocked=$isDeviceLocked, interactive=$isInteractive, lockedForAlert=$lockedForAlert"
+      )
+      if (lockedForAlert) {
+        Log.d(debugTag, "Device locked; overlay not shown, notification route placeholder")
+        Log.d(debugTag, "Device locked route selected")
         // Notification route later
       } else {
-        Log.d("FOCUS_ALERT", "Device unlocked → overlay route")
+        Log.d(debugTag, "Device unlocked; attempting overlay route")
+        Log.d(debugTag, "Device unlocked route selected")
         showOverlay(context.applicationContext)
       }
     }
   }
 
   private fun openChildAlert(context: Context) {
+    Log.d(debugTag, "Launching child alert deep link")
     val intent = Intent(
       Intent.ACTION_VIEW,
       Uri.parse("focustest://?alert=child-alert")
@@ -48,6 +77,7 @@ object FocusAlertManager {
     }
 
     context.startActivity(intent)
+    Log.d(debugTag, "Child alert deep link launch requested")
   }
 
   private fun dp(context: Context, value: Int): Int {
@@ -73,19 +103,26 @@ object FocusAlertManager {
 
   private fun showOverlay(context: Context) {
     if (activeOverlay != null) {
-      Log.d("FOCUS_ALERT", "Overlay already active, ignoring duplicate")
+      Log.d(debugTag, "Overlay not shown: overlay already active")
       return
     }
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-      if (!Settings.canDrawOverlays(context)) {
-        Log.d("FOCUS_ALERT", "Overlay permission not granted, cannot show alert")
+      val canDrawOverlays = Settings.canDrawOverlays(context)
+      Log.d(debugTag, "Overlay permission check: canDrawOverlays=$canDrawOverlays")
+
+      if (!canDrawOverlays) {
+        Log.w(debugTag, "Overlay not shown: overlay permission missing")
         return
       }
+    } else {
+      Log.d(debugTag, "Overlay permission check skipped: pre-Marshmallow")
     }
 
     val windowManager =
       context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+    Log.d(debugTag, "Preparing overlay window")
 
     val rootLayout = LinearLayout(context).apply {
       orientation = LinearLayout.VERTICAL
@@ -193,15 +230,17 @@ object FocusAlertManager {
       try {
         activeOverlay?.let {
           windowManager.removeView(it)
+          Log.d(debugTag, "Overlay removed")
         }
       } catch (_: Exception) {
+        Log.w(debugTag, "Overlay removeView failed")
       } finally {
         activeOverlay = null
       }
     }
 
     openButton.setOnClickListener {
-      Log.d("FOCUS_ALERT", "Open message button tapped")
+      Log.d(debugTag, "Overlay Open message tapped")
       removeOverlay()
 
       Handler(Looper.getMainLooper()).postDelayed({
@@ -210,12 +249,13 @@ object FocusAlertManager {
     }
 
     try {
+      Log.d(debugTag, "Attempting overlay addView")
       windowManager.addView(rootLayout, params)
       activeOverlay = rootLayout
-      Log.d("FOCUS_ALERT", "Overlay shown from manager")
+      Log.d(debugTag, "Overlay addView succeeded")
     } catch (e: Exception) {
       activeOverlay = null
-      Log.d("FOCUS_ALERT", "Error showing overlay: ${e.message}")
+      Log.w(debugTag, "Overlay addView failed: ${e.message}", e)
     }
   }
 

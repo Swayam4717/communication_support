@@ -32,9 +32,11 @@ import android.util.Log
 
 class FocusAlertModule : Module() {
 
+  private val debugTag = "FocusAlertDebug"
   private val channelId = "focus_alerts"
   private var activeOverlay: android.view.View? = null
   private fun openChildAlert(context: Context) {
+    Log.d(debugTag, "Module launching child alert deep link")
     val intent = Intent(
       Intent.ACTION_VIEW,
       Uri.parse("focustest://?alert=child-alert")
@@ -43,9 +45,11 @@ class FocusAlertModule : Module() {
     }
 
     context.startActivity(intent)
+    Log.d(debugTag, "Module child alert deep link launch requested")
   }
 
   private fun showNotification(context: Context) {
+    Log.d(debugTag, "Module showNotification called")
     val notificationManager =
       context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -63,8 +67,9 @@ class FocusAlertModule : Module() {
         ActivityCompat.checkSelfPermission(
           context,
           Manifest.permission.POST_NOTIFICATIONS
-        ) != PackageManager.PERMISSION_GRANTED
+      ) != PackageManager.PERMISSION_GRANTED
       ) {
+        Log.w(debugTag, "Notification permission missing; requesting permission")
         appContext.currentActivity?.requestPermissions(
           arrayOf(Manifest.permission.POST_NOTIFICATIONS),
           1001
@@ -100,23 +105,32 @@ class FocusAlertModule : Module() {
       .build()
 
     notificationManager.notify(1, notification)
+    Log.d(debugTag, "Module notification posted")
   }
 
   private fun showOverlay(context: Context) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-      if (!Settings.canDrawOverlays(context)) {
+      val canDrawOverlays = Settings.canDrawOverlays(context)
+      Log.d(debugTag, "Module overlay permission check: canDrawOverlays=$canDrawOverlays")
+
+      if (!canDrawOverlays) {
+        Log.w(debugTag, "Module overlay not shown: overlay permission missing")
         Toast.makeText(context, "Please grant overlay permission first", Toast.LENGTH_SHORT).show()
         return
       }
+    } else {
+      Log.d(debugTag, "Module overlay permission check skipped: pre-Marshmallow")
     }
 
     val windowManager =
       context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     
     if(activeOverlay != null){
-      android.util.Log.d("FOCUS_ALERT", "Overlay already active, skipping creation")
+      Log.d(debugTag, "Module overlay not shown: overlay already active")
       return
     }
+
+    Log.d(debugTag, "Module preparing overlay window")
 
     val layout = LinearLayout(context).apply {
       orientation = LinearLayout.VERTICAL
@@ -169,22 +183,28 @@ class FocusAlertModule : Module() {
       try {
         activeOverlay?.let{
           windowManager.removeView(it)
+          Log.d(debugTag, "Module overlay removed")
         }
       } catch (_: Exception) {
+        Log.w(debugTag, "Module overlay removeView failed")
       }finally {
         activeOverlay = null
       }
     }
 
     openButton.setOnClickListener {
+      Log.d(debugTag, "Module overlay Open tapped")
       removeOverlay()
       openChildAlert(context)
     }
 
     try {
+      Log.d(debugTag, "Module attempting overlay addView")
       windowManager.addView(layout, params)
       activeOverlay = layout
+      Log.d(debugTag, "Module overlay addView succeeded")
     } catch (e: Exception) {
+      Log.w(debugTag, "Module overlay addView failed: ${e.message}", e)
       Toast.makeText(context, "Error showing overlay: ${e.message}", Toast.LENGTH_SHORT).show()
     }
   }
@@ -203,19 +223,22 @@ class FocusAlertModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("FocusAlert")
    AsyncFunction("getFcmToken") { promise: expo.modules.kotlin.Promise ->
+  Log.d(debugTag, "Module getFcmToken called")
   FirebaseMessaging.getInstance().token
     .addOnCompleteListener { task ->
       if (!task.isSuccessful) {
-        Log.d("FOCUS_FCM", "Fetching FCM token failed")
+        Log.w(debugTag, "Module getFcmToken failed")
         promise.resolve(null)
       } else {
         val token = task.result
+        Log.d(debugTag, "Module getFcmToken succeeded")
         promise.resolve(token)
       }
     }
 }
     Function("showTestNotification") {
       val context = appContext.reactContext ?: return@Function null
+      Log.d(debugTag, "Module showTestNotification called")
       Toast.makeText(context, "Native notification called", Toast.LENGTH_SHORT).show()
       showNotification(context)
       return@Function null
@@ -225,9 +248,12 @@ class FocusAlertModule : Module() {
       val context = appContext.reactContext ?: return@Function false
 
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        return@Function Settings.canDrawOverlays(context)
+        val canDrawOverlays = Settings.canDrawOverlays(context)
+        Log.d(debugTag, "Module canDrawOverlays returned $canDrawOverlays")
+        return@Function canDrawOverlays
       }
 
+      Log.d(debugTag, "Module canDrawOverlays returned true for pre-Marshmallow")
       return@Function true
     }
 
@@ -235,6 +261,7 @@ class FocusAlertModule : Module() {
       val context = appContext.reactContext ?: return@Function null
 
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        Log.d(debugTag, "Module opening overlay permission settings")
         val intent = Intent(
           Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
           Uri.parse("package:${context.packageName}")
@@ -243,6 +270,8 @@ class FocusAlertModule : Module() {
         }
 
         context.startActivity(intent)
+      } else {
+        Log.d(debugTag, "Module overlay permission request skipped: pre-Marshmallow")
       }
 
       return@Function null
@@ -250,12 +279,15 @@ class FocusAlertModule : Module() {
 
     Function("showOverlayAlert") {
       val context = appContext.reactContext ?: return@Function null
+      Log.d(debugTag, "Module showOverlayAlert called")
       showOverlay(context)
       return@Function null
     }
 
     Function("triggerFocusAlert") {
   val context = appContext.reactContext ?: return@Function null
+
+      Log.d(debugTag, "Module triggerFocusAlert called")
 
   
  
@@ -271,13 +303,15 @@ class FocusAlertModule : Module() {
         false
       }
 
-      android.util.Log.d(
-        "FOCUS_ALERT",
+      Log.d(
+        debugTag,
         "Keyguard Locked: $isKeyguardLocked, Device Locked: $isDeviceLocked"
       )
     if (isKeyguardLocked || isDeviceLocked) {
+      Log.d(debugTag, "Module device locked; notification route selected")
       showNotification(context)
     } else {
+      Log.d(debugTag, "Module device unlocked; overlay route selected")
       showOverlay(context)
     }
   return@Function null

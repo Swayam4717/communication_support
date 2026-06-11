@@ -76,6 +76,8 @@ Required phone settings for successful Android alert behavior:
 - Background/battery usage unrestricted or allowed.
 - Do not force-close the child app before testing.
 
+In child setup, use the `Open app settings` button for the background activity checklist item. On Android/OnePlus, this opens the Focus-Test App Info/App Management page. Go to Battery usage, set Focus-Test to Unrestricted battery usage or Allow background activity, return to Focus-Test, then tap `I've enabled this`. This helps reduce delayed parent alerts after long idle, although Android/OEM idle behavior can still vary by device.
+
 # Debugging Native Alerts
 
 Native Android debug logs are available under the tag `FocusAlertDebug`. These logs trace FCM receipt, message type, room ID, lock state, overlay permission, overlay display, and deep-link launch.
@@ -376,20 +378,23 @@ Use this checklist for the deployed parent + installed Android child flow:
 5. Check the child setup readiness checklist.
 6. Enable/check overlay permission.
 7. Enable/check microphone permission.
-8. Parent sends a session.
-9. Confirm the Android overlay appears on the active/unlocked child device.
-10. Child opens the message.
-11. Child taps an answer.
-12. Child manually presses Send Answer.
-13. Parent receives the answer in realtime.
-14. Parent sends a second session.
-15. Child uses Guided Speech Practice.
-16. Confirm speech selects the intended option.
-17. Child manually presses Send Answer.
-18. Parent receives the answer in realtime.
-19. Confirm History updates.
-20. In History, use `Use again` to load a previous question/options into Create.
-21. In History, use `Save as template` to save a previous question/options for the Templates tab.
+8. Use `Open app settings` for the background activity checklist item.
+9. On Android/OnePlus, go to Battery usage and set Focus-Test to Unrestricted battery usage or Allow background activity.
+10. Return to Focus-Test and tap `I've enabled this`.
+11. Parent sends a session.
+12. Confirm the Android overlay appears on the active/unlocked child device.
+13. Child opens the message.
+14. Child taps an answer.
+15. Child manually presses Send Answer.
+16. Parent receives the answer in realtime.
+17. Parent sends a second session.
+18. Child uses Guided Speech Practice.
+19. Confirm speech selects the intended option.
+20. Child manually presses Send Answer.
+21. Parent receives the answer in realtime.
+22. Confirm History updates.
+23. In History, use `Use again` to load a previous question/options into Create.
+24. In History, use `Save as template` to save a previous question/options for the Templates tab.
 
 ---
 

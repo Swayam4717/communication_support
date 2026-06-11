@@ -19,6 +19,16 @@ Use this checklist when presenting or testing the Focus-Test MVP with the hosted
 - Background/battery usage unrestricted or allowed.
 - Do not force-close the child app before testing.
 
+For background activity setup:
+
+1. In the child setup checklist, tap Open app settings.
+2. On Android/OnePlus, go to Battery usage.
+3. Set Focus-Test to Unrestricted battery usage or Allow background activity.
+4. Return to Focus-Test.
+5. Tap I've enabled this if it is not `ready` already.
+
+This helps reduce delayed parent alerts after long idle, but Android/OEM idle behavior can still vary by device.
+
 ## Main Parent-To-Child Overlay Flow
 
 1. Open the hosted parent web app.

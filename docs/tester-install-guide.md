@@ -17,8 +17,11 @@
 5. Enable overlay permission.
 6. Enable microphone permission.
 7. Confirm notifications are enabled.
-8. Set background/battery usage to unrestricted or allowed if the phone offers this setting.
-9. Continue to Child Mode.
+8. In the child setup checklist, tap Open app settings for background activity.
+9. On Android/OnePlus, go to Battery usage.
+10. Set Focus-Test to Unrestricted battery usage or Allow background activity.
+11. Return to Focus-Test and tap I've enabled this.
+12. Continue to Child Mode.
 
 ## Test Flow
 
@@ -65,6 +68,8 @@ Required phone settings:
 - Microphone permission enabled.
 - Background/battery usage unrestricted or allowed.
 - Do not force-close the child app before testing.
+
+For background activity setup, use the child setup `Open app settings` button. It opens the Focus-Test App Info/App Management page. From there, go to Battery usage, set Focus-Test to Unrestricted battery usage or Allow background activity, return to the app, and tap `I've enabled this`. This helps reduce delayed parent alerts after long idle, but Android/OEM idle behavior can still vary by device.
 
 ## Debugging Native Alerts
 

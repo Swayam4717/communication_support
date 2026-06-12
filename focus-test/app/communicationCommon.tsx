@@ -540,6 +540,60 @@ export const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 18,
   },
+  liveSpeechFeedbackBox: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E3D8CE",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  liveSpeechWordRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  liveSpeechWordChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#E4D8CC",
+    backgroundColor: "#FBF9F6",
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  liveSpeechWordMatched: {
+    backgroundColor: "#F1F7EE",
+    borderColor: "#CFE3C9",
+  },
+  liveSpeechWordMismatch: {
+    backgroundColor: "#FFF0E8",
+    borderColor: "#E7C8B8",
+  },
+  liveSpeechWordCurrent: {
+    backgroundColor: "#F5EBDD",
+    borderColor: "#D6C3B4",
+  },
+  liveSpeechWordText: {
+    color: "#7E6F67",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  liveSpeechWordTextMatched: {
+    color: "#3F5F38",
+  },
+  liveSpeechWordTextMismatch: {
+    color: "#9B5E3E",
+  },
+  liveSpeechWordTextCurrent: {
+    color: "#705642",
+  },
+  liveSpeechFeedbackText: {
+    color: "#6F5D52",
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 17,
+  },
   speechFallbackLabel: {
     color: "#806B5E",
     fontSize: 12,

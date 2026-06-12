@@ -12,7 +12,11 @@ import {
   useSpeechRecognitionEvent,
 } from "expo-speech-recognition";
 import type { CommunicationSession } from "./communicationHelpers";
-import { subscribeToSession, submitAnswer } from "./communicationHelpers";
+import {
+  findBestSpeechOptionMatch,
+  subscribeToSession,
+  submitAnswer,
+} from "./communicationHelpers";
 import { Header, OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
 
@@ -259,6 +263,22 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     applyTranscriptMatch(value);
   };
 
+  const liveSpeechMatch = React.useMemo(() => {
+    if (!session || !liveTranscript.trim()) {
+      return null;
+    }
+
+    return findBestSpeechOptionMatch(liveTranscript, session.options);
+  }, [liveTranscript, session]);
+
+  const liveSpeechFeedbackMessage = liveTranscript.trim()
+    ? liveSpeechMatch?.isAmbiguous
+      ? "I heard a few possible answers. Try again."
+      : liveSpeechMatch?.isConfident
+        ? "Ready to send."
+        : "Keep going."
+    : "Press Start Speaking and say one of the answers.";
+
   return (
     <ScrollView
       contentContainerStyle={styles.scrollContent}
@@ -336,6 +356,37 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                   Live: {liveTranscript}
                 </Text>
               ) : null}
+              <View style={styles.liveSpeechFeedbackBox}>
+                {liveSpeechMatch?.bestResult ? (
+                  <View style={styles.liveSpeechWordRow}>
+                    {liveSpeechMatch.bestResult.wordFeedback.map((word, index) => (
+                      <View
+                        key={`${word.targetWord}-${index}`}
+                        style={[
+                          styles.liveSpeechWordChip,
+                          word.status === "matched" && styles.liveSpeechWordMatched,
+                          word.status === "mismatch" && styles.liveSpeechWordMismatch,
+                          word.status === "current" && styles.liveSpeechWordCurrent,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.liveSpeechWordText,
+                            word.status === "matched" && styles.liveSpeechWordTextMatched,
+                            word.status === "mismatch" && styles.liveSpeechWordTextMismatch,
+                            word.status === "current" && styles.liveSpeechWordTextCurrent,
+                          ]}
+                        >
+                          {word.targetWord}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+                <Text style={styles.liveSpeechFeedbackText}>
+                  {liveSpeechFeedbackMessage}
+                </Text>
+              </View>
               <Text style={styles.speechFallbackLabel}>Practise by typing</Text>
               <TextInput
                 value={mockTranscript}

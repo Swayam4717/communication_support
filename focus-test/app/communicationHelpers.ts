@@ -61,6 +61,37 @@ export interface SessionHistoryItem{
 }
 export const DEFAULT_ROOM_ID = "demo-room";
 
+export type SpeechWordFeedbackStatus =
+  | "matched"
+  | "mismatch"
+  | "current"
+  | "pending";
+
+export interface SpeechWordFeedback {
+  targetWord: string;
+  heardWord?: string;
+  status: SpeechWordFeedbackStatus;
+}
+
+export interface SpeechOptionComparison {
+  optionLabel: string;
+  targetWords: string[];
+  transcriptWords: string[];
+  wordFeedback: SpeechWordFeedback[];
+  matchedCount: number;
+  mismatchCount: number;
+  score: number;
+  isExactMatch: boolean;
+}
+
+export interface BestSpeechOptionMatch {
+  bestOption: SessionOption | null;
+  bestResult: SpeechOptionComparison | null;
+  allResults: SpeechOptionComparison[];
+  isConfident: boolean;
+  isAmbiguous: boolean;
+}
+
 export const DEFAULT_QUESTION = "What would you like to eat?";
 export const DEFAULT_OPTIONS = ["Rice", "Noodles", "Pizza", "Sandwich"];
 const MAX_HISTORY_OPTIONS = 4;
@@ -100,6 +131,176 @@ export function buildSessionOptions(
       ...(cleanedImageUrl ? { imageUrl: cleanedImageUrl } : {}),
     };
   });
+}
+
+export function normalizeSpeechText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function splitSpeechWords(text: string): string[] {
+  return normalizeSpeechText(text).split(" ").filter(Boolean);
+}
+
+export function compareTranscriptToOption(
+  transcript: string,
+  optionLabel: string,
+): SpeechOptionComparison {
+  const normalizedTranscript = normalizeSpeechText(transcript);
+  const normalizedOptionLabel = normalizeSpeechText(optionLabel);
+  const targetWords = splitSpeechWords(optionLabel);
+  const transcriptWords = splitSpeechWords(transcript);
+  let matchedCount = 0;
+
+  if (targetWords.length === 1) {
+    const targetWord = targetWords[0];
+    const heardWord = transcriptWords.find((word) => word === targetWord);
+    const isContainedWholeWord = !!heardWord;
+
+    return {
+      optionLabel,
+      targetWords,
+      transcriptWords,
+      wordFeedback: [
+        {
+          targetWord,
+          ...(heardWord ? { heardWord } : {}),
+          status: isContainedWholeWord ? "matched" : "current",
+        },
+      ],
+      matchedCount: isContainedWholeWord ? 1 : 0,
+      mismatchCount: isContainedWholeWord ? 0 : 1,
+      score: isContainedWholeWord ? 1 : 0,
+      isExactMatch:
+        !!normalizedOptionLabel &&
+        normalizedOptionLabel === normalizedTranscript,
+    };
+  }
+
+  const wordFeedback = targetWords.map((targetWord, index) => {
+    const heardWord = transcriptWords[index];
+
+    if (heardWord === targetWord) {
+      matchedCount += 1;
+      return {
+        targetWord,
+        heardWord,
+        status: "matched" as const,
+      };
+    }
+
+    if (heardWord) {
+      return {
+        targetWord,
+        heardWord,
+        status: "mismatch" as const,
+      };
+    }
+
+    return {
+      targetWord,
+      status: index === transcriptWords.length ? "current" as const : "pending" as const,
+    };
+  });
+  const extraWordCount = Math.max(0, transcriptWords.length - targetWords.length);
+  const mismatchCount =
+    wordFeedback.filter((item) => item.status !== "matched").length +
+    extraWordCount;
+  const scoreDenominator = Math.max(targetWords.length, transcriptWords.length, 1);
+
+  return {
+    optionLabel,
+    targetWords,
+    transcriptWords,
+    wordFeedback,
+    matchedCount,
+    mismatchCount,
+    score: matchedCount / scoreDenominator,
+    isExactMatch:
+      !!normalizedOptionLabel &&
+      normalizedOptionLabel === normalizedTranscript,
+  };
+}
+
+export function findBestSpeechOptionMatch(
+  transcript: string,
+  options: SessionOption[],
+): BestSpeechOptionMatch {
+  const normalizedTranscript = normalizeSpeechText(transcript);
+  const allResults = options.map((option) =>
+    compareTranscriptToOption(transcript, option.label),
+  );
+
+  if (!normalizedTranscript || allResults.length === 0) {
+    return {
+      bestOption: null,
+      bestResult: null,
+      allResults,
+      isConfident: false,
+      isAmbiguous: false,
+    };
+  }
+
+  const ranked = allResults
+    .map((result, index) => ({
+      option: options[index],
+      result,
+    }))
+    .sort((a, b) => b.result.score - a.result.score);
+  const best = ranked[0] ?? null;
+  const secondBest = ranked[1] ?? null;
+  const exactMatches = ranked.filter((item) => item.result.isExactMatch);
+
+  if (exactMatches.length === 1) {
+    return {
+      bestOption: exactMatches[0].option,
+      bestResult: exactMatches[0].result,
+      allResults,
+      isConfident: true,
+      isAmbiguous: false,
+    };
+  }
+
+  if (exactMatches.length > 1) {
+    return {
+      bestOption: null,
+      bestResult: exactMatches[0].result,
+      allResults,
+      isConfident: false,
+      isAmbiguous: true,
+    };
+  }
+
+  if (!best) {
+    return {
+      bestOption: null,
+      bestResult: null,
+      allResults,
+      isConfident: false,
+      isAmbiguous: false,
+    };
+  }
+
+  const scoreGap = best.result.score - (secondBest?.result.score ?? 0);
+  const isAmbiguous =
+    !!secondBest &&
+    best.result.score > 0 &&
+    (best.result.score === secondBest.result.score || scoreGap < 0.25);
+  const isConfident =
+    !isAmbiguous &&
+    best.result.score >= 0.67 &&
+    scoreGap >= 0.25;
+
+  return {
+    bestOption: isConfident ? best.option : null,
+    bestResult: best.result,
+    allResults,
+    isConfident,
+    isAmbiguous,
+  };
 }
 
 function getSafeHistoryText(value: unknown, maxLength: number) {

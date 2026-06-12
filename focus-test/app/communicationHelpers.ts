@@ -155,6 +155,31 @@ export function compareTranscriptToOption(
   const transcriptWords = splitSpeechWords(transcript);
   let matchedCount = 0;
 
+  if (targetWords.length === 1) {
+    const targetWord = targetWords[0];
+    const heardWord = transcriptWords.find((word) => word === targetWord);
+    const isContainedWholeWord = !!heardWord;
+
+    return {
+      optionLabel,
+      targetWords,
+      transcriptWords,
+      wordFeedback: [
+        {
+          targetWord,
+          ...(heardWord ? { heardWord } : {}),
+          status: isContainedWholeWord ? "matched" : "current",
+        },
+      ],
+      matchedCount: isContainedWholeWord ? 1 : 0,
+      mismatchCount: isContainedWholeWord ? 0 : 1,
+      score: isContainedWholeWord ? 1 : 0,
+      isExactMatch:
+        !!normalizedOptionLabel &&
+        normalizedOptionLabel === normalizedTranscript,
+    };
+  }
+
   const wordFeedback = targetWords.map((targetWord, index) => {
     const heardWord = transcriptWords[index];
 

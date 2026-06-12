@@ -49,6 +49,8 @@ Restart Expo after changing environment variables.
 
 - Parent Mode can run on web/browser for demos.
 - Child attention alerts and Guided Speech Practice are Android-first.
+- Guided Speech Practice now uses shared speech-to-option matching helpers with word-level feedback. Microphone speech and `Practise by typing` use the same matching path, select only confident non-ambiguous options, and never auto-submit.
+- If a child manually taps an option, speech or typed practice should not override that tapped answer with a different option.
 - Hosted parent web + installed Android APK were physically validated on a OnePlus Android device with overlay, notifications, microphone, and battery/background usage allowed.
 - Child setup includes an `Open app settings` button for background activity. On Android/OnePlus, use it to open Focus-Test App Info, go to Battery usage, set Unrestricted or Allow background activity, then return and tap `I've enabled this`. This is partly manual because OEM background settings vary.
 - Native Android alert logs use `FocusAlertDebug`; run `adb logcat -s FocusAlertDebug` while testing FCM/overlay delivery.

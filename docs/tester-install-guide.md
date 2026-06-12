@@ -35,6 +35,14 @@
 8. Parent can tap Use again to reload a previous question/options into Create.
 9. Parent can tap Save as template to keep a previous question/options in the Templates tab.
 
+Guided Speech Practice notes:
+
+- The child can press Start speaking and say one of the visible answer options.
+- The app shows word-level feedback for the closest option phrase.
+- A confident speech match selects the option, but the child still presses Send Answer manually.
+- Practise by typing is a quiet fallback for testing the same matching flow without using the microphone.
+- If the child tapped an option first, speech or typed practice will not replace it with a different option.
+
 ## Physical Device Validation
 
 The hosted parent web app and installed Android child APK were validated together on a physical OnePlus Android device. The demo flow passed with the required Android permissions and background settings enabled.
@@ -88,7 +96,8 @@ Android overlay reliability can vary by device/OEM battery settings. On the test
 ## Notes
 
 - Locked-device notification behavior is future work.
-- Guided Speech Practice selects an option but does not auto-send.
+- Guided Speech Practice selects a confident, non-ambiguous option but does not auto-send.
+- One-word options can match longer spoken phrases when the target word is heard as a whole word, such as `Water` matching `I want water`.
 - Visual generation may use fallback/simple visuals; testers can keep them, remove them, or upload their own image.
 - Saved templates are local to the parent browser/device.
 - Uploaded personal/sensitive images should be avoided for pilot testing.

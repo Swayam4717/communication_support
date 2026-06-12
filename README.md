@@ -152,10 +152,13 @@ API keys stay in Firebase backend secrets, not frontend code.
 
 - Implemented in Child Mode using `expo-speech-recognition`.
 - Real Android speech recognition has been verified.
-- Speech recognition matches spoken text against the known parent-provided options.
-- Speech selects the matched option but does not auto-submit.
+- Speech recognition compares the live transcript against all known parent-provided options.
+- Confident, non-ambiguous speech matches select the matched option but do not auto-submit.
 - Child still manually presses Send Answer.
-- Mock/typed practice input remains available as a fallback/testing path.
+- Word-level feedback highlights matched, current, pending, and retry words so the child/tester can see how close the spoken phrase is.
+- The `Practise by typing` input uses the same matching and word-feedback path as microphone speech, but does not appear as a live microphone transcript.
+- One-word options can match longer spoken phrases when the target word is heard as a whole word, such as `Water` matching `I want water`.
+- If the child has manually tapped an answer, speech/typed practice will not override it with a different option. The feedback shows both the heard option and the selected option.
 
 ## Setup And Readiness
 
@@ -391,12 +394,15 @@ Use this checklist for the deployed parent + installed Android child flow:
 16. Parent receives the answer in realtime.
 17. Parent sends a second session.
 18. Child uses Guided Speech Practice.
-19. Confirm speech selects the intended option.
-20. Child manually presses Send Answer.
-21. Parent receives the answer in realtime.
-22. Confirm History updates.
-23. In History, use `Use again` to load a previous question/options into Create.
-24. In History, use `Save as template` to save a previous question/options for the Templates tab.
+19. Confirm live word feedback appears while speech is recognized.
+20. Confirm a confident, non-ambiguous speech match selects the intended option.
+21. Optional: use `Practise by typing` to test the same matching and word-feedback path silently.
+22. Optional: tap one option, then say/type a different option and confirm the tapped answer remains selected.
+23. Child manually presses Send Answer.
+24. Parent receives the answer in realtime.
+25. Confirm History updates.
+26. In History, use `Use again` to load a previous question/options into Create.
+27. In History, use `Save as template` to save a previous question/options for the Templates tab.
 
 ---
 
@@ -409,7 +415,7 @@ Use this checklist for the deployed parent + installed Android child flow:
 - Production auth, room ownership, and account-based template sync are future work.
 - iOS child attention-capture support is not implemented.
 - Expo Go is not sufficient for child-side testing because the app uses native Android modules and native speech recognition.
-- Speech recognition depends on Android speech service availability and real-world noise conditions.
+- Speech recognition and word-level matching depend on Android speech service availability, option wording, and real-world noise conditions. Ambiguous or very similar options may ask the child to try again.
 - This is a controlled-pilot MVP, not a production security model.
 
 ---
@@ -428,4 +434,6 @@ Use this checklist for the deployed parent + installed Android child flow:
 - Do not expose Firebase/API secrets in frontend code.
 - Do not remove the mock/typed speech input until real speech has been retested after any speech changes.
 - Do not casually modify `ChildMode.tsx` speech state/reset logic; it has been stabilized after real-device testing.
+- Keep speech-to-option matching behavior in `communicationHelpers.ts` pure and testable. Child UI should use those helpers instead of duplicating transcript matching logic.
+- Preserve the rule that speech/typed practice must not override a manually tapped answer with a different option.
 - Do not overclaim production readiness in demos or documentation. Use wording such as MVP, prototype, controlled pilot, and current reliable path.

@@ -57,10 +57,15 @@ The app cannot fully verify every OnePlus/OEM background setting automatically. 
 2. On the child phone, use Try saying your answer.
 3. Tap Start speaking.
 4. Say one of the visible choices.
-5. Confirm speech selects the matching option.
-6. Tap Send Answer manually.
+5. Confirm the live word feedback highlights the closest option phrase.
+6. Confirm a confident match selects the matching option.
+7. Tap Send Answer manually.
 
 Speech selects an option but does not auto-submit.
+
+For quiet testing, use Practise by typing. It uses the same speech-to-option matching and word-feedback path as the microphone transcript, but it should not appear as Live speech.
+
+Safety check: tap one option, then say or type a different option. The tapped option should remain selected, and the feedback should show the heard option separately from the selected option.
 
 ## Parent Realtime Response Confirmation
 

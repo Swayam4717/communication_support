@@ -201,7 +201,28 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
 
     setLiveTranscript(transcript);
     setSpeechError(null);
-    applyTranscriptMatch(transcript);
+
+    if (!session) {
+      return;
+    }
+
+    const speechMatch = findBestSpeechOptionMatch(transcript, session.options);
+
+    if (speechMatch.isConfident && !speechMatch.isAmbiguous && speechMatch.bestOption) {
+      if (!selectedOptionId || selectionSource === "speech") {
+        setSelectedOptionId(speechMatch.bestOption.id);
+        setSelectionSource("speech");
+      }
+      setSpeechMessage("Ready to send.");
+      return;
+    }
+
+    if (speechMatch.isAmbiguous) {
+      setSpeechMessage("I heard a few possible answers. Try again.");
+      return;
+    }
+
+    setSpeechMessage("Keep going.");
   });
 
   useSpeechRecognitionEvent("end", () => {

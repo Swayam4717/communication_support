@@ -145,6 +145,26 @@ export function splitSpeechWords(text: string): string[] {
   return normalizeSpeechText(text).split(" ").filter(Boolean);
 }
 
+export function getSpeechPracticePhrase(optionLabel: string): string {
+  const cleanedLabel = optionLabel.trim();
+  const normalizedLabel = normalizeSpeechText(cleanedLabel);
+  const words = splitSpeechWords(cleanedLabel);
+
+  if (!cleanedLabel || !normalizedLabel) {
+    return "";
+  }
+
+  if (normalizedLabel === "yes" || normalizedLabel === "no") {
+    return cleanedLabel;
+  }
+
+  if (words.length > 1) {
+    return cleanedLabel;
+  }
+
+  return `I want ${normalizedLabel}`;
+}
+
 export function compareTranscriptToOption(
   transcript: string,
   optionLabel: string,

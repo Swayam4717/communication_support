@@ -13,7 +13,8 @@ import {
 } from "expo-speech-recognition";
 import type { CommunicationSession } from "./communicationHelpers";
 import {
-  findBestSpeechOptionMatch,
+  compareTranscriptToOption,
+  getSpeechPracticePhrase,
   subscribeToSession,
   submitAnswer,
 } from "./communicationHelpers";
@@ -25,70 +26,6 @@ interface ChildModeScreenProps {
   onResetSetup: () => void;
 }
 
-function normalizeSpeechText(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^\w\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function getSpeechTextVariants(value: string) {
-  const normalizedValue = normalizeSpeechText(value);
-  const variants = [normalizedValue];
-
-  if (
-    normalizedValue.length > 4 &&
-    normalizedValue.endsWith("s") &&
-    !normalizedValue.endsWith("ss")
-  ) {
-    variants.push(normalizedValue.slice(0, -1));
-  }
-
-  return variants;
-}
-
-function findSpokenOption(
-  transcript: string,
-  options: CommunicationSession["options"],
-) {
-  const normalizedTranscript = normalizeSpeechText(transcript);
-  const transcriptVariants = getSpeechTextVariants(transcript);
-
-  if (!normalizedTranscript) {
-    return null;
-  }
-
-  const normalizedOptions = options.map((option) => ({
-    option,
-    label: normalizeSpeechText(option.label),
-    variants: getSpeechTextVariants(option.label),
-  }));
-
-  const exactMatch = normalizedOptions.find(
-    ({ variants }) =>
-      variants.some((labelVariant) =>
-        transcriptVariants.some(
-          (transcriptVariant) =>
-            labelVariant && labelVariant === transcriptVariant,
-        ),
-      ),
-  );
-
-  if (exactMatch) {
-    return exactMatch.option;
-  }
-
-  const containsMatches = normalizedOptions.filter(
-    ({ variants }) =>
-      variants.some(
-        (labelVariant) =>
-          labelVariant && normalizedTranscript.includes(labelVariant),
-      ),
-  );
-
-  return containsMatches.length === 1 ? containsMatches[0].option : null;
-}
 /**
  * ChildModeScreen - Simulates the child's experience
  * Listens for incoming sessions and updates UI based on session status
@@ -109,7 +46,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   const [liveTranscript, setLiveTranscript] = React.useState("");
   const [speechFeedbackTranscript, setSpeechFeedbackTranscript] = React.useState("");
   const [speechError, setSpeechError] = React.useState<string | null>(null);
-  const [speechMessage, setSpeechMessage] = React.useState("Say one of the choices.");
+  const [speechMessage, setSpeechMessage] = React.useState("Tap an answer, then practise saying it.");
   const previousSessionIdRef = React.useRef<string | null>(null);
   const abortSpeechRecognition = React.useCallback(() => {
     try {
@@ -126,7 +63,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     setLiveTranscript("");
     setSpeechFeedbackTranscript("");
     setSpeechError(null);
-    setSpeechMessage("Say one of the choices.");
+    setSpeechMessage("Tap an answer, then practise saying it.");
   }, []);
 // Subscribe to session updates for the given roomId and update local state accordingly
  React.useEffect(() => {
@@ -172,45 +109,38 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   }, [abortSpeechRecognition, isListening, stage]);
 
   const selectedOption = session?.options.find((o) => o.id === selectedOptionId) ?? null;
+  const speechPracticePhrase = selectedOption
+    ? getSpeechPracticePhrase(selectedOption.label)
+    : "";
   const applyTranscriptMatch = React.useCallback((value: string, source: "speech" | "typedPractice") => {
-    if (!session) {
+    if (!session || !selectedOptionId) {
+      setSpeechMessage("Choose an answer to practise first.");
       return;
     }
 
-    const speechMatch = findBestSpeechOptionMatch(value, session.options);
+    const selectedPracticeOption = session.options.find(
+      (option) => option.id === selectedOptionId,
+    );
 
-    if (speechMatch.isConfident && !speechMatch.isAmbiguous && speechMatch.bestOption) {
-      const tappedSelectedOption =
-        selectionSource === "tap"
-          ? session.options.find((option) => option.id === selectedOptionId)
-          : null;
-
-      if (tappedSelectedOption && speechMatch.bestOption.id !== tappedSelectedOption.id) {
-        setSpeechMessage(
-          `I heard: ${speechMatch.bestOption.label}. Selected: ${tappedSelectedOption.label}.`,
-        );
-        return;
-      }
-
-      if (!selectedOptionId || selectionSource === "speech" || selectionSource === "typedPractice") {
-        setSelectedOptionId(speechMatch.bestOption.id);
-        setSelectionSource(source);
-      }
-
-      setSpeechMessage(
-        selectionSource === "tap"
-          ? `I heard ${speechMatch.bestOption.label}. Ready to send.`
-          : "Ready to send.",
-      );
+    if (!selectedPracticeOption) {
+      setSpeechMessage("Choose an answer to practise first.");
       return;
     }
 
-    if (speechMatch.isAmbiguous) {
-      setSpeechMessage("I heard a few possible answers. Try again.");
+    const practicePhrase = getSpeechPracticePhrase(selectedPracticeOption.label);
+    const speechMatch = compareTranscriptToOption(value, practicePhrase);
+
+    if (speechMatch.isExactMatch || speechMatch.mismatchCount === 0) {
+      setSelectionSource(selectionSource === "tap" ? "tap" : source);
+      setSpeechMessage("Ready to send.");
       return;
     }
 
-    setSpeechMessage("Keep going.");
+    const retryWord = speechMatch.wordFeedback.find(
+      (word) => word.status === "mismatch" || word.status === "current",
+    )?.targetWord;
+
+    setSpeechMessage(retryWord ? `Try saying: ${retryWord}` : "Keep going.");
   }, [selectedOptionId, selectionSource, session]);
 
   useSpeechRecognitionEvent("result", (event) => {
@@ -255,12 +185,17 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
       setLiveTranscript("");
       setSpeechFeedbackTranscript("");
       setSpeechError(null);
+      if (!selectedOptionId) {
+        setSpeechMessage("Choose an answer to practise first.");
+        return;
+      }
+
       setSpeechMessage("Listening...");
       ExpoSpeechRecognitionModule.start({
         lang: "en-US",
         interimResults: true,
         maxAlternatives: 1,
-        contextualStrings: session?.options.map((option) => option.label) ?? [],
+        contextualStrings: speechPracticePhrase ? [speechPracticePhrase] : [],
       });
       setIsListening(true);
     } catch {
@@ -289,20 +224,18 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   };
 
   const speechFeedbackMatch = React.useMemo(() => {
-    if (!session || !speechFeedbackTranscript.trim()) {
+    if (!speechPracticePhrase || !speechFeedbackTranscript.trim()) {
       return null;
     }
 
-    return findBestSpeechOptionMatch(speechFeedbackTranscript, session.options);
-  }, [speechFeedbackTranscript, session]);
+    return compareTranscriptToOption(speechFeedbackTranscript, speechPracticePhrase);
+  }, [speechFeedbackTranscript, speechPracticePhrase]);
 
   const liveSpeechFeedbackMessage = speechFeedbackTranscript.trim()
-    ? speechFeedbackMatch?.isAmbiguous
-      ? "I heard a few possible answers. Try again."
-      : speechFeedbackMatch?.isConfident
-        ? "Ready to send."
-        : "Keep going."
-    : "Press Start Speaking and say one of the answers.";
+    ? speechMessage
+    : selectedOption
+      ? `Say this: ${speechPracticePhrase}`
+      : "Tap an answer, then press Start Speaking.";
 
   return (
     <ScrollView
@@ -343,14 +276,16 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
         <View style={styles.choiceCard}>
           <Text style={styles.questionTitle}>{session.title}</Text>
           <Text style={styles.choiceInstructionText}>
-            You can say an answer or tap a card.
+            Tap an answer, then practise saying it.
           </Text>
 
           <View style={styles.choiceList}>
             <View style={styles.speechPracticeCard}>
               <Text style={styles.speechPracticeTitle}>Try saying your answer</Text>
               <Text style={styles.speechPracticeHint}>
-                Say one of the choices. You can also tap an answer.
+                {selectedOption
+                  ? `Say this: ${speechPracticePhrase}`
+                  : "Tap a card first. You can still send by tapping only."}
               </Text>
               <View style={styles.speechSupportBoard}>
                 {session.options.map((option) => (
@@ -382,9 +317,9 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                 </Text>
               ) : null}
               <View style={styles.liveSpeechFeedbackBox}>
-                {speechFeedbackMatch?.bestResult ? (
+                {speechFeedbackMatch ? (
                   <View style={styles.liveSpeechWordRow}>
-                    {speechFeedbackMatch.bestResult.wordFeedback.map((word, index) => (
+                    {speechFeedbackMatch.wordFeedback.map((word, index) => (
                       <View
                         key={`${word.targetWord}-${index}`}
                         style={[
@@ -412,11 +347,11 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                   {liveSpeechFeedbackMessage}
                 </Text>
               </View>
-              <Text style={styles.speechFallbackLabel}>Practise by typing</Text>
+              <Text style={styles.speechFallbackLabel}>Tester transcript</Text>
               <TextInput
                 value={mockTranscript}
                 onChangeText={handleMockTranscriptChange}
-                placeholder="Type an answer to practise"
+                placeholder="Type the phrase to test"
                 placeholderTextColor="#A8978B"
                 style={styles.speechTranscriptInput}
               />
@@ -431,6 +366,11 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                 onPress={() => {
                   setSelectedOptionId(option.id);
                   setSelectionSource("tap");
+                  setMockTranscript("");
+                  setLiveTranscript("");
+                  setSpeechFeedbackTranscript("");
+                  setSpeechError(null);
+                  setSpeechMessage("Say this phrase when ready.");
                 }}
               />
             ))}

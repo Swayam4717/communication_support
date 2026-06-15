@@ -15,6 +15,7 @@ import type { CommunicationSession } from "./communicationHelpers";
 import {
   compareTranscriptToOption,
   getSpeechPracticePhrase,
+  splitSpeechWords,
   subscribeToSession,
   submitAnswer,
 } from "./communicationHelpers";
@@ -47,6 +48,8 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   const [speechFeedbackTranscript, setSpeechFeedbackTranscript] = React.useState("");
   const [speechError, setSpeechError] = React.useState<string | null>(null);
   const [speechMessage, setSpeechMessage] = React.useState("Tap an answer, then practise saying it.");
+  const [retryWordIndex, setRetryWordIndex] = React.useState<number | null>(null);
+  const [correctedRetryWordIndexes, setCorrectedRetryWordIndexes] = React.useState<number[]>([]);
   const previousSessionIdRef = React.useRef<string | null>(null);
   const abortSpeechRecognition = React.useCallback(() => {
     try {
@@ -64,6 +67,8 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     setSpeechFeedbackTranscript("");
     setSpeechError(null);
     setSpeechMessage("Tap an answer, then practise saying it.");
+    setRetryWordIndex(null);
+    setCorrectedRetryWordIndexes([]);
   }, []);
 // Subscribe to session updates for the given roomId and update local state accordingly
  React.useEffect(() => {
@@ -130,18 +135,56 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     const practicePhrase = getSpeechPracticePhrase(selectedPracticeOption.label);
     const speechMatch = compareTranscriptToOption(value, practicePhrase);
 
+    if (retryWordIndex !== null) {
+      const retryTargetWord = speechMatch.targetWords[retryWordIndex];
+      const transcriptWords = splitSpeechWords(value);
+      const retryAccepted = retryTargetWord
+        ? transcriptWords.includes(retryTargetWord)
+        : false;
+
+      if (!retryTargetWord) {
+        setRetryWordIndex(null);
+        setSpeechMessage("Keep going.");
+        return;
+      }
+
+      if (retryAccepted) {
+        setRetryWordIndex(null);
+        setCorrectedRetryWordIndexes((previousIndexes) =>
+          previousIndexes.includes(retryWordIndex)
+            ? previousIndexes
+            : [...previousIndexes, retryWordIndex],
+        );
+        setSpeechFeedbackTranscript(practicePhrase);
+        setSelectionSource(selectionSource === "tap" ? "tap" : source);
+        setSpeechMessage("Good. Ready to send.");
+        return;
+      }
+
+      setSpeechMessage(`Try saying: ${retryTargetWord}`);
+      return;
+    }
+
     if (speechMatch.isExactMatch || speechMatch.mismatchCount === 0) {
+      setRetryWordIndex(null);
+      setCorrectedRetryWordIndexes([]);
       setSelectionSource(selectionSource === "tap" ? "tap" : source);
       setSpeechMessage("Ready to send.");
       return;
     }
 
-    const retryWord = speechMatch.wordFeedback.find(
+    const retryFeedbackIndex = speechMatch.wordFeedback.findIndex(
       (word) => word.status === "mismatch" || word.status === "current",
-    )?.targetWord;
+    );
+    const retryWord =
+      retryFeedbackIndex >= 0
+        ? speechMatch.wordFeedback[retryFeedbackIndex].targetWord
+        : null;
 
+    setRetryWordIndex(retryFeedbackIndex >= 0 ? retryFeedbackIndex : null);
+    setCorrectedRetryWordIndexes([]);
     setSpeechMessage(retryWord ? `Try saying: ${retryWord}` : "Keep going.");
-  }, [selectedOptionId, selectionSource, session]);
+  }, [retryWordIndex, selectedOptionId, selectionSource, session]);
 
   useSpeechRecognitionEvent("result", (event) => {
     const transcript = event.results[0]?.transcript?.trim();
@@ -236,6 +279,21 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     : selectedOption
       ? `Say this: ${speechPracticePhrase}`
       : "Tap an answer, then press Start Speaking.";
+  const speechFeedbackWords = React.useMemo(() => {
+    if (!speechFeedbackMatch) {
+      return [];
+    }
+
+    return speechFeedbackMatch.wordFeedback.map((word, index) =>
+      correctedRetryWordIndexes.includes(index)
+        ? {
+            ...word,
+            heardWord: word.targetWord,
+            status: "matched" as const,
+          }
+        : word,
+    );
+  }, [correctedRetryWordIndexes, speechFeedbackMatch]);
 
   return (
     <ScrollView
@@ -319,7 +377,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
               <View style={styles.liveSpeechFeedbackBox}>
                 {speechFeedbackMatch ? (
                   <View style={styles.liveSpeechWordRow}>
-                    {speechFeedbackMatch.wordFeedback.map((word, index) => (
+                    {speechFeedbackWords.map((word, index) => (
                       <View
                         key={`${word.targetWord}-${index}`}
                         style={[
@@ -370,6 +428,8 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                   setLiveTranscript("");
                   setSpeechFeedbackTranscript("");
                   setSpeechError(null);
+                  setRetryWordIndex(null);
+                  setCorrectedRetryWordIndexes([]);
                   setSpeechMessage("Say this phrase when ready.");
                 }}
               />

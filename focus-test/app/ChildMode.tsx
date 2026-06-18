@@ -112,7 +112,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
 
   const selectedOption = session?.options.find((o) => o.id === selectedOptionId) ?? null;
   const speechPracticePhrase = selectedOption
-    ? getSpeechPracticePhrase(selectedOption.label)
+    ? getSpeechPracticePhrase(selectedOption.label, session?.speechTemplate ?? undefined)
     : "";
   const applyTranscriptMatch = React.useCallback((value: string, source: "speech" | "typedPractice") => {
     if (!session || !selectedOptionId) {
@@ -129,7 +129,10 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
       return;
     }
 
-    const practicePhrase = getSpeechPracticePhrase(selectedPracticeOption.label);
+    const practicePhrase = getSpeechPracticePhrase(
+      selectedPracticeOption.label,
+      session.speechTemplate ?? undefined,
+    );
     const targetWords = splitSpeechWords(practicePhrase);
     const transcriptWords = splitSpeechWords(value);
 

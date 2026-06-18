@@ -48,6 +48,8 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   const [speechError, setSpeechError] = React.useState<string | null>(null);
   const [speechMessage, setSpeechMessage] = React.useState("Tap an answer, then practise saying it.");
   const [completedPracticeWordCount, setCompletedPracticeWordCount] = React.useState(0);
+  const [isTesterModeEnabled, setIsTesterModeEnabled] = React.useState(false);
+  const [practicePhraseTapCount, setPracticePhraseTapCount] = React.useState(0);
   const previousSessionIdRef = React.useRef<string | null>(null);
   const abortSpeechRecognition = React.useCallback(() => {
     try {
@@ -66,6 +68,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     setSpeechError(null);
     setSpeechMessage("Tap an answer, then practise saying it.");
     setCompletedPracticeWordCount(0);
+    setPracticePhraseTapCount(0);
   }, []);
 // Subscribe to session updates for the given roomId and update local state accordingly
  React.useEffect(() => {
@@ -258,6 +261,22 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     applyTranscriptMatch(value, "typedPractice");
   };
 
+  const handlePracticePhrasePress = () => {
+    if (isTesterModeEnabled) {
+      return;
+    }
+
+    setPracticePhraseTapCount((currentCount) => {
+      const nextCount = currentCount + 1;
+
+      if (nextCount >= 5) {
+        setIsTesterModeEnabled(true);
+      }
+
+      return nextCount;
+    });
+  };
+
   const speechPracticeWords = React.useMemo(
     () => splitSpeechWords(speechPracticePhrase),
     [speechPracticePhrase],
@@ -266,7 +285,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   const liveSpeechFeedbackMessage = speechFeedbackTranscript.trim()
     ? speechMessage
     : selectedOption
-      ? `Say this: ${speechPracticePhrase}`
+      ? "Start speaking when ready."
       : "Tap an answer, then press Start Speaking.";
   const speechFeedbackWords = React.useMemo<SpeechWordFeedback[]>(() => {
     return speechPracticeWords.map((word, index) => ({
@@ -325,11 +344,16 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
           <View style={styles.choiceList}>
             <View style={styles.speechPracticeCard}>
               <Text style={styles.speechPracticeTitle}>Try saying your answer</Text>
-              <Text style={styles.speechPracticeHint}>
-                {selectedOption
-                  ? `Say this: ${speechPracticePhrase}`
-                  : "Tap a card first. You can still send by tapping only."}
-              </Text>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={handlePracticePhrasePress}
+              >
+                <Text style={styles.speechPracticeHint}>
+                  {selectedOption
+                    ? `Say this: ${speechPracticePhrase}`
+                    : "Tap a card first. You can still send by tapping only."}
+                </Text>
+              </TouchableOpacity>
               <View style={styles.speechSupportBoard}>
                 {session.options.map((option) => (
                   <View
@@ -390,14 +414,23 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                   {liveSpeechFeedbackMessage}
                 </Text>
               </View>
-              <Text style={styles.speechFallbackLabel}>Tester transcript</Text>
-              <TextInput
-                value={mockTranscript}
-                onChangeText={handleMockTranscriptChange}
-                placeholder="Type the phrase to test"
-                placeholderTextColor="#A8978B"
-                style={styles.speechTranscriptInput}
-              />
+              {isTesterModeEnabled ? (
+                <>
+                  <Text style={styles.speechFallbackLabel}>
+                    Tester transcript
+                  </Text>
+                  <Text style={styles.liveSpeechFeedbackText}>
+                    For testing speech logic only.
+                  </Text>
+                  <TextInput
+                    value={mockTranscript}
+                    onChangeText={handleMockTranscriptChange}
+                    placeholder="Type the phrase to test"
+                    placeholderTextColor="#A8978B"
+                    style={styles.speechTranscriptInput}
+                  />
+                </>
+              ) : null}
               <Text style={styles.speechPracticeMessage}>{speechMessage}</Text>
             </View>
 

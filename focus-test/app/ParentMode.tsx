@@ -19,6 +19,7 @@ import type {
 import {
   createSession,
   createSessionWithResolvedOptions,
+  DEFAULT_SPEECH_TEMPLATE,
   resetSession,
   sendSession,
   subscribeToSession,
@@ -49,6 +50,7 @@ const MAX_REUSABLE_HISTORY_IMAGE_URL_LENGTH = 2048;
 interface ParentModeScreenProps {
   question: string;
   optionLabels: string[];
+  speechTemplate: string;
   sentSession: CommunicationSession | null;
   showPreview: boolean;
   roomId: string;
@@ -57,6 +59,7 @@ interface ParentModeScreenProps {
   editingTemplateName: string | null;
   onQuestionChange: (value: string) => void;
   onOptionLabelChange: (index: number, value: string) => void;
+  onSpeechTemplateChange: (value: string) => void;
   onPreviewToggle: () => void;
   onSendToChild: () => void;
   onResetSetup: () => void;
@@ -196,6 +199,7 @@ const getReusableHistoryOptions = (item: SessionHistoryItem) => {
 export default function ParentModeScreen({
   question,
   optionLabels,
+  speechTemplate,
   sentSession,
   showPreview,
   roomId,
@@ -204,6 +208,7 @@ export default function ParentModeScreen({
   editingTemplateName,
   onQuestionChange,
   onOptionLabelChange,
+  onSpeechTemplateChange,
   onPreviewToggle,
   onSendToChild,
   onResetSetup,
@@ -330,8 +335,8 @@ export default function ParentModeScreen({
 
   const buildDraftSession = () => {
     const baseSession = resolvedOptions
-      ? createSessionWithResolvedOptions(question, resolvedOptions)
-      : createSession(question, optionLabels, optionImageUrls);
+      ? createSessionWithResolvedOptions(question, resolvedOptions, speechTemplate)
+      : createSession(question, optionLabels, optionImageUrls, speechTemplate);
 
     return applyRemovedVisuals(baseSession);
   };
@@ -1074,6 +1079,28 @@ export default function ParentModeScreen({
                   onChangeText={onQuestionChange}
                   multiline
                 />
+              </View>
+
+              <View style={styles.parentInputGroup}>
+                <Text style={styles.parentInputLabel}>
+                  Speech sentence pattern
+                </Text>
+
+                <TextInput
+                  accessibilityLabel="Speech sentence pattern"
+                  cursorColor="#A97E57"
+                  placeholder={DEFAULT_SPEECH_TEMPLATE}
+                  placeholderTextColor="#D4C4B8"
+                  selectionColor="#D8B48F"
+                  style={styles.textInput}
+                  value={speechTemplate}
+                  onChangeText={onSpeechTemplateChange}
+                />
+
+                <Text style={styles.parentOptionsHint}>
+                  Use {"{option}"} where the answer should go, like I feel{" "}
+                  {"{option}"} or I need {"{option}"}.
+                </Text>
               </View>
 
               <View style={styles.parentInputGroup}>

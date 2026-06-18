@@ -45,6 +45,7 @@ export interface CommunicationSession {
   title: string;
   subtitle?: string;
   options: SessionOption[];
+  speechTemplate?: string | null;
   status: SessionStatus;
   selectedAnswer?: string | null;
   createdAt: number;
@@ -94,6 +95,8 @@ export interface BestSpeechOptionMatch {
 
 export const DEFAULT_QUESTION = "What would you like to eat?";
 export const DEFAULT_OPTIONS = ["Rice", "Noodles", "Pizza", "Sandwich"];
+export const DEFAULT_SPEECH_TEMPLATE = "I want {option}";
+const STANDALONE_SPEECH_OPTIONS = new Set(["yes", "no", "stop"]);
 const MAX_HISTORY_OPTIONS = 4;
 const MAX_HISTORY_LABEL_LENGTH = 60;
 const MAX_HISTORY_META_LENGTH = 80;
@@ -145,16 +148,20 @@ export function splitSpeechWords(text: string): string[] {
   return normalizeSpeechText(text).split(" ").filter(Boolean);
 }
 
-export function getSpeechPracticePhrase(optionLabel: string): string {
+export function getSpeechPracticePhrase(
+  optionLabel: string,
+  speechTemplate = DEFAULT_SPEECH_TEMPLATE,
+): string {
   const cleanedLabel = optionLabel.trim();
   const normalizedLabel = normalizeSpeechText(cleanedLabel);
   const words = splitSpeechWords(cleanedLabel);
+  const cleanedTemplate = speechTemplate.trim() || DEFAULT_SPEECH_TEMPLATE;
 
   if (!cleanedLabel || !normalizedLabel) {
     return "";
   }
 
-  if (normalizedLabel === "yes" || normalizedLabel === "no") {
+  if (STANDALONE_SPEECH_OPTIONS.has(normalizedLabel)) {
     return cleanedLabel;
   }
 
@@ -162,7 +169,9 @@ export function getSpeechPracticePhrase(optionLabel: string): string {
     return cleanedLabel;
   }
 
-  return `I want ${normalizedLabel}`;
+  return cleanedTemplate.includes("{option}")
+    ? cleanedTemplate.replace(/\{option\}/g, normalizedLabel)
+    : `${cleanedTemplate} ${normalizedLabel}`.trim();
 }
 
 export function compareTranscriptToOption(
@@ -377,13 +386,15 @@ function sanitizeHistoryOptions(options: SessionOption[]) {
 export function createSession(
   question: string,
   optionLabels: string[],
-  optionImageUrls: string[] = []
+  optionImageUrls: string[] = [],
+  speechTemplate: string = DEFAULT_SPEECH_TEMPLATE,
 ): CommunicationSession {
   return {
     id: String(Date.now()),
     type: "communication",
     title: question.trim() || DEFAULT_QUESTION,
     options: buildSessionOptions(optionLabels, optionImageUrls),
+    speechTemplate: speechTemplate.trim() || DEFAULT_SPEECH_TEMPLATE,
     status: "sent",
     selectedAnswer: null,
     createdAt: Date.now(),
@@ -393,12 +404,14 @@ export function createSession(
 export function createSessionWithResolvedOptions(
   question: string,
   options: SessionOption[],
+  speechTemplate: string = DEFAULT_SPEECH_TEMPLATE,
 ): CommunicationSession {
   return {
     id: String(Date.now()),
     type: "communication",
     title: question.trim() || DEFAULT_QUESTION,
     options,
+    speechTemplate: speechTemplate.trim() || DEFAULT_SPEECH_TEMPLATE,
     status: "sent",
     selectedAnswer: null,
     createdAt: Date.now(),

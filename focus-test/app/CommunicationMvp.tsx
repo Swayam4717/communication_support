@@ -18,6 +18,7 @@ import {
   createSession,
   CommunicationSession,
   DEFAULT_ROOM_ID,
+  DEFAULT_SPEECH_TEMPLATE,
   db,
 } from "./communicationHelpers";
 import { styles } from "./communicationCommon";
@@ -29,6 +30,7 @@ type savedSessionTemplate = {
   name: string;
   question: string;
   options: string[];
+  speechTemplate?: string;
   createdAt: number;
 };
 
@@ -39,23 +41,28 @@ const SESSION_TEMPLATES: Record<
   {
     question: string;
     options: string[];
+    speechTemplate: string;
   }
 > = {
   food: {
     question: "What would you like to eat?",
     options: ["Rice", "Noodles", "Pizza", "Sandwich"],
+    speechTemplate: "I want {option}",
   },
   feelings: {
     question: "How are you feeling?",
     options: ["Happy", "Sad", "Angry", "Tired"],
+    speechTemplate: "I feel {option}",
   },
   activities: {
     question: "What would you like to do?",
     options: ["Rest", "Play", "Walk", "Read"],
+    speechTemplate: "I want {option}",
   },
   yesNo: {
     question: "Do you want this?",
     options: ["Yes", "No", "Maybe", "Later"],
+    speechTemplate: "{option}",
   },
 };
 
@@ -67,6 +74,9 @@ export default function CommunicationMvpApp() {
   const [roomId, setRoomId] = useState<string>(DEFAULT_ROOM_ID);
   const [draftQuestion, setDraftQuestion] = useState(DEFAULT_QUESTION);
   const [draftOptions, setDraftOptions] = useState<string[]>(DEFAULT_OPTIONS);
+  const [draftSpeechTemplate, setDraftSpeechTemplate] = useState(
+    DEFAULT_SPEECH_TEMPLATE,
+  );
   const [showPreview, setShowPreview] = useState(false);
   const [sentSession, setSentSession] = useState<CommunicationSession | null>(
     null,
@@ -214,6 +224,7 @@ export default function CommunicationMvpApp() {
       setSentSession(null);
       setDraftQuestion(DEFAULT_QUESTION);
       setDraftOptions(DEFAULT_OPTIONS);
+      setDraftSpeechTemplate(DEFAULT_SPEECH_TEMPLATE);
       setShowPreview(false);
       setEditingTemplateId(null);
       setTemplateVersion((value) => value + 1);
@@ -223,6 +234,8 @@ export default function CommunicationMvpApp() {
   };
 
   const handleQuestionChange = (value: string) => setDraftQuestion(value);
+  const handleSpeechTemplateChange = (value: string) =>
+    setDraftSpeechTemplate(value);
 
   const handleOptionLabelChange = (index: number, value: string) => {
     setDraftOptions((currentOptions) => {
@@ -237,6 +250,7 @@ export default function CommunicationMvpApp() {
 
     setDraftQuestion(template.question);
     setDraftOptions(template.options);
+    setDraftSpeechTemplate(template.speechTemplate);
     setSentSession(null);
     setShowPreview(false);
     setEditingTemplateId(null);
@@ -256,18 +270,22 @@ export default function CommunicationMvpApp() {
   const saveTemplateFromValues = async ({
     question,
     options,
+    speechTemplate,
     templateName,
     editingTemplateIdToUse,
     showSuccessAlert,
   }: {
     question: string;
     options: string[];
+    speechTemplate?: string;
     templateName?: string;
     editingTemplateIdToUse?: string | null;
     showSuccessAlert: boolean;
   }) => {
     const cleanedQuestion = question.trim() || "Untitled question";
     const cleanedOptions = options.map((option) => option.trim());
+    const cleanedSpeechTemplate =
+      speechTemplate?.trim() || DEFAULT_SPEECH_TEMPLATE;
 
     if (cleanedOptions.every((option) => !option)) {
       Alert.alert(
@@ -310,6 +328,7 @@ export default function CommunicationMvpApp() {
       name: finalTemplateName,
       question: cleanedQuestion,
       options: cleanedOptions,
+      speechTemplate: cleanedSpeechTemplate,
       createdAt:
         editingTemplate?.createdAt ?? existingTemplate?.createdAt ?? Date.now(),
     };
@@ -347,6 +366,7 @@ export default function CommunicationMvpApp() {
     saveTemplateFromValues({
       question: draftQuestion,
       options: draftOptions,
+      speechTemplate: draftSpeechTemplate,
       templateName,
       editingTemplateIdToUse: editingTemplateId,
       showSuccessAlert: true,
@@ -359,6 +379,7 @@ export default function CommunicationMvpApp() {
     saveTemplateFromValues({
       question: historyQuestion,
       options: historyOptions,
+      speechTemplate: draftSpeechTemplate,
       editingTemplateIdToUse: null,
       showSuccessAlert: false,
     });
@@ -368,6 +389,7 @@ export default function CommunicationMvpApp() {
     if (!template) return;
     setDraftQuestion(template.question);
     setDraftOptions(template.options);
+    setDraftSpeechTemplate(template.speechTemplate ?? DEFAULT_SPEECH_TEMPLATE);
     setSentSession(null);
     setShowPreview(false);
     setEditingTemplateId(null);
@@ -390,6 +412,7 @@ export default function CommunicationMvpApp() {
 
     setDraftQuestion(template.question);
     setDraftOptions(template.options);
+    setDraftSpeechTemplate(template.speechTemplate ?? DEFAULT_SPEECH_TEMPLATE);
     setSentSession(null);
     setShowPreview(false);
     setEditingTemplateId(template.id);
@@ -418,7 +441,12 @@ export default function CommunicationMvpApp() {
 
   const handleSendToChild = () => {
     // Build a new session draft and keep it in local state until the parent actually sends it.
-    const nextSession = createSession(draftQuestion, draftOptions);
+    const nextSession = createSession(
+      draftQuestion,
+      draftOptions,
+      [],
+      draftSpeechTemplate,
+    );
     setSentSession(nextSession);
     setShowPreview(false);
   };
@@ -453,6 +481,7 @@ export default function CommunicationMvpApp() {
         <ParentModeScreen
           question={draftQuestion}
           optionLabels={draftOptions}
+          speechTemplate={draftSpeechTemplate}
           sentSession={sentSession}
           showPreview={showPreview}
           roomId={roomId}
@@ -464,6 +493,7 @@ export default function CommunicationMvpApp() {
           }
           onQuestionChange={handleQuestionChange}
           onOptionLabelChange={handleOptionLabelChange}
+          onSpeechTemplateChange={handleSpeechTemplateChange}
           onApplyTemplate={handleApplyTemplate}
           onSaveCurrentTemplate={handleSaveCurrentTemplate}
           onApplySavedTemplate={handleApplySavedTemplate}

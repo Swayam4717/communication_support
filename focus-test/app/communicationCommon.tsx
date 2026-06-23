@@ -497,6 +497,32 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
     lineHeight: 17,
   },
+  speechFeedbackCard: {
+    borderRadius: 14,
+    borderWidth: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    gap: 2,
+  },
+  speechFeedbackCardGood: {
+    backgroundColor: "#F1F7EE",
+    borderColor: "#9CC18F",
+  },
+  speechFeedbackCardTry: {
+    backgroundColor: "#FFF0E8",
+    borderColor: "#DDAE96",
+  },
+  speechFeedbackCardMain: {
+    color: "#2B1D18",
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  speechFeedbackCardSecondary: {
+    color: "#5F514A",
+    fontSize: 16,
+    fontWeight: "800",
+    lineHeight: 21,
+  },
   speechSupportBoard: {
     flexDirection: "row",
     flexWrap: "wrap",

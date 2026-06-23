@@ -26,6 +26,12 @@ interface ChildModeScreenProps {
   onResetSetup: () => void;
 }
 
+type SpeechFeedbackCard = {
+  tone: "good" | "try";
+  mainText: string;
+  secondaryText: string;
+};
+
 /**
  * ChildModeScreen - Simulates the child's experience
  * Listens for incoming sessions and updates UI based on session status
@@ -47,6 +53,8 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   const [speechFeedbackTranscript, setSpeechFeedbackTranscript] = React.useState("");
   const [speechError, setSpeechError] = React.useState<string | null>(null);
   const [speechMessage, setSpeechMessage] = React.useState("Tap an answer, then practise saying it.");
+  const [speechFeedbackCard, setSpeechFeedbackCard] =
+    React.useState<SpeechFeedbackCard | null>(null);
   const [completedPracticeWordCount, setCompletedPracticeWordCount] = React.useState(0);
   const [isTesterModeEnabled, setIsTesterModeEnabled] = React.useState(false);
   const [practicePhraseTapCount, setPracticePhraseTapCount] = React.useState(0);
@@ -67,6 +75,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     setSpeechFeedbackTranscript("");
     setSpeechError(null);
     setSpeechMessage("Tap an answer, then practise saying it.");
+    setSpeechFeedbackCard(null);
     setCompletedPracticeWordCount(0);
     setPracticePhraseTapCount(0);
   }, []);
@@ -164,6 +173,11 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
       if (heardWord !== nextTargetWord) {
         setCompletedPracticeWordCount(nextTargetIndex);
         setSpeechMessage(`Try again: ${nextTargetWord}`);
+        setSpeechFeedbackCard({
+          tone: "try",
+          mainText: "Try again",
+          secondaryText: `Say: ${nextTargetWord}`,
+        });
         return;
       }
 
@@ -175,10 +189,20 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     if (nextTargetIndex >= targetWords.length) {
       setSelectionSource(selectionSource === "tap" ? "tap" : source);
       setSpeechMessage("Good. Ready to send.");
+      setSpeechFeedbackCard({
+        tone: "good",
+        mainText: "Good",
+        secondaryText: "Ready to send",
+      });
       return;
     }
 
-    setSpeechMessage(`Try again: ${targetWords[nextTargetIndex]}`);
+    setSpeechMessage(`Good. Now say: ${targetWords[nextTargetIndex]}`);
+    setSpeechFeedbackCard({
+      tone: "good",
+      mainText: "Good",
+      secondaryText: `Now say: ${targetWords[nextTargetIndex]}`,
+    });
   }, [completedPracticeWordCount, selectedOptionId, selectionSource, session]);
 
   useSpeechRecognitionEvent("result", (event) => {
@@ -202,6 +226,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     setIsListening(false);
     setSpeechError("Microphone is off. You can still tap an answer.");
     setSpeechMessage("Microphone is off. You can still tap an answer.");
+    setSpeechFeedbackCard(null);
   });
 
   React.useEffect(() => {
@@ -223,6 +248,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
       setLiveTranscript("");
       setSpeechFeedbackTranscript("");
       setSpeechError(null);
+      setSpeechFeedbackCard(null);
       if (!selectedOptionId) {
         setSpeechMessage("Choose an answer to practise first.");
         return;
@@ -351,9 +377,27 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                 <Text style={styles.speechPracticeHint}>
                   {selectedOption
                     ? `Say this: ${speechPracticePhrase}`
-                    : "Tap a card first. You can still send by tapping only."}
+                  : "Tap a card first. You can still send by tapping only."}
                 </Text>
               </TouchableOpacity>
+              {selectedOption && speechFeedbackCard ? (
+                <View
+                  style={[
+                    styles.speechFeedbackCard,
+                    speechFeedbackCard.tone === "good" &&
+                      styles.speechFeedbackCardGood,
+                    speechFeedbackCard.tone === "try" &&
+                      styles.speechFeedbackCardTry,
+                  ]}
+                >
+                  <Text style={styles.speechFeedbackCardMain}>
+                    {speechFeedbackCard.mainText}
+                  </Text>
+                  <Text style={styles.speechFeedbackCardSecondary}>
+                    {speechFeedbackCard.secondaryText}
+                  </Text>
+                </View>
+              ) : null}
               <View style={styles.speechSupportBoard}>
                 {session.options.map((option) => (
                   <View
@@ -447,6 +491,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                   setSpeechFeedbackTranscript("");
                   setSpeechError(null);
                   setCompletedPracticeWordCount(0);
+                  setSpeechFeedbackCard(null);
                   setSpeechMessage("Say this phrase when ready.");
                 }}
               />

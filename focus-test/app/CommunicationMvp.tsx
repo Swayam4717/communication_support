@@ -375,11 +375,12 @@ export default function CommunicationMvpApp() {
   const handleSaveHistoryTemplate = async (
     historyQuestion: string,
     historyOptions: string[],
+    historySpeechTemplate?: string | null,
   ) =>
     saveTemplateFromValues({
       question: historyQuestion,
       options: historyOptions,
-      speechTemplate: draftSpeechTemplate,
+      speechTemplate: historySpeechTemplate ?? draftSpeechTemplate,
       editingTemplateIdToUse: null,
       showSuccessAlert: false,
     });

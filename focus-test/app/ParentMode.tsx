@@ -20,6 +20,7 @@ import {
   createSession,
   createSessionWithResolvedOptions,
   DEFAULT_SPEECH_TEMPLATE,
+  getSpeechPracticePhrase,
   resetSession,
   sendSession,
   subscribeToSession,
@@ -38,6 +39,7 @@ type savedSessionTemplate = {
   name: string;
   question: string;
   options: string[];
+  speechTemplate?: string;
   createdAt: number;
 };
 
@@ -71,6 +73,7 @@ interface ParentModeScreenProps {
   onSaveHistoryTemplate: (
     question: string,
     options: string[],
+    speechTemplate?: string | null,
   ) => Promise<boolean>;
   onDeleteSavedTemplate: (templateId: string) => void;
   onClearSession: () => void;
@@ -194,6 +197,19 @@ const getReusableHistoryOptions = (item: SessionHistoryItem) => {
 
       return safeOptions;
     }, []);
+};
+
+const getDisplaySpeechTemplate = (speechTemplate?: string | null) =>
+  speechTemplate?.trim() || "";
+
+const getHistorySpeechPracticeText = (item: SessionHistoryItem) => {
+  const speechTemplate = getDisplaySpeechTemplate(item.speechTemplate);
+
+  if (!speechTemplate || !item.answer?.trim()) {
+    return "";
+  }
+
+  return getSpeechPracticePhrase(item.answer, speechTemplate);
 };
 
 export default function ParentModeScreen({
@@ -548,6 +564,9 @@ export default function ParentModeScreen({
     }
 
     onQuestionChange(item.question);
+    if (item.speechTemplate) {
+      onSpeechTemplateChange(item.speechTemplate);
+    }
     optionLabels.forEach((_, index) => {
       onOptionLabelChange(index, historyOptions[index]?.label ?? "");
     });
@@ -573,6 +592,7 @@ export default function ParentModeScreen({
     const saved = await onSaveHistoryTemplate(
       item.question,
       historyOptions.map((option) => option.label),
+      item.speechTemplate,
     );
 
     if (saved) {
@@ -1293,6 +1313,14 @@ export default function ParentModeScreen({
                 </View>
                 <Text style={styles.historyLabel}>Question</Text>
                 <Text style={styles.historyQuestion}>{fireSession.title}</Text>
+                {fireSession.speechTemplate ? (
+                  <>
+                    <Text style={styles.historyLabel}>Speech pattern</Text>
+                    <Text style={styles.historyQuestion}>
+                      {fireSession.speechTemplate}
+                    </Text>
+                  </>
+                ) : null}
                 <Text style={styles.historyLabel}>Child answer</Text>
                 <Text style={styles.historyPendingAnswer}>
                   Not answered yet
@@ -1305,6 +1333,7 @@ export default function ParentModeScreen({
                 const reusableOptions = getReusableHistoryOptions(item);
                 const canUseHistoryActions =
                   reusableOptions.length >= MIN_REUSABLE_HISTORY_OPTIONS;
+                const speechPracticeText = getHistorySpeechPracticeText(item);
 
                 return (
                 <View key={item.id} style={styles.historyCard}>
@@ -1323,6 +1352,15 @@ export default function ParentModeScreen({
                     {item.answerEmoji ? `${item.answerEmoji} ` : ""}
                     {item.answer || "No answer recorded"}
                   </Text>
+
+                  {speechPracticeText ? (
+                    <>
+                      <Text style={styles.historyLabel}>Speech practice</Text>
+                      <Text style={styles.historyQuestion}>
+                        {speechPracticeText}
+                      </Text>
+                    </>
+                  ) : null}
 
                   {canUseHistoryActions ? (
                     <View style={styles.historyActionRow}>
@@ -1442,6 +1480,15 @@ export default function ParentModeScreen({
                             numberOfLines={1}
                           >
                             {template.options.filter(Boolean).length} options
+                          </Text>
+
+                          <Text
+                            style={styles.templateManageMeta}
+                            numberOfLines={1}
+                          >
+                            Speech pattern:{" "}
+                            {template.speechTemplate?.trim() ||
+                              DEFAULT_SPEECH_TEMPLATE}
                           </Text>
                         </View>
 

@@ -56,6 +56,7 @@ export interface SessionHistoryItem{
   id: string;
   question: string;
   options?: SessionOption[];
+  speechTemplate?: string | null;
   answer: string;
   answerEmoji?: string;
   createdAt: number;
@@ -555,6 +556,7 @@ export async function saveSessionHistory(
     id: session.id || String(Date.now()),
     question: session.title,
     options: sanitizeHistoryOptions(session.options),
+    speechTemplate: session.speechTemplate ?? null,
     answer: selectedOption.label,
     answerEmoji: selectedOption.emoji ?? undefined,
     createdAt: Date.now(),

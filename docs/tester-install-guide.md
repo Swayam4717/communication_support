@@ -7,6 +7,7 @@
 3. Create a room.
 4. Share the room code with the child device.
 5. Use the History tab after answered sessions to reuse previous questions or save them as templates.
+6. Optional: choose a Speech sentence pattern before sending, such as `I want {option}`, `I feel {option}`, or `{option}`.
 
 ## Child Android App
 
@@ -37,11 +38,13 @@
 
 Guided Speech Practice notes:
 
-- The child can press Start speaking and say one of the visible answer options.
-- The app shows word-level feedback for the closest option phrase.
-- A confident speech match selects the option, but the child still presses Send Answer manually.
-- Practise by typing is a quiet fallback for testing the same matching flow without using the microphone.
-- If the child tapped an option first, speech or typed practice will not replace it with a different option.
+- The child taps an option first.
+- The app shows a generated phrase, such as `Say this: I want rice`.
+- Start speaking validates that selected option's phrase word by word.
+- The app shows word progress and a clear feedback card such as `Try again / Say: want` or `Good / Ready to send`.
+- Speech practice does not auto-send. The child still presses Send Answer manually.
+- For quiet testing, tap the `Say this: ...` phrase five times to reveal `Tester transcript`. It uses the same practice flow without using the microphone.
+- Speech or typed testing does not replace the tapped selected option with a different option.
 
 ## Physical Device Validation
 
@@ -96,8 +99,8 @@ Android overlay reliability can vary by device/OEM battery settings. On the test
 ## Notes
 
 - Locked-device notification behavior is future work.
-- Guided Speech Practice selects a confident, non-ambiguous option but does not auto-send.
-- One-word options can match longer spoken phrases when the target word is heard as a whole word, such as `Water` matching `I want water`.
+- Guided Speech Practice validates the selected option's generated phrase and does not auto-send.
+- Speech sentence patterns are parent-controlled. If no pattern is saved, the app falls back to `I want {option}`.
 - Visual generation may use fallback/simple visuals; testers can keep them, remove them, or upload their own image.
-- Saved templates are local to the parent browser/device.
+- Saved templates are local to the parent browser/device and are not room-specific.
 - Uploaded personal/sensitive images should be avoided for pilot testing.

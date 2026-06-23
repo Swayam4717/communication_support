@@ -49,11 +49,13 @@ Restart Expo after changing environment variables.
 
 - Parent Mode can run on web/browser for demos.
 - Child attention alerts and Guided Speech Practice are Android-first.
-- Guided Speech Practice now uses shared speech-to-option matching helpers with word-level feedback. Microphone speech and `Practise by typing` use the same matching path, select only confident non-ambiguous options, and never auto-submit.
-- If a child manually taps an option, speech or typed practice should not override that tapped answer with a different option.
+- Guided Speech Practice is selected-option based. The child taps an option first, then practises the generated phrase for that option.
+- Parent sessions can include a speech sentence pattern such as `I want {option}`, `I feel {option}`, or `{option}`. Existing sessions fall back to `I want {option}`.
+- Guided Speech Practice tracks ordered word progress and shows a feedback card for the next word to say. Speech and tester transcript validation never auto-submit.
+- The hidden `Tester transcript` input is revealed by tapping the `Say this: ...` practice phrase five times.
 - Hosted parent web + installed Android APK were physically validated on a OnePlus Android device with overlay, notifications, microphone, and battery/background usage allowed.
 - Child setup includes an `Open app settings` button for background activity. On Android/OnePlus, use it to open Focus-Test App Info, go to Battery usage, set Unrestricted or Allow background activity, then return and tap `I've enabled this`. This is partly manual because OEM background settings vary.
 - Native Android alert logs use `FocusAlertDebug`; run `adb logcat -s FocusAlertDebug` while testing FCM/overlay delivery.
 - After extended screen-off idle time, Android/OxygenOS may delay FCM data-message delivery. When delivery reaches the phone, the native overlay appears correctly.
-- Saved templates are local-only through AsyncStorage.
+- Saved templates are local-only through AsyncStorage and are shared across rooms on the same parent browser/device.
 - Uploaded option images should not include sensitive personal photos during pilot testing because current pilot Storage rules allow readable image URLs.

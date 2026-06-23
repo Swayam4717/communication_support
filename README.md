@@ -104,6 +104,7 @@ Android overlay reliability can vary by device/OEM battery settings. On the test
 - Parent-child room pairing with human-readable room codes.
 - Parent Mode with Create, History, and Templates tabs.
 - Session creation with a question and answer options.
+- Optional speech sentence pattern for child practice, such as `I want {option}`, `I feel {option}`, or `{option}`.
 - Visual answer options with generated visuals, uploaded images, emoji fallback, and text fallback.
 - Manual image upload from camera/gallery.
 - Remove visual option when a generated/uploaded visual is unsuitable.
@@ -111,6 +112,7 @@ Android overlay reliability can vary by device/OEM battery settings. On the test
 - Parent alert readiness wording that refers to attention-alert readiness, not whether in-app answering works.
 - Visible feedback when sending or clearing/resetting a session fails.
 - Recent history with friendly timestamps, answer status, and clearer repeated-test actions.
+- Recent history can show the speech practice phrase for answered sessions when the session saved a speech pattern.
 - History items can be loaded back into Create with Use again.
 - History items can be saved as local custom templates when their options are available.
 
@@ -118,9 +120,10 @@ Android overlay reliability can vary by device/OEM battery settings. On the test
 
 - Saved parent templates.
 - Create, edit, use, and delete saved templates.
+- Template cards show their speech pattern, and templates can save an optional speech sentence pattern.
 - Duplicate template-name handling.
 - Recently used template behavior.
-- Saved templates are local-only through AsyncStorage.
+- Saved templates are local-only through AsyncStorage on the parent browser/device. They are not room-specific, so custom templates can remain visible after creating a new room on the same device.
 
 ## Child Features
 
@@ -152,13 +155,16 @@ API keys stay in Firebase backend secrets, not frontend code.
 
 - Implemented in Child Mode using `expo-speech-recognition`.
 - Real Android speech recognition has been verified.
-- Speech recognition compares the live transcript against all known parent-provided options.
-- Confident, non-ambiguous speech matches select the matched option but do not auto-submit.
+- The child taps an option first, then practises the generated speech phrase for that selected option.
+- Speech phrases are generated from the parent speech pattern, such as `I want {option}` or `I feel {option}`. If no pattern exists, the app falls back to `I want {option}`.
+- Simple option labels such as `Rice` become phrases like `I want rice`; complete phrases such as `I need help`, `Stop`, `Yes`, and `No` are used as-is.
+- Speech recognition validates the selected option's practice phrase only. It no longer chooses between all options.
+- The app tracks phrase progress in order, word by word. Later words are not accepted until earlier words are completed.
+- A prominent feedback card shows calm next-step guidance such as `Try again / Say: want`, `Good / Now say: rice`, or `Good / Ready to send`.
 - Child still manually presses Send Answer.
-- Word-level feedback highlights matched, current, pending, and retry words so the child/tester can see how close the spoken phrase is.
-- The `Practise by typing` input uses the same matching and word-feedback path as microphone speech, but does not appear as a live microphone transcript.
-- One-word options can match longer spoken phrases when the target word is heard as a whole word, such as `Water` matching `I want water`.
-- If the child has manually tapped an answer, speech/typed practice will not override it with a different option. The feedback shows both the heard option and the selected option.
+- Word-level feedback highlights completed, current, and pending words so the child/tester can see what to say next.
+- A hidden `Tester transcript` input can be revealed by tapping the `Say this: ...` practice phrase five times. It uses the same ordered practice logic as microphone speech and is for quiet testing only.
+- Speech or typed testing never changes the selected option and never auto-submits.
 
 ## Setup And Readiness
 
@@ -393,16 +399,17 @@ Use this checklist for the deployed parent + installed Android child flow:
 15. Child manually presses Send Answer.
 16. Parent receives the answer in realtime.
 17. Parent sends a second session.
-18. Child uses Guided Speech Practice.
-19. Confirm live word feedback appears while speech is recognized.
-20. Confirm a confident, non-ambiguous speech match selects the intended option.
-21. Optional: use `Practise by typing` to test the same matching and word-feedback path silently.
-22. Optional: tap one option, then say/type a different option and confirm the tapped answer remains selected.
-23. Child manually presses Send Answer.
-24. Parent receives the answer in realtime.
-25. Confirm History updates.
-26. In History, use `Use again` to load a previous question/options into Create.
-27. In History, use `Save as template` to save a previous question/options for the Templates tab.
+18. Optional: choose or edit the parent speech sentence pattern before sending, such as `I want {option}`.
+19. Child taps an answer and uses Guided Speech Practice.
+20. Confirm the `Say this: ...` phrase appears for the selected option.
+21. Confirm word progress and the feedback card update as the child speaks each word.
+22. Confirm the app asks calmly for the current word again if a word is missed.
+23. Optional: tap the `Say this: ...` phrase five times to reveal `Tester transcript` and test the same practice flow silently.
+24. Child manually presses Send Answer.
+25. Parent receives the answer in realtime.
+26. Confirm History updates.
+27. In History, use `Use again` to load a previous question/options into Create.
+28. In History, use `Save as template` to save a previous question/options for the Templates tab.
 
 ---
 
@@ -410,12 +417,12 @@ Use this checklist for the deployed parent + installed Android child flow:
 
 - Android overlay reliability can vary by device/OEM battery settings. On the tested OnePlus device, alerts worked after required permissions and battery/background settings were enabled. After extended screen-off idle time, Android/OxygenOS may delay FCM data-message delivery. When delivery occurs, the native overlay appears correctly. Future hardening may add a system notification fallback for long-idle/OEM-restricted states.
 - Locked-device notification behavior is future work and not production-ready.
-- Saved templates are local-only through AsyncStorage.
+- Saved templates are local-only through AsyncStorage and are shared across rooms on the same parent browser/device.
 - Uploaded option images should avoid sensitive personal photos because pilot Storage rules allow readable image URLs.
 - Production auth, room ownership, and account-based template sync are future work.
 - iOS child attention-capture support is not implemented.
 - Expo Go is not sufficient for child-side testing because the app uses native Android modules and native speech recognition.
-- Speech recognition and word-level matching depend on Android speech service availability, option wording, and real-world noise conditions. Ambiguous or very similar options may ask the child to try again.
+- Speech recognition and word-level practice depend on Android speech service availability, parent speech-pattern wording, and real-world noise conditions.
 - This is a controlled-pilot MVP, not a production security model.
 
 ---
@@ -432,8 +439,8 @@ Use this checklist for the deployed parent + installed Android child flow:
   - `node_modules/`
 - Do not commit Firebase service account files, secrets, or API keys.
 - Do not expose Firebase/API secrets in frontend code.
-- Do not remove the mock/typed speech input until real speech has been retested after any speech changes.
+- Do not expose the hidden tester transcript as a normal child-facing control; it is revealed only by tapping the practice phrase five times.
 - Do not casually modify `ChildMode.tsx` speech state/reset logic; it has been stabilized after real-device testing.
-- Keep speech-to-option matching behavior in `communicationHelpers.ts` pure and testable. Child UI should use those helpers instead of duplicating transcript matching logic.
-- Preserve the rule that speech/typed practice must not override a manually tapped answer with a different option.
+- Keep speech phrase generation and text helpers in `communicationHelpers.ts` pure and testable where possible.
+- Preserve the rule that speech/typed practice validates the selected option phrase and must not change the selected answer.
 - Do not overclaim production readiness in demos or documentation. Use wording such as MVP, prototype, controlled pilot, and current reliable path.

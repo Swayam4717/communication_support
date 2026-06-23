@@ -39,10 +39,11 @@ The app cannot fully verify every OnePlus/OEM background setting automatically. 
 4. Open the installed Android child app.
 5. Select Child Device and join the same room.
 6. From Parent Mode, create a question with answer options.
-7. Send the question to the child.
-8. Confirm the native Android overlay appears on the child phone.
-9. Tap Open message on the overlay.
-10. Confirm the child choice screen opens.
+7. Optional: set the Speech sentence pattern, such as `I want {option}` or `I feel {option}`.
+8. Send the question to the child.
+9. Confirm the native Android overlay appears on the child phone.
+10. Tap Open message on the overlay.
+11. Confirm the child choice screen opens.
 
 ## Child Tap-To-Answer Flow
 
@@ -54,23 +55,25 @@ The app cannot fully verify every OnePlus/OEM background setting automatically. 
 ## Guided Speech Practice Flow
 
 1. Send a question with clear answer options.
-2. On the child phone, use Try saying your answer.
-3. Tap Start speaking.
-4. Say one of the visible choices.
-5. Confirm the live word feedback highlights the closest option phrase.
-6. Confirm a confident match selects the matching option.
-7. Tap Send Answer manually.
+2. On the child phone, tap the option the child wants to answer with.
+3. Confirm the practice phrase appears, such as `Say this: I want rice`.
+4. Tap Start speaking.
+5. Say the practice phrase word by word.
+6. Confirm the word progress highlights completed/current/pending words.
+7. Confirm the feedback card gives a clear next step, such as `Try again / Say: want`, `Good / Now say: rice`, or `Good / Ready to send`.
+8. Tap Send Answer manually.
 
-Speech selects an option but does not auto-submit.
+Speech validates the selected option's phrase but does not auto-submit or change the selected option.
 
-For quiet testing, use Practise by typing. It uses the same speech-to-option matching and word-feedback path as the microphone transcript, but it should not appear as Live speech.
+For quiet testing, tap the `Say this: ...` phrase five times to reveal `Tester transcript`. It uses the same ordered practice logic as the microphone transcript, but it should not appear as Live speech.
 
-Safety check: tap one option, then say or type a different option. The tapped option should remain selected, and the feedback should show the heard option separately from the selected option.
+Safety check: tap one option, then say or type a phrase for a different option. The tapped option should remain selected.
 
 ## Parent Realtime Response Confirmation
 
 - Confirm the parent web app updates with the child answer.
 - Confirm the History tab shows the answered session.
+- Confirm new answered history items can show the generated speech practice phrase when speech-pattern data is available.
 - Optional: use Use again from History to reload the question/options.
 - Optional: use Save as template from History to keep the question/options.
 

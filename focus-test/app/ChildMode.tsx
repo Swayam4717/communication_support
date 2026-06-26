@@ -49,6 +49,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   const [selectionSource, setSelectionSource] = React.useState<"tap" | "speech" | "typedPractice" | null>(null);
   const [mockTranscript, setMockTranscript] = React.useState("");
   const [isListening, setIsListening] = React.useState(false);
+  const [isAutoListenEnabled, setIsAutoListenEnabled] = React.useState(false);
   const [liveTranscript, setLiveTranscript] = React.useState("");
   const [speechFeedbackTranscript, setSpeechFeedbackTranscript] = React.useState("");
   const [speechError, setSpeechError] = React.useState<string | null>(null);
@@ -59,6 +60,17 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   const [isTesterModeEnabled, setIsTesterModeEnabled] = React.useState(false);
   const [practicePhraseTapCount, setPracticePhraseTapCount] = React.useState(0);
   const previousSessionIdRef = React.useRef<string | null>(null);
+  const autoListenEnabledRef = React.useRef(false);
+  const restartListeningTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completedPracticeWordCountRef = React.useRef(0);
+  const selectedOptionIdRef = React.useRef<string | null>(null);
+  const stageRef = React.useRef(stage);
+  const clearRestartListeningTimer = React.useCallback(() => {
+    if (restartListeningTimerRef.current) {
+      clearTimeout(restartListeningTimerRef.current);
+      restartListeningTimerRef.current = null;
+    }
+  }, []);
   const abortSpeechRecognition = React.useCallback(() => {
     try {
       ExpoSpeechRecognitionModule.abort();
@@ -78,7 +90,21 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     setSpeechFeedbackCard(null);
     setCompletedPracticeWordCount(0);
     setPracticePhraseTapCount(0);
+    setIsAutoListenEnabled(false);
+    completedPracticeWordCountRef.current = 0;
+    selectedOptionIdRef.current = null;
   }, []);
+  React.useEffect(() => {
+    selectedOptionIdRef.current = selectedOptionId;
+  }, [selectedOptionId]);
+
+  React.useEffect(() => {
+    completedPracticeWordCountRef.current = completedPracticeWordCount;
+  }, [completedPracticeWordCount]);
+
+  React.useEffect(() => {
+    stageRef.current = stage;
+  }, [stage]);
 // Subscribe to session updates for the given roomId and update local state accordingly
  React.useEffect(() => {
   const unsub = subscribeToSession((s) => {
@@ -88,6 +114,9 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     if (!s || s.status === "idle") {
       setStage("idle");
       previousSessionIdRef.current = s?.id ?? null;
+      autoListenEnabledRef.current = false;
+      setIsAutoListenEnabled(false);
+      clearRestartListeningTimer();
       abortSpeechRecognition();
       setIsListening(false);
       resetSpeechPracticeState();
@@ -96,6 +125,9 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
 
     if (s.status === "sent") {
       if (s.id !== previousSessionIdRef.current) {
+        autoListenEnabledRef.current = false;
+        setIsAutoListenEnabled(false);
+        clearRestartListeningTimer();
         abortSpeechRecognition();
         setIsListening(false);
         resetSpeechPracticeState();
@@ -108,24 +140,90 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
 
     if (s.status === "answered") {
       previousSessionIdRef.current = s.id;
+      autoListenEnabledRef.current = false;
+      setIsAutoListenEnabled(false);
+      clearRestartListeningTimer();
       setStage("confirmation");
     }
   }, roomId);
 
   return () => unsub();
-}, [abortSpeechRecognition, resetSpeechPracticeState, roomId]);
+}, [abortSpeechRecognition, clearRestartListeningTimer, resetSpeechPracticeState, roomId]);
 
   React.useEffect(() => {
     if (stage !== "choice" && isListening) {
+      autoListenEnabledRef.current = false;
+      setIsAutoListenEnabled(false);
+      clearRestartListeningTimer();
       abortSpeechRecognition();
       setIsListening(false);
     }
-  }, [abortSpeechRecognition, isListening, stage]);
+  }, [abortSpeechRecognition, clearRestartListeningTimer, isListening, stage]);
 
   const selectedOption = session?.options.find((o) => o.id === selectedOptionId) ?? null;
   const speechPracticePhrase = selectedOption
     ? getSpeechPracticePhrase(selectedOption.label, session?.speechTemplate ?? undefined)
     : "";
+  const speechPracticeWords = React.useMemo(
+    () => splitSpeechWords(speechPracticePhrase),
+    [speechPracticePhrase],
+  );
+  const startRecognitionSession = React.useCallback(() => {
+    ExpoSpeechRecognitionModule.start({
+      lang: "en-US",
+      interimResults: true,
+      maxAlternatives: 1,
+      contextualStrings: speechPracticePhrase ? [speechPracticePhrase] : [],
+    });
+    setIsListening(true);
+  }, [speechPracticePhrase]);
+  const scheduleListeningRestart = React.useCallback(() => {
+    clearRestartListeningTimer();
+
+    if (
+      !autoListenEnabledRef.current ||
+      stageRef.current !== "choice" ||
+      !selectedOptionIdRef.current ||
+      completedPracticeWordCountRef.current >= speechPracticeWords.length
+    ) {
+      return;
+    }
+
+    setSpeechError(null);
+    const nextWord = speechPracticeWords[completedPracticeWordCountRef.current] ?? "";
+    setSpeechMessage(
+      nextWord
+        ? `Still listening... say: ${nextWord}`
+        : "Listening... take your time",
+    );
+
+    restartListeningTimerRef.current = setTimeout(() => {
+      restartListeningTimerRef.current = null;
+
+      if (
+        !autoListenEnabledRef.current ||
+        stageRef.current !== "choice" ||
+        !selectedOptionIdRef.current ||
+        completedPracticeWordCountRef.current >= speechPracticeWords.length
+      ) {
+        return;
+      }
+
+      try {
+        startRecognitionSession();
+      } catch {
+        setIsListening(false);
+        autoListenEnabledRef.current = false;
+        setIsAutoListenEnabled(false);
+        setSpeechError("You can still tap an answer.");
+        setSpeechMessage("You can still tap an answer.");
+      }
+    }, 600);
+  }, [
+    clearRestartListeningTimer,
+    speechPracticeWords,
+    startRecognitionSession,
+  ]);
   const applyTranscriptMatch = React.useCallback((value: string, source: "speech" | "typedPractice") => {
     if (!session || !selectedOptionId) {
       setSpeechMessage("Choose an answer to practise first.");
@@ -172,6 +270,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
 
       if (heardWord !== nextTargetWord) {
         setCompletedPracticeWordCount(nextTargetIndex);
+        completedPracticeWordCountRef.current = nextTargetIndex;
         setSpeechMessage(`Try again: ${nextTargetWord}`);
         setSpeechFeedbackCard({
           tone: "try",
@@ -185,8 +284,14 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     }
 
     setCompletedPracticeWordCount(nextTargetIndex);
+    completedPracticeWordCountRef.current = nextTargetIndex;
 
     if (nextTargetIndex >= targetWords.length) {
+      autoListenEnabledRef.current = false;
+      setIsAutoListenEnabled(false);
+      clearRestartListeningTimer();
+      abortSpeechRecognition();
+      setIsListening(false);
       setSelectionSource(selectionSource === "tap" ? "tap" : source);
       setSpeechMessage("Good. Ready to send.");
       setSpeechFeedbackCard({
@@ -203,7 +308,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
       mainText: "Good",
       secondaryText: `Now say: ${targetWords[nextTargetIndex]}`,
     });
-  }, [completedPracticeWordCount, selectedOptionId, selectionSource, session]);
+  }, [abortSpeechRecognition, clearRestartListeningTimer, completedPracticeWordCount, selectedOptionId, selectionSource, session]);
 
   useSpeechRecognitionEvent("result", (event) => {
     const transcript = event.results[0]?.transcript?.trim();
@@ -220,28 +325,37 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
 
   useSpeechRecognitionEvent("end", () => {
     setIsListening(false);
+    scheduleListeningRestart();
   });
 
   useSpeechRecognitionEvent("error", () => {
     setIsListening(false);
-    setSpeechError("Microphone is off. You can still tap an answer.");
-    setSpeechMessage("Microphone is off. You can still tap an answer.");
-    setSpeechFeedbackCard(null);
+    if (autoListenEnabledRef.current) {
+      scheduleListeningRestart();
+      return;
+    }
+
+    setSpeechError("You can still tap an answer.");
+    setSpeechMessage("You can still tap an answer.");
   });
 
   React.useEffect(() => {
     return () => {
+      autoListenEnabledRef.current = false;
+      clearRestartListeningTimer();
       ExpoSpeechRecognitionModule.abort();
     };
-  }, []);
+  }, [clearRestartListeningTimer]);
 
   const startListening = async () => {
     try {
       const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
 
       if (!permission.granted || !ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
-        setSpeechError("Microphone is off. You can still tap an answer.");
-        setSpeechMessage("Microphone is off. You can still tap an answer.");
+        autoListenEnabledRef.current = false;
+        setIsAutoListenEnabled(false);
+        setSpeechError("You can still tap an answer.");
+        setSpeechMessage("You can still tap an answer.");
         return;
       }
 
@@ -250,31 +364,35 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
       setSpeechError(null);
       setSpeechFeedbackCard(null);
       if (!selectedOptionId) {
+        autoListenEnabledRef.current = false;
+        setIsAutoListenEnabled(false);
         setSpeechMessage("Choose an answer to practise first.");
         return;
       }
 
-      setSpeechMessage("Listening...");
-      ExpoSpeechRecognitionModule.start({
-        lang: "en-US",
-        interimResults: true,
-        maxAlternatives: 1,
-        contextualStrings: speechPracticePhrase ? [speechPracticePhrase] : [],
-      });
-      setIsListening(true);
+      autoListenEnabledRef.current = true;
+      setIsAutoListenEnabled(true);
+      clearRestartListeningTimer();
+      setSpeechMessage("Listening... take your time");
+      startRecognitionSession();
     } catch {
       setIsListening(false);
-      setSpeechError("Microphone is off. You can still tap an answer.");
-      setSpeechMessage("Microphone is off. You can still tap an answer.");
+      autoListenEnabledRef.current = false;
+      setIsAutoListenEnabled(false);
+      setSpeechError("You can still tap an answer.");
+      setSpeechMessage("You can still tap an answer.");
     }
   };
 
   const stopListening = async () => {
     try {
+      autoListenEnabledRef.current = false;
+      setIsAutoListenEnabled(false);
+      clearRestartListeningTimer();
       ExpoSpeechRecognitionModule.stop();
     } catch {
-      setSpeechError("Microphone is off. You can still tap an answer.");
-      setSpeechMessage("Microphone is off. You can still tap an answer.");
+      setSpeechError("You can still tap an answer.");
+      setSpeechMessage("You can still tap an answer.");
     } finally {
       setIsListening(false);
     }
@@ -303,16 +421,12 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     });
   };
 
-  const speechPracticeWords = React.useMemo(
-    () => splitSpeechWords(speechPracticePhrase),
-    [speechPracticePhrase],
-  );
-
   const liveSpeechFeedbackMessage = speechFeedbackTranscript.trim()
     ? speechMessage
     : selectedOption
       ? "Start speaking when ready."
       : "Tap an answer, then press Start Speaking.";
+  const isSpeechListeningActive = isListening || isAutoListenEnabled;
   const speechFeedbackWords = React.useMemo<SpeechWordFeedback[]>(() => {
     return speechPracticeWords.map((word, index) => ({
       targetWord: word,
@@ -414,12 +528,12 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
               <TouchableOpacity
                 style={[
                   styles.speechListenButton,
-                  isListening && styles.speechListenButtonActive,
+                  isSpeechListeningActive && styles.speechListenButtonActive,
                 ]}
-                onPress={isListening ? stopListening : startListening}
+                onPress={isSpeechListeningActive ? stopListening : startListening}
               >
                 <Text style={styles.speechListenButtonText}>
-                  {isListening ? "Stop listening" : "Start speaking"}
+                  {isSpeechListeningActive ? "Stop listening" : "Start speaking"}
                 </Text>
               </TouchableOpacity>
               {liveTranscript ? (
@@ -484,6 +598,13 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                 option={option}
                 selected={option.id === selectedOptionId}
                 onPress={() => {
+                  autoListenEnabledRef.current = false;
+                  setIsAutoListenEnabled(false);
+                  clearRestartListeningTimer();
+                  abortSpeechRecognition();
+                  setIsListening(false);
+                  selectedOptionIdRef.current = option.id;
+                  completedPracticeWordCountRef.current = 0;
                   setSelectedOptionId(option.id);
                   setSelectionSource("tap");
                   setMockTranscript("");

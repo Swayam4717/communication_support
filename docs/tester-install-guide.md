@@ -28,7 +28,7 @@
 
 1. Parent sends a question with options.
 2. Child receives the attention overlay.
-3. Child opens the message.
+3. Child taps Open message and should land directly on the active question/options screen if setup is complete.
 4. Child answers by tapping an option or using Guided Speech Practice.
 5. Child presses Send Answer.
 6. Parent receives the answer in realtime.
@@ -41,7 +41,9 @@ Guided Speech Practice notes:
 - The child taps an option first.
 - The app shows a generated phrase, such as `Say this: I want rice`.
 - Start speaking validates that selected option's phrase word by word.
-- The app shows word progress and a clear feedback card such as `Try again / Say: want` or `Good / Ready to send`.
+- The app keeps listening through short pauses after Start speaking, until the child stops or the phrase is complete.
+- The app shows high-contrast word progress and a clear feedback card such as `Let's try again / Start again: I want rice` or `Good / Ready to send`.
+- If a spoken word is misheard or does not match the current word, the phrase restarts from the first word so the child repeats the full sentence.
 - Speech practice does not auto-send. The child still presses Send Answer manually.
 - For quiet testing, tap the `Say this: ...` phrase five times to reveal `Tester transcript`. It uses the same practice flow without using the microphone.
 - Speech or typed testing does not replace the tapped selected option with a different option.
@@ -58,6 +60,7 @@ Validated flows:
 - Parent sends after lock/unlock.
 - Parent sends after 2-minute and 5-minute lock tests.
 - Child opens the message from the overlay.
+- Overlay Open message should skip the intermediate child message screen and open the active question when child setup is already complete.
 - Child answers by tapping an option.
 - Child answers using Guided Speech Practice.
 - Parent receives child responses in realtime.
@@ -100,6 +103,7 @@ Android overlay reliability can vary by device/OEM battery settings. On the test
 
 - Locked-device notification behavior is future work.
 - Guided Speech Practice validates the selected option's generated phrase and does not auto-send.
+- Guided Speech Practice restarts the full sentence after a spoken mismatch and keeps listening through short pauses.
 - Speech sentence patterns are parent-controlled. If no pattern is saved, the app falls back to `I want {option}`.
 - Visual generation may use fallback/simple visuals; testers can keep them, remove them, or upload their own image.
 - Saved templates are local to the parent browser/device and are not room-specific.

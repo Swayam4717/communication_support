@@ -49,9 +49,13 @@ Restart Expo after changing environment variables.
 
 - Parent Mode can run on web/browser for demos.
 - Child attention alerts and Guided Speech Practice are Android-first.
+- Tapping Open message on the native overlay routes directly to the active child question when child setup is already saved locally.
 - Guided Speech Practice is selected-option based. The child taps an option first, then practises the generated phrase for that option.
 - Parent sessions can include a speech sentence pattern such as `I want {option}`, `I feel {option}`, or `{option}`. Existing sessions fall back to `I want {option}`.
-- Guided Speech Practice tracks ordered word progress and shows a feedback card for the next word to say. Speech and tester transcript validation never auto-submit.
+- Guided Speech Practice tracks ordered word progress with high-contrast word chips and a compact child screen.
+- Speech recognition keeps listening through short pauses during active practice.
+- If a spoken word is misheard or does not match, progress resets to the first word and the child repeats the full sentence.
+- Speech and tester transcript validation never auto-submit.
 - The hidden `Tester transcript` input is revealed by tapping the `Say this: ...` practice phrase five times.
 - Hosted parent web + installed Android APK were physically validated on a OnePlus Android device with overlay, notifications, microphone, and battery/background usage allowed.
 - Child setup includes an `Open app settings` button for background activity. On Android/OnePlus, use it to open Focus-Test App Info, go to Battery usage, set Unrestricted or Allow background activity, then return and tap `I've enabled this`. This is partly manual because OEM background settings vary.

@@ -10,7 +10,7 @@ This release is intended for controlled pilot/demo use.
 
 - Parent sends a structured message from the hosted web app.
 - Android child receives a native overlay alert.
-- Child opens the message from the overlay.
+- Child opens the message from the overlay directly into the active question screen when child setup is complete.
 - Child answers by tapping a visual option.
 - Child answers using Guided Speech Practice for the selected option.
 - Parent receives the child answer in realtime.
@@ -33,9 +33,12 @@ This release is intended for controlled pilot/demo use.
 - Microphone permission guidance for speech matching.
 - Background activity/app settings shortcut for Android battery reliability.
 - Tap-to-answer visual option flow.
+- Compact child choice screen for Android phone testing.
 - Guided Speech Practice after the child taps an option.
 - Generated practice phrases from the parent speech pattern, with fallback to `I want {option}`.
-- Ordered word progress with a clear feedback card for the next word to say.
+- Ordered word progress with high-contrast word chips and a clear feedback card.
+- Speech listening automatically restarts through short pauses during active practice.
+- Spoken mismatches restart the full sentence from the first word with calm feedback.
 - Hidden Tester transcript input revealed by tapping the `Say this: ...` phrase five times.
 - Speech and tester transcript validation never auto-submit; Send Answer remains manual.
 

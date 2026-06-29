@@ -20,7 +20,7 @@ The current validated attention path is the native Android overlay. Android/OEM 
   - child grants/checks overlay and microphone permissions,
   - parent sends a session,
   - Android attention overlay appears on an active/unlocked child device,
-  - child opens the message,
+  - child opens the message directly from the overlay into the active question screen,
   - child answers by tapping an option or using Guided Speech Practice,
   - child manually presses Send Answer,
   - parent receives the answer in realtime,
@@ -61,7 +61,7 @@ The tested demo path is:
 2. Child opens the installed Android APK and joins the room.
 3. Parent sends a session from the web app.
 4. Android child receives the native overlay alert.
-5. Child opens the message from the overlay.
+5. Child opens the message from the overlay and lands directly on the active question screen when child setup is already complete.
 6. Child answers by tapping an option or using Guided Speech Practice.
 7. Child manually presses Send Answer.
 8. Parent receives the response in realtime.
@@ -128,6 +128,7 @@ Android overlay reliability can vary by device/OEM battery settings. On the test
 ## Child Features
 
 - Child Mode tap-to-answer flow.
+- Compact child choice screen optimized for a typical Android phone.
 - Visual option cards with image, emoji, or text fallback.
 - Child manually presses Send Answer.
 - Visible feedback if child answer submission fails.
@@ -160,9 +161,11 @@ API keys stay in Firebase backend secrets, not frontend code.
 - Simple option labels such as `Rice` become phrases like `I want rice`; complete phrases such as `I need help`, `Stop`, `Yes`, and `No` are used as-is.
 - Speech recognition validates the selected option's practice phrase only. It no longer chooses between all options.
 - The app tracks phrase progress in order, word by word. Later words are not accepted until earlier words are completed.
-- A prominent feedback card shows calm next-step guidance such as `Try again / Say: want`, `Good / Now say: rice`, or `Good / Ready to send`.
+- Speech practice keeps listening through short pauses after the child taps Start Speaking, until the child stops, the phrase completes, the selected option/session changes, or the screen unmounts.
+- If a spoken word does not match the current expected word, phrase progress resets to the first word so the child repeats the full sentence calmly.
+- A prominent feedback card shows calm next-step guidance such as `Let's try again / Start again: I want rice`, `Good / Now say: rice`, or `Good / Ready to send`.
 - Child still manually presses Send Answer.
-- Word-level feedback highlights completed, current, and pending words so the child/tester can see what to say next.
+- High-contrast word chips highlight completed, current, and pending words so the child/tester can see what to say next.
 - A hidden `Tester transcript` input can be revealed by tapping the `Say this: ...` practice phrase five times. It uses the same ordered practice logic as microphone speech and is for quiet testing only.
 - Speech or typed testing never changes the selected option and never auto-submits.
 
@@ -394,7 +397,7 @@ Use this checklist for the deployed parent + installed Android child flow:
 10. Return to Focus-Test and tap `I've enabled this`.
 11. Parent sends a session.
 12. Confirm the Android overlay appears on the active/unlocked child device.
-13. Child opens the message.
+13. Child taps `Open message` and lands directly on the active question screen.
 14. Child taps an answer.
 15. Child manually presses Send Answer.
 16. Parent receives the answer in realtime.
@@ -403,13 +406,14 @@ Use this checklist for the deployed parent + installed Android child flow:
 19. Child taps an answer and uses Guided Speech Practice.
 20. Confirm the `Say this: ...` phrase appears for the selected option.
 21. Confirm word progress and the feedback card update as the child speaks each word.
-22. Confirm the app asks calmly for the current word again if a word is missed.
-23. Optional: tap the `Say this: ...` phrase five times to reveal `Tester transcript` and test the same practice flow silently.
-24. Child manually presses Send Answer.
-25. Parent receives the answer in realtime.
-26. Confirm History updates.
-27. In History, use `Use again` to load a previous question/options into Create.
-28. In History, use `Save as template` to save a previous question/options for the Templates tab.
+22. Confirm speech practice keeps listening through short pauses.
+23. Confirm the app calmly restarts the full sentence from the first word if a spoken word is misheard or does not match.
+24. Optional: tap the `Say this: ...` phrase five times to reveal `Tester transcript` and test the same practice flow silently.
+25. Child manually presses Send Answer.
+26. Parent receives the answer in realtime.
+27. Confirm History updates.
+28. In History, use `Use again` to load a previous question/options into Create.
+29. In History, use `Save as template` to save a previous question/options for the Templates tab.
 
 ---
 
@@ -423,6 +427,7 @@ Use this checklist for the deployed parent + installed Android child flow:
 - iOS child attention-capture support is not implemented.
 - Expo Go is not sufficient for child-side testing because the app uses native Android modules and native speech recognition.
 - Speech recognition and word-level practice depend on Android speech service availability, parent speech-pattern wording, and real-world noise conditions.
+- Overlay deep links can skip directly to the active question only after child setup has already saved the role and room locally. If setup is missing, the app falls back to setup.
 - This is a controlled-pilot MVP, not a production security model.
 
 ---

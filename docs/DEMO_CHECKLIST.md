@@ -43,7 +43,7 @@ The app cannot fully verify every OnePlus/OEM background setting automatically. 
 8. Send the question to the child.
 9. Confirm the native Android overlay appears on the child phone.
 10. Tap Open message on the overlay.
-11. Confirm the child choice screen opens.
+11. Confirm the child opens directly to the active question/options screen if child setup is already complete.
 
 ## Child Tap-To-Answer Flow
 
@@ -59,9 +59,11 @@ The app cannot fully verify every OnePlus/OEM background setting automatically. 
 3. Confirm the practice phrase appears, such as `Say this: I want rice`.
 4. Tap Start speaking.
 5. Say the practice phrase word by word.
-6. Confirm the word progress highlights completed/current/pending words.
-7. Confirm the feedback card gives a clear next step, such as `Try again / Say: want`, `Good / Now say: rice`, or `Good / Ready to send`.
-8. Tap Send Answer manually.
+6. Confirm the high-contrast word chips highlight completed/current/pending words.
+7. Pause briefly and confirm listening resumes without pressing Start again.
+8. Say a mismatched word and confirm progress returns to the first word with calm wording such as `Let's try again / Start again: I want rice`.
+9. Say the full sentence correctly and confirm the feedback card shows `Good / Ready to send`.
+10. Tap Send Answer manually.
 
 Speech validates the selected option's phrase but does not auto-submit or change the selected option.
 

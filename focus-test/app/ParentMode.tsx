@@ -44,7 +44,7 @@ type savedSessionTemplate = {
 };
 
 const MIN_REUSABLE_HISTORY_OPTIONS = 2;
-const MAX_REUSABLE_HISTORY_OPTIONS = 4;
+const MAX_REUSABLE_HISTORY_OPTIONS = 12;
 const MAX_REUSABLE_HISTORY_LABEL_LENGTH = 60;
 const MAX_REUSABLE_HISTORY_META_LENGTH = 80;
 const MAX_REUSABLE_HISTORY_IMAGE_URL_LENGTH = 2048;
@@ -61,6 +61,9 @@ interface ParentModeScreenProps {
   editingTemplateName: string | null;
   onQuestionChange: (value: string) => void;
   onOptionLabelChange: (index: number, value: string) => void;
+  onOptionLabelsReplace: (values: string[]) => void;
+  onAddOption: () => void;
+  onRemoveOption: (index: number) => void;
   onSpeechTemplateChange: (value: string) => void;
   onPreviewToggle: () => void;
   onSendToChild: () => void;
@@ -224,6 +227,9 @@ export default function ParentModeScreen({
   editingTemplateName,
   onQuestionChange,
   onOptionLabelChange,
+  onOptionLabelsReplace,
+  onAddOption,
+  onRemoveOption,
   onSpeechTemplateChange,
   onPreviewToggle,
   onSendToChild,
@@ -350,9 +356,23 @@ export default function ParentModeScreen({
   };
 
   const buildDraftSession = () => {
+    const cleanedOptionLabels = optionLabels.map((label) => label.trim());
     const baseSession = resolvedOptions
-      ? createSessionWithResolvedOptions(question, resolvedOptions, speechTemplate)
-      : createSession(question, optionLabels, optionImageUrls, speechTemplate);
+      ? createSessionWithResolvedOptions(
+          question,
+          resolvedOptions.map((option, index) => ({
+            ...option,
+            id: String(index + 1),
+            label: cleanedOptionLabels[index] || option.label,
+          })),
+          speechTemplate,
+        )
+      : createSession(
+          question,
+          cleanedOptionLabels,
+          optionImageUrls,
+          speechTemplate,
+        );
 
     return applyRemovedVisuals(baseSession);
   };
@@ -486,10 +506,12 @@ export default function ParentModeScreen({
     }
   };
   const openSaveTemplateModal = () => {
-    if (optionLabels.every((label) => !label.trim())) {
+    const cleanedLabels = optionLabels.map((label) => label.trim());
+
+    if (cleanedLabels.length < 2 || cleanedLabels.some((label) => !label)) {
       Alert.alert(
-        "Add options first",
-        "Please add at least one option before saving a template.",
+        "Check answer options",
+        "Please keep at least two options and fill in every option before saving a template.",
       );
       return;
     }
@@ -567,13 +589,11 @@ export default function ParentModeScreen({
     if (item.speechTemplate) {
       onSpeechTemplateChange(item.speechTemplate);
     }
-    optionLabels.forEach((_, index) => {
-      onOptionLabelChange(index, historyOptions[index]?.label ?? "");
-    });
+    onOptionLabelsReplace(historyOptions.map((option) => option.label));
     setResolvedOptions(historyOptions);
     setRemovedVisualIndexes(new Set());
     setOptionImageUrls(
-      optionLabels.map((_, index) => historyOptions[index]?.imageUrl ?? ""),
+      historyOptions.map((option) => option.imageUrl ?? ""),
     );
     setActiveParentTab("create");
     showHistoryNotice("Loaded from history. You can edit before sending.");
@@ -630,6 +650,44 @@ export default function ParentModeScreen({
     );
   };
 
+  const handleAddOption = () => {
+    setResolvedOptions(null);
+    setRemovedVisualIndexes(new Set());
+    setOptionImageUrls((currentUrls) => [...currentUrls, ""]);
+    onAddOption();
+  };
+
+  const handleRemoveOption = (index: number) => {
+    if (optionLabels.length <= 2) {
+      showMessage(
+        "Keep two options",
+        "Please keep at least two answer options.",
+      );
+      return;
+    }
+
+    setResolvedOptions((currentOptions) =>
+      currentOptions
+        ? currentOptions.filter((_, optionIndex) => optionIndex !== index)
+        : currentOptions,
+    );
+    setOptionImageUrls((currentUrls) =>
+      currentUrls.filter((_, optionIndex) => optionIndex !== index),
+    );
+    setRemovedVisualIndexes((currentIndexes) => {
+      const nextIndexes = new Set<number>();
+      currentIndexes.forEach((optionIndex) => {
+        if (optionIndex < index) {
+          nextIndexes.add(optionIndex);
+        } else if (optionIndex > index) {
+          nextIndexes.add(optionIndex - 1);
+        }
+      });
+      return nextIndexes;
+    });
+    onRemoveOption(index);
+  };
+
   const isUploadingImage = uploadingImageIndex !== null;
   const isImageWorkInProgress = isUploadingImage || isGeneratingVisuals;
   const showMessage = (title: string, message: string) => {
@@ -653,10 +711,18 @@ export default function ParentModeScreen({
     const cleanedLabels = optionLabels
       .map((label) => label.trim())
       .filter(Boolean);
-    if (cleanedLabels.length === 0) {
+    if (cleanedLabels.length < 2) {
       showMessage(
-        "Add options First",
-        "Please enter at least one option before generating visuals",
+        "Add options first",
+        "Please enter at least two options before generating visuals.",
+      );
+      return;
+    }
+
+    if (cleanedLabels.length !== optionLabels.length) {
+      showMessage(
+        "Fill or remove blank options",
+        "Please fill in every option label, or remove blank option rows, before generating visuals.",
       );
       return;
     }
@@ -677,15 +743,34 @@ export default function ParentModeScreen({
         question,
         cleanedLabels,
       );
+      const textOptions = createSession(
+        question,
+        cleanedLabels,
+        optionImageUrls,
+        speechTemplate,
+      ).options;
+      const mergedOptions = textOptions.map((option, index) => {
+        const generatedOption = generatedOptions[index];
 
-      setResolvedOptions(generatedOptions);
+        return generatedOption
+          ? {
+              ...option,
+              imageUrl: generatedOption.imageUrl ?? option.imageUrl ?? null,
+              emoji: generatedOption.emoji ?? option.emoji ?? null,
+              source: generatedOption.source ?? option.source ?? null,
+              provider: generatedOption.provider ?? option.provider ?? null,
+            }
+          : option;
+      });
+
+      setResolvedOptions(mergedOptions);
       setRemovedVisualIndexes(new Set());
 
       setOptionImageUrls(
-        generatedOptions.map((option) => option.imageUrl ?? ""),
+        mergedOptions.map((option) => option.imageUrl ?? ""),
       );
 
-      const hasSimpleFallbackVisuals = generatedOptions.some((option) => {
+      const hasSimpleFallbackVisuals = mergedOptions.some((option) => {
         const source = option.source?.toLowerCase() ?? "";
         const provider = option.provider?.toLowerCase() ?? "";
         return (
@@ -768,6 +853,16 @@ export default function ParentModeScreen({
       Alert.alert(
         "Visuals still preparing",
         "Please wait until the visuals are ready before sending this session.",
+      );
+      return;
+    }
+
+    const cleanedLabels = optionLabels.map((label) => label.trim());
+
+    if (cleanedLabels.length < 2 || cleanedLabels.some((label) => !label)) {
+      Alert.alert(
+        "Check answer options",
+        "Please keep at least two options and fill in every option before sending.",
       );
       return;
     }
@@ -1211,11 +1306,35 @@ export default function ParentModeScreen({
                               </Text>
                             </TouchableOpacity>
                           ) : null}
+
+                          {optionLabels.length > 2 ? (
+                            <TouchableOpacity
+                              style={styles.parentMiniOptionDeleteButton}
+                              onPress={() => handleRemoveOption(index)}
+                              disabled={isUploading}
+                            >
+                              <Text
+                                style={styles.parentMiniOptionDeleteButtonText}
+                              >
+                                Delete
+                              </Text>
+                            </TouchableOpacity>
+                          ) : null}
                         </View>
                       </View>
                     );
                   })}
                 </View>
+
+                <TouchableOpacity
+                  style={styles.parentAddOptionButton}
+                  onPress={handleAddOption}
+                  disabled={isImageWorkInProgress}
+                >
+                  <Text style={styles.parentAddOptionButtonText}>
+                    Add option
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               <View style={styles.parentPreviewToggle}>

@@ -104,7 +104,7 @@ export const DEFAULT_QUESTION = "What would you like to eat?";
 export const DEFAULT_OPTIONS = ["Rice", "Noodles", "Pizza", "Sandwich"];
 export const DEFAULT_SPEECH_TEMPLATE = "I want {option}";
 const STANDALONE_SPEECH_OPTIONS = new Set(["yes", "no", "stop"]);
-const MAX_HISTORY_OPTIONS = 4;
+const MAX_HISTORY_OPTIONS = 12;
 const MAX_HISTORY_LABEL_LENGTH = 60;
 const MAX_HISTORY_META_LENGTH = 80;
 const MAX_HISTORY_IMAGE_URL_LENGTH = 2048;
@@ -130,17 +130,23 @@ export function buildSessionOptions(
   optionLabels: string[],
   optionImageUrls: string[] = []
 ): SessionOption[] {
-  return optionLabels.map((label, index) => {
+  return optionLabels.reduce<SessionOption[]>((options, label, index) => {
     const cleanedLabel = label.trim() || `Option ${index + 1}`;
+    if (!label.trim()) {
+      return options;
+    }
+
     const cleanedImageUrl = optionImageUrls[index]?.trim();
 
-    return {
-      id: String(index + 1),
+    options.push({
+      id: String(options.length + 1),
       label: cleanedLabel,
       emoji: getEmojiForLabel(cleanedLabel, index),
       ...(cleanedImageUrl ? { imageUrl: cleanedImageUrl } : {}),
-    };
-  });
+    });
+
+    return options;
+  }, []);
 }
 
 export function normalizeSpeechText(text: string): string {

@@ -257,6 +257,24 @@ export default function CommunicationMvpApp() {
     });
   };
 
+  const handleOptionLabelsReplace = (values: string[]) => {
+    setDraftOptions(values.length >= 2 ? values : DEFAULT_OPTIONS);
+  };
+
+  const handleAddOption = () => {
+    setDraftOptions((currentOptions) => [...currentOptions, ""]);
+  };
+
+  const handleRemoveOption = (index: number) => {
+    setDraftOptions((currentOptions) => {
+      if (currentOptions.length <= 2) {
+        return currentOptions;
+      }
+
+      return currentOptions.filter((_, optionIndex) => optionIndex !== index);
+    });
+  };
+
   const handleApplyTemplate = (templateId: SessionTemplateId) => {
     const template = SESSION_TEMPLATES[templateId];
 
@@ -295,14 +313,16 @@ export default function CommunicationMvpApp() {
     showSuccessAlert: boolean;
   }) => {
     const cleanedQuestion = question.trim() || "Untitled question";
-    const cleanedOptions = options.map((option) => option.trim());
+    const cleanedOptions = options
+      .map((option) => option.trim())
+      .filter(Boolean);
     const cleanedSpeechTemplate =
       speechTemplate?.trim() || DEFAULT_SPEECH_TEMPLATE;
 
-    if (cleanedOptions.every((option) => !option)) {
+    if (cleanedOptions.length < 2) {
       Alert.alert(
-        "Add options first",
-        "Please add at least one option before saving a template.",
+        "Check answer options",
+        "Please keep at least two options before saving a template.",
       );
       return false;
     }
@@ -456,7 +476,7 @@ export default function CommunicationMvpApp() {
     // Build a new session draft and keep it in local state until the parent actually sends it.
     const nextSession = createSession(
       draftQuestion,
-      draftOptions,
+      draftOptions.map((option) => option.trim()).filter(Boolean),
       [],
       draftSpeechTemplate,
     );
@@ -506,6 +526,9 @@ export default function CommunicationMvpApp() {
           }
           onQuestionChange={handleQuestionChange}
           onOptionLabelChange={handleOptionLabelChange}
+          onOptionLabelsReplace={handleOptionLabelsReplace}
+          onAddOption={handleAddOption}
+          onRemoveOption={handleRemoveOption}
           onSpeechTemplateChange={handleSpeechTemplateChange}
           onApplyTemplate={handleApplyTemplate}
           onSaveCurrentTemplate={handleSaveCurrentTemplate}

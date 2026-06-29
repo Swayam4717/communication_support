@@ -1221,6 +1221,34 @@ export const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  parentMiniOptionDeleteButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+
+  parentMiniOptionDeleteButtonText: {
+    color: "#A65B4B",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+
+  parentAddOptionButton: {
+    alignSelf: "flex-start",
+    marginTop: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#D6C3B4",
+    backgroundColor: "#FFFDFC",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+
+  parentAddOptionButtonText: {
+    color: "#705642",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+
   parentImageActionRow: {
     flexDirection: "row",
     gap: 8,

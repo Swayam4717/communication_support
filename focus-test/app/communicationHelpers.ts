@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { collection, doc, getDoc, getFirestore, limit, onSnapshot, orderBy, query, setDoc, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getFirestore, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import {getFunctions, httpsCallable} from "firebase/functions";
 
@@ -51,6 +51,12 @@ export interface CommunicationSession {
   createdAt: number;
   childFcmToken?: string | null;
   tokenSavedAt?: number | null;
+  childAppState?: "active" | "backgrounded" | null;
+  childExitedBeforeAnswer?: boolean | null;
+  childExitedAt?: unknown;
+  childLastActiveAt?: unknown;
+  exitReminderCount?: number | null;
+  lastExitReminderAt?: unknown;
 }
 export interface SessionHistoryItem{
   id: string;
@@ -398,6 +404,10 @@ export function createSession(
     speechTemplate: speechTemplate.trim() || DEFAULT_SPEECH_TEMPLATE,
     status: "sent",
     selectedAnswer: null,
+    childExitedBeforeAnswer: false,
+    childExitedAt: null,
+    exitReminderCount: 0,
+    lastExitReminderAt: null,
     createdAt: Date.now(),
   } as CommunicationSession;
 }
@@ -415,6 +425,10 @@ export function createSessionWithResolvedOptions(
     speechTemplate: speechTemplate.trim() || DEFAULT_SPEECH_TEMPLATE,
     status: "sent",
     selectedAnswer: null,
+    childExitedBeforeAnswer: false,
+    childExitedAt: null,
+    exitReminderCount: 0,
+    lastExitReminderAt: null,
     createdAt: Date.now(),
   };
 }
@@ -483,6 +497,22 @@ export async function submitAnswer(selectedAnswerId: string, roomId: string) {
   await updateDoc(d, {
     selectedAnswer: selectedAnswerId,
     status: "answered",
+  });
+}
+
+export async function markChildSessionExited(roomId: string) {
+  await updateDoc(getRoomsDoc(roomId), {
+    childAppState: "backgrounded",
+    childExitedBeforeAnswer: true,
+    childExitedAt: serverTimestamp(),
+  });
+}
+
+export async function markChildSessionActive(roomId: string) {
+  await updateDoc(getRoomsDoc(roomId), {
+    childAppState: "active",
+    childExitedBeforeAnswer: false,
+    childLastActiveAt: serverTimestamp(),
   });
 }
 

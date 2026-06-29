@@ -13,6 +13,36 @@ const firestore = admin.firestore();
 const visualCacheCollection = firestore.collection("visualCache");
 // Cloud Function that watches room updates and sends a push message when a new session is posted.
 
+function buildFocusAlertMessage(token, roomId, title, body, alertKind) {
+  return {
+    token,
+    data: {
+      type: "focus_alert",
+      roomId,
+      title,
+      body,
+      alertKind,
+    },
+    android: {
+      priority: "high",
+    },
+  };
+}
+
+async function sendChildFocusAlert(token, roomId, title, body, alertKind) {
+  const response = await admin.messaging().send(
+    buildFocusAlertMessage(token, roomId, title, body, alertKind)
+  );
+
+  console.log("Focus alert sent", {
+    roomId,
+    alertKind,
+    messageId: response,
+  });
+
+  return response;
+}
+
 exports.sendFocusAlertOnSessionUpdate = onDocumentUpdated(
   "rooms/{roomId}",
   async (event) => {
@@ -26,41 +56,54 @@ exports.sendFocusAlertOnSessionUpdate = onDocumentUpdated(
 
     const beforeStatus = before.status;
     const afterStatus = after.status;
+    const roomId = event.params.roomId;
+    const isNewSentSession = beforeStatus !== "sent" && afterStatus === "sent";
+    const hasAnswer = !!after.selectedAnswer || afterStatus === "answered";
+    const isNewChildExit =
+      before.childExitedBeforeAnswer !== true &&
+      after.childExitedBeforeAnswer === true;
+    const shouldSendExitReminder =
+      afterStatus === "sent" &&
+      !hasAnswer &&
+      isNewChildExit;
 
-    if (beforeStatus === afterStatus) {
-      return;
-    }
-
-    if (afterStatus !== "sent") {
+    if (!isNewSentSession && !shouldSendExitReminder) {
       return;
     }
 
     const childFcmToken = after.childFcmToken;
 
     if (!childFcmToken) {
-      console.log("No child FCM token found for room:", event.params.roomId);
+      console.log("No child FCM token found for room:", roomId);
       return;
     }
 
-    const message = {
-      token: childFcmToken,
-      data: {
-        type: "focus_alert",
-        roomId: event.params.roomId,
-        title: "New message",
-        body: "A new communication session is ready",
-      },
-      android: {
-        priority: "high",
-      },
-    };
-
     try {
-      const response = await admin.messaging().send(message);
-      console.log("Focus alert sent", {
-        roomId: event.params.roomId,
-        messageId: response,
-      });
+      if (isNewSentSession) {
+        await sendChildFocusAlert(
+          childFcmToken,
+          roomId,
+          "New message",
+          "A new communication session is ready",
+          "new_session"
+        );
+      }
+
+      if (shouldSendExitReminder) {
+        // Keep reminders on the native overlay path: data-only FCM, no notification payload.
+        await sendChildFocusAlert(
+          childFcmToken,
+          roomId,
+          "Please answer",
+          "Your question is still waiting",
+          "exit_reminder"
+        );
+
+        await event.data.after.ref.update({
+          exitReminderCount: admin.firestore.FieldValue.increment(1),
+          lastExitReminderAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
     } catch (error) {
       console.error("Failed to send focus alert:", error);
     }

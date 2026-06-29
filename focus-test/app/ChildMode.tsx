@@ -1,11 +1,13 @@
 import React from "react";
 import {
   Alert,
+  AppState,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  type AppStateStatus,
 } from "react-native";
 import {
   ExpoSpeechRecognitionModule,
@@ -14,6 +16,8 @@ import {
 import type { CommunicationSession, SpeechWordFeedback } from "./communicationHelpers";
 import {
   getSpeechPracticePhrase,
+  markChildSessionActive,
+  markChildSessionExited,
   splitSpeechWords,
   subscribeToSession,
   submitAnswer,
@@ -73,6 +77,9 @@ export default function ChildModeScreen({
   const selectedOptionIdRef = React.useRef<string | null>(null);
   const directOpenedSessionIdRef = React.useRef<string | null>(null);
   const stageRef = React.useRef(stage);
+  const sessionRef = React.useRef<CommunicationSession | null>(null);
+  const appStateRef = React.useRef<AppStateStatus>(AppState.currentState);
+  const answerSubmittedRef = React.useRef(false);
   const clearRestartListeningTimer = React.useCallback(() => {
     if (restartListeningTimerRef.current) {
       clearTimeout(restartListeningTimerRef.current);
@@ -113,6 +120,16 @@ export default function ChildModeScreen({
   React.useEffect(() => {
     stageRef.current = stage;
   }, [stage]);
+
+  React.useEffect(() => {
+    sessionRef.current = session;
+    if (!session || session.status === "idle") {
+      answerSubmittedRef.current = false;
+    }
+    if (session?.status === "answered") {
+      answerSubmittedRef.current = true;
+    }
+  }, [session]);
 // Subscribe to session updates for the given roomId and update local state accordingly
  React.useEffect(() => {
   const unsub = subscribeToSession((s) => {
@@ -120,6 +137,7 @@ export default function ChildModeScreen({
 // Update the child stage based on the current room status.
 // Handle session status changes to update the UI stage and trigger alerts
     if (!s || s.status === "idle") {
+      answerSubmittedRef.current = false;
       setStage("idle");
       previousSessionIdRef.current = s?.id ?? null;
       directOpenedSessionIdRef.current = null;
@@ -134,6 +152,7 @@ export default function ChildModeScreen({
 
     if (s.status === "sent") {
       if (s.id !== previousSessionIdRef.current) {
+        answerSubmittedRef.current = false;
         autoListenEnabledRef.current = false;
         setIsAutoListenEnabled(false);
         clearRestartListeningTimer();
@@ -159,6 +178,7 @@ export default function ChildModeScreen({
     }
 
     if (s.status === "answered") {
+      answerSubmittedRef.current = true;
       previousSessionIdRef.current = s.id;
       directOpenedSessionIdRef.current = null;
       autoListenEnabledRef.current = false;
@@ -177,6 +197,39 @@ export default function ChildModeScreen({
   resetSpeechPracticeState,
   roomId,
 ]);
+
+  React.useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      const previousState = appStateRef.current;
+      appStateRef.current = nextState;
+
+      const currentSession = sessionRef.current;
+      const hasOpenUnansweredQuestion =
+        currentSession?.status === "sent" &&
+        stageRef.current === "choice" &&
+        !currentSession.selectedAnswer &&
+        !answerSubmittedRef.current;
+
+      if (
+        previousState === "active" &&
+        (nextState === "background" || nextState === "inactive") &&
+        hasOpenUnansweredQuestion
+      ) {
+        markChildSessionExited(roomId).catch((error) => {
+          console.warn("markChildSessionExited failed", error);
+        });
+        return;
+      }
+
+      if (nextState === "active" && hasOpenUnansweredQuestion) {
+        markChildSessionActive(roomId).catch((error) => {
+          console.warn("markChildSessionActive failed", error);
+        });
+      }
+    });
+
+    return () => subscription.remove();
+  }, [roomId]);
 
   React.useEffect(() => {
     if (stage !== "choice" && isListening) {
@@ -657,8 +710,10 @@ export default function ChildModeScreen({
             onPress={async () => {
               if (!selectedOption) return;
               try {
+                answerSubmittedRef.current = true;
                 await submitAnswer(selectedOption.id, roomId);
               } catch (e) {
+                answerSubmittedRef.current = false;
                 console.warn("submitAnswer failed", e);
                 Alert.alert("Could not send", "Please try again.");
               }

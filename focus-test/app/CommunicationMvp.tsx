@@ -88,6 +88,8 @@ export default function CommunicationMvpApp() {
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(
     null,
   );
+  const [openChildSessionDirectly, setOpenChildSessionDirectly] =
+    useState(false);
 
   // Load persisted setup on app launch
   useEffect(() => {
@@ -132,11 +134,21 @@ export default function CommunicationMvpApp() {
 
   useEffect(() => {
     // Listen for the deep link used by the native focus alert path and switch into child mode.
-    const handleUrl = (url: string) => {
+    const handleUrl = async (url: string) => {
       console.log("Deep link received:", url);
 
       if (url.includes("child-alert")) {
+        const savedRole = await AsyncStorage.getItem("deviceRole");
+        const savedRoomId = await AsyncStorage.getItem("roomId");
+
+        if (savedRole !== "child" || !savedRoomId) {
+          setAppState("setup");
+          return;
+        }
+
         setDeviceRole("child");
+        setRoomId(savedRoomId);
+        setOpenChildSessionDirectly(true);
         setAppState("child");
       }
     };
@@ -514,7 +526,12 @@ export default function CommunicationMvpApp() {
   if (appState === "child" && deviceRole === "child") {
     return (
       <SafeAreaView style={styles.appShell}>
-        <ChildModeScreen roomId={roomId} onResetSetup={handleResetSetup} />
+        <ChildModeScreen
+          roomId={roomId}
+          openActiveSessionDirectly={openChildSessionDirectly}
+          onOpenActiveSessionHandled={() => setOpenChildSessionDirectly(false)}
+          onResetSetup={handleResetSetup}
+        />
       </SafeAreaView>
     );
   }

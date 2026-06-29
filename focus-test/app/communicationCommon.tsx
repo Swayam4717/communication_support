@@ -492,10 +492,10 @@ export const styles = StyleSheet.create({
     fontWeight: "800",
   },
   speechPracticeHint: {
-    color: "#7E6F67",
-    fontSize: 12,
-    fontWeight: "600",
-    lineHeight: 17,
+    color: "#3F2A1F",
+    fontSize: 11,
+    fontWeight: "800",
+    lineHeight: 15,
   },
   speechFeedbackCard: {
     borderRadius: 12,
@@ -599,8 +599,8 @@ export const styles = StyleSheet.create({
     borderColor: "#B15A2B",
   },
   liveSpeechWordCurrent: {
-    backgroundColor: "#FFBE3D",
-    borderColor: "#8A5700",
+    backgroundColor: "#285F9E",
+    borderColor: "#123963",
     paddingHorizontal: 14,
     paddingVertical: 8,
     minHeight: 42,
@@ -617,7 +617,7 @@ export const styles = StyleSheet.create({
     color: "#7D3411",
   },
   liveSpeechWordTextCurrent: {
-    color: "#21140B",
+    color: "#FFFFFF",
     fontSize: 19,
     fontWeight: "900",
   },

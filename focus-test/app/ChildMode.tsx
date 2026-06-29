@@ -23,6 +23,8 @@ import { styles } from "./communicationCommon";
 
 interface ChildModeScreenProps {
   roomId: string;
+  openActiveSessionDirectly?: boolean;
+  onOpenActiveSessionHandled?: () => void;
   onResetSetup: () => void;
 }
 
@@ -41,7 +43,12 @@ type SpeechFeedbackCard = {
  * Uses subscribeToSession to listen for session updates and submitAnswer to send the selected option back to the parent
  * Designed to be simple and calm, with clear prompts and feedback for the child user
  */
-export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScreenProps) {
+export default function ChildModeScreen({
+  roomId,
+  openActiveSessionDirectly = false,
+  onOpenActiveSessionHandled,
+  onResetSetup,
+}: ChildModeScreenProps) {
   // This screen mirrors the room document, steps through the child flow, and triggers the focus alert when a new session arrives.
   const [session, setSession] = React.useState<CommunicationSession | null>(null);
   const [stage, setStage] = React.useState<"idle" | "incoming" | "choice" | "confirmation">("idle");
@@ -64,6 +71,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   const restartListeningTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const completedPracticeWordCountRef = React.useRef(0);
   const selectedOptionIdRef = React.useRef<string | null>(null);
+  const directOpenedSessionIdRef = React.useRef<string | null>(null);
   const stageRef = React.useRef(stage);
   const clearRestartListeningTimer = React.useCallback(() => {
     if (restartListeningTimerRef.current) {
@@ -114,6 +122,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
     if (!s || s.status === "idle") {
       setStage("idle");
       previousSessionIdRef.current = s?.id ?? null;
+      directOpenedSessionIdRef.current = null;
       autoListenEnabledRef.current = false;
       setIsAutoListenEnabled(false);
       clearRestartListeningTimer();
@@ -134,12 +143,24 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
       }
 
       previousSessionIdRef.current = s.id;
-      setStage("incoming");
+      if (
+        openActiveSessionDirectly ||
+        directOpenedSessionIdRef.current === s.id
+      ) {
+        directOpenedSessionIdRef.current = s.id;
+        setStage("choice");
+        if (openActiveSessionDirectly) {
+          onOpenActiveSessionHandled?.();
+        }
+      } else {
+        setStage("incoming");
+      }
       return;
     }
 
     if (s.status === "answered") {
       previousSessionIdRef.current = s.id;
+      directOpenedSessionIdRef.current = null;
       autoListenEnabledRef.current = false;
       setIsAutoListenEnabled(false);
       clearRestartListeningTimer();
@@ -148,7 +169,14 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
   }, roomId);
 
   return () => unsub();
-}, [abortSpeechRecognition, clearRestartListeningTimer, resetSpeechPracticeState, roomId]);
+}, [
+  abortSpeechRecognition,
+  clearRestartListeningTimer,
+  onOpenActiveSessionHandled,
+  openActiveSessionDirectly,
+  resetSpeechPracticeState,
+  roomId,
+]);
 
   React.useEffect(() => {
     if (stage !== "choice" && isListening) {

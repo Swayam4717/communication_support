@@ -297,13 +297,13 @@ export default function ChildModeScreen({
       const heardWord = transcriptWords[wordIndex];
 
       if (heardWord !== nextTargetWord) {
-        setCompletedPracticeWordCount(nextTargetIndex);
-        completedPracticeWordCountRef.current = nextTargetIndex;
-        setSpeechMessage(`Try again: ${nextTargetWord}`);
+        setCompletedPracticeWordCount(0);
+        completedPracticeWordCountRef.current = 0;
+        setSpeechMessage(`Let's try the sentence again: ${practicePhrase}`);
         setSpeechFeedbackCard({
           tone: "try",
-          mainText: "Try again",
-          secondaryText: `Say: ${nextTargetWord}`,
+          mainText: "Let's try again",
+          secondaryText: `Start again: ${practicePhrase}`,
         });
         return;
       }

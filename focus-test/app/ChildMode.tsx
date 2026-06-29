@@ -562,6 +562,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                             word.status === "current" && styles.liveSpeechWordTextCurrent,
                           ]}
                         >
+                          {word.status === "matched" ? "✓ " : ""}
                           {word.targetWord}
                         </Text>
                       </View>

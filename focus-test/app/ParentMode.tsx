@@ -21,6 +21,7 @@ import {
   createSessionWithResolvedOptions,
   DEFAULT_SPEECH_TEMPLATE,
   getSpeechPracticePhrase,
+  parseOptionLabelForVisual,
   resetSession,
   sendSession,
   subscribeToSession,
@@ -176,6 +177,10 @@ const getReusableHistoryOptions = (item: SessionHistoryItem) => {
         MAX_REUSABLE_HISTORY_META_LENGTH,
       );
       const imageUrl = getSafeHistoryActionImageUrl(option?.imageUrl);
+      const visualKeyword = getSafeHistoryActionText(
+        option?.visualKeyword,
+        MAX_REUSABLE_HISTORY_LABEL_LENGTH,
+      );
       const source = getSafeHistoryActionText(
         option?.source,
         MAX_REUSABLE_HISTORY_META_LENGTH,
@@ -192,6 +197,7 @@ const getReusableHistoryOptions = (item: SessionHistoryItem) => {
             MAX_REUSABLE_HISTORY_META_LENGTH,
           ) || String(index + 1),
         label,
+        ...(visualKeyword ? { visualKeyword } : {}),
         ...(emoji ? { emoji } : {}),
         ...(imageUrl ? { imageUrl } : {}),
         ...(source ? { source } : {}),
@@ -363,7 +369,14 @@ export default function ParentModeScreen({
           resolvedOptions.map((option, index) => ({
             ...option,
             id: String(index + 1),
-            label: cleanedOptionLabels[index] || option.label,
+            label:
+              parseOptionLabelForVisual(cleanedOptionLabels[index] || option.label)
+                .displayLabel || option.label,
+            visualKeyword:
+              parseOptionLabelForVisual(cleanedOptionLabels[index] || option.label)
+                .visualKeyword ||
+              option.visualKeyword ||
+              option.label,
           })),
           speechTemplate,
         )
@@ -755,6 +768,10 @@ export default function ParentModeScreen({
         return generatedOption
           ? {
               ...option,
+              visualKeyword:
+                generatedOption.visualKeyword ??
+                option.visualKeyword ??
+                option.label,
               imageUrl: generatedOption.imageUrl ?? option.imageUrl ?? null,
               emoji: generatedOption.emoji ?? option.emoji ?? null,
               source: generatedOption.source ?? option.source ?? null,
@@ -1233,10 +1250,13 @@ export default function ParentModeScreen({
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.parentOptionsHint}>
-                  Add images only when needed. Visuals can also be generated
-                  automatically.
-                </Text>
+              <Text style={styles.parentOptionsHint}>
+                Add images only when needed. Visuals can also be generated
+                automatically.
+              </Text>
+              <Text style={styles.parentOptionsHint}>
+                Tip: put the picture word in brackets, e.g. play [soccer].
+              </Text>
 
                 <View style={styles.parentOptionsList}>
                   {optionLabels.map((label, index) => {

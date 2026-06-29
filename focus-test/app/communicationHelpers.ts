@@ -33,6 +33,7 @@ export type SessionStatus = "idle" | "sent" | "answered";
 export interface SessionOption {
   id: string;
   label: string;
+  visualKeyword?: string | null;
   emoji?: string | null;
   imageUrl?: string | null;
   source?: string | null;
@@ -103,12 +104,55 @@ export interface BestSpeechOptionMatch {
 export const DEFAULT_QUESTION = "What would you like to eat?";
 export const DEFAULT_OPTIONS = ["Rice", "Noodles", "Pizza", "Sandwich"];
 export const DEFAULT_SPEECH_TEMPLATE = "I want {option}";
-const STANDALONE_SPEECH_OPTIONS = new Set(["yes", "no", "stop"]);
 const MAX_HISTORY_OPTIONS = 12;
 const MAX_HISTORY_LABEL_LENGTH = 60;
 const MAX_HISTORY_META_LENGTH = 80;
 const MAX_HISTORY_IMAGE_URL_LENGTH = 2048;
 export const FALLBACK_EMOJIS = ["🌿", "☁️", "✨", "🫧"];
+
+export function parseOptionLabelForVisual(input: string) {
+  const cleanedInput = String(input || "").replace(/\s+/g, " ").trim();
+  const bracketMatch = cleanedInput.match(/^(.*?)\[([^\]]+)\](.*)$/);
+
+  if (!cleanedInput) {
+    return {
+      displayLabel: "",
+      visualKeyword: "",
+    };
+  }
+
+  if (!bracketMatch) {
+    const fallbackLabel = cleanedInput
+      .replace(/[\[\]]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return {
+      displayLabel: fallbackLabel,
+      visualKeyword: fallbackLabel,
+    };
+  }
+
+  const before = bracketMatch[1]?.trim() ?? "";
+  const keyword = bracketMatch[2]?.replace(/\s+/g, " ").trim() ?? "";
+  const after = bracketMatch[3]?.trim() ?? "";
+  const fallbackLabel = cleanedInput
+    .replace(/[\[\]]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!keyword) {
+    return {
+      displayLabel: fallbackLabel,
+      visualKeyword: fallbackLabel,
+    };
+  }
+
+  return {
+    displayLabel: [before, keyword, after].filter(Boolean).join(" "),
+    visualKeyword: keyword,
+  };
+}
 
 export function getEmojiForLabel(label: string, index: number) {
   const normalized = label.trim().toLowerCase();
@@ -131,8 +175,9 @@ export function buildSessionOptions(
   optionImageUrls: string[] = []
 ): SessionOption[] {
   return optionLabels.reduce<SessionOption[]>((options, label, index) => {
-    const cleanedLabel = label.trim() || `Option ${index + 1}`;
-    if (!label.trim()) {
+    const parsedLabel = parseOptionLabelForVisual(label);
+    const cleanedLabel = parsedLabel.displayLabel || `Option ${index + 1}`;
+    if (!parsedLabel.displayLabel) {
       return options;
     }
 
@@ -141,6 +186,7 @@ export function buildSessionOptions(
     options.push({
       id: String(options.length + 1),
       label: cleanedLabel,
+      visualKeyword: parsedLabel.visualKeyword || cleanedLabel,
       emoji: getEmojiForLabel(cleanedLabel, index),
       ...(cleanedImageUrl ? { imageUrl: cleanedImageUrl } : {}),
     });
@@ -167,19 +213,10 @@ export function getSpeechPracticePhrase(
 ): string {
   const cleanedLabel = optionLabel.trim();
   const normalizedLabel = normalizeSpeechText(cleanedLabel);
-  const words = splitSpeechWords(cleanedLabel);
   const cleanedTemplate = speechTemplate.trim() || DEFAULT_SPEECH_TEMPLATE;
 
   if (!cleanedLabel || !normalizedLabel) {
     return "";
-  }
-
-  if (STANDALONE_SPEECH_OPTIONS.has(normalizedLabel)) {
-    return cleanedLabel;
-  }
-
-  if (words.length > 1) {
-    return cleanedLabel;
   }
 
   return cleanedTemplate.includes("{option}")
@@ -373,6 +410,10 @@ function sanitizeHistoryOptions(options: SessionOption[]) {
 
       const emoji = getSafeHistoryText(option.emoji, MAX_HISTORY_META_LENGTH);
       const imageUrl = getSafeHistoryImageUrl(option.imageUrl);
+      const visualKeyword = getSafeHistoryText(
+        option.visualKeyword,
+        MAX_HISTORY_LABEL_LENGTH,
+      );
       const source = getSafeHistoryText(option.source, MAX_HISTORY_META_LENGTH);
       const provider = getSafeHistoryText(
         option.provider,
@@ -384,6 +425,7 @@ function sanitizeHistoryOptions(options: SessionOption[]) {
           getSafeHistoryText(option.id, MAX_HISTORY_META_LENGTH) ||
           String(index + 1),
         label,
+        ...(visualKeyword ? { visualKeyword } : {}),
         ...(emoji ? { emoji } : {}),
         ...(imageUrl ? { imageUrl } : {}),
         ...(source ? { source } : {}),
@@ -546,6 +588,7 @@ export async function generateOptionVisualsFromCloud(
       images: Array<{
         label: string;
         imageUrl?: string | null;
+        visualKeyword?: string | null;
         emoji?: string | null;
         source?: string | null;
         provider?: string | null;
@@ -566,6 +609,7 @@ export async function generateOptionVisualsFromCloud(
       id: String(index + 1),
       label: cleanedLabel,
       imageUrl: image.imageUrl ?? null,
+      visualKeyword: image.visualKeyword ?? cleanedLabel,
       emoji: image.emoji ?? getEmojiForLabel(cleanedLabel, index),
       source: image.source ?? null,
       provider: image.provider ?? null,

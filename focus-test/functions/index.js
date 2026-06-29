@@ -238,6 +238,50 @@ function normalizeVisualSearchText(value){
     .replace(/\s+/g, " ");
 }
 
+function parseOptionLabelForVisual(input){
+  const cleanedInput = String(input || "").replace(/\s+/g, " ").trim();
+  const bracketMatch = cleanedInput.match(/^(.*?)\[([^\]]+)\](.*)$/);
+
+  if(!cleanedInput){
+    return {
+      displayLabel: "",
+      visualKeyword: "",
+    };
+  }
+
+  if(!bracketMatch){
+    const fallbackLabel = cleanedInput
+      .replace(/[\[\]]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return {
+      displayLabel: fallbackLabel,
+      visualKeyword: fallbackLabel,
+    };
+  }
+
+  const before = String(bracketMatch[1] || "").trim();
+  const keyword = String(bracketMatch[2] || "").replace(/\s+/g, " ").trim();
+  const after = String(bracketMatch[3] || "").trim();
+  const fallbackLabel = cleanedInput
+    .replace(/[\[\]]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if(!keyword){
+    return {
+      displayLabel: fallbackLabel,
+      visualKeyword: fallbackLabel,
+    };
+  }
+
+  return {
+    displayLabel: [before, keyword, after].filter(Boolean).join(" "),
+    visualKeyword: keyword,
+  };
+}
+
 function getSportsDisambiguatedQuery(normalizedLabel, context = {}){
   if(!context.isSportsContext){
     return null;
@@ -912,14 +956,20 @@ exports.generateOptionVisuals = onCall(
     }
     const MAX_OPTIONS = 4;
     const MAX_LABEL_LENGTH = 60;
-    const cleanedLabels = optionLabels.map((label) => String(label || "").trim()).filter(Boolean).slice(0, MAX_OPTIONS);
-    if(cleanedLabels.length ===0){
+    const parsedLabels = optionLabels
+      .map((label) => parseOptionLabelForVisual(label))
+      .filter((label) => label.displayLabel)
+      .slice(0, MAX_OPTIONS);
+    const displayLabels = parsedLabels.map((label) => label.displayLabel);
+    const visualKeywords = parsedLabels.map((label) => label.visualKeyword);
+
+    if(displayLabels.length ===0){
       throw new HttpsError(
         "invalid-argument",
         "At least one option label is required"
       );
     }
-    const tooLongLabel = cleanedLabels.find((label) => label.length > MAX_LABEL_LENGTH);
+    const tooLongLabel = displayLabels.find((label) => label.length > MAX_LABEL_LENGTH);
     if(tooLongLabel){
       throw new HttpsError(
         "invalid-argument",
@@ -927,16 +977,26 @@ exports.generateOptionVisuals = onCall(
       );
     }
     console.log("generateOptionVisuals called", {
-      optionCount: cleanedLabels.length,
+      optionCount: displayLabels.length,
       hasQuestion: !!question,
     });
 
-    const visualContext = getVisualContext(question, cleanedLabels);
+    const visualContext = getVisualContext(question, visualKeywords);
     
     const images = await Promise.all(
-      cleanedLabels.map((label, index) =>
-        resolveVisualForLabel(label, index, visualContext)
-      )
+      parsedLabels.map(async (label, index) => {
+        const visual = await resolveVisualForLabel(
+          label.visualKeyword,
+          index,
+          visualContext,
+        );
+
+        return {
+          ...visual,
+          label: label.displayLabel,
+          visualKeyword: label.visualKeyword,
+        };
+      })
     );
 
     return {

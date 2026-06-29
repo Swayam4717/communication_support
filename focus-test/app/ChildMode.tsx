@@ -18,7 +18,7 @@ import {
   subscribeToSession,
   submitAnswer,
 } from "./communicationHelpers";
-import { Header, OptionCard } from "./communicationUI";
+import { OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
 
 interface ChildModeScreenProps {
@@ -215,8 +215,8 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
         setIsListening(false);
         autoListenEnabledRef.current = false;
         setIsAutoListenEnabled(false);
-        setSpeechError("You can still tap an answer.");
-        setSpeechMessage("You can still tap an answer.");
+        setSpeechError(null);
+        setSpeechMessage("Start speaking when ready.");
       }
     }, 600);
   }, [
@@ -335,8 +335,8 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
       return;
     }
 
-    setSpeechError("You can still tap an answer.");
-    setSpeechMessage("You can still tap an answer.");
+    setSpeechError(null);
+    setSpeechMessage("Start speaking when ready.");
   });
 
   React.useEffect(() => {
@@ -354,8 +354,8 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
       if (!permission.granted || !ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
         autoListenEnabledRef.current = false;
         setIsAutoListenEnabled(false);
-        setSpeechError("You can still tap an answer.");
-        setSpeechMessage("You can still tap an answer.");
+        setSpeechError(null);
+        setSpeechMessage("Start speaking when ready.");
         return;
       }
 
@@ -379,8 +379,8 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
       setIsListening(false);
       autoListenEnabledRef.current = false;
       setIsAutoListenEnabled(false);
-      setSpeechError("You can still tap an answer.");
-      setSpeechMessage("You can still tap an answer.");
+      setSpeechError(null);
+      setSpeechMessage("Start speaking when ready.");
     }
   };
 
@@ -391,8 +391,8 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
       clearRestartListeningTimer();
       ExpoSpeechRecognitionModule.stop();
     } catch {
-      setSpeechError("You can still tap an answer.");
-      setSpeechMessage("You can still tap an answer.");
+      setSpeechError(null);
+      setSpeechMessage("Start speaking when ready.");
     } finally {
       setIsListening(false);
     }
@@ -445,8 +445,6 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <Header title="Child Mode" subtitle={`Room: ${roomId}`} onBack={undefined} />
-
       <View style={styles.settingsButton}>
         <TouchableOpacity style={styles.resetButton} onPress={onResetSetup}>
           <Text style={styles.resetButtonText}>Reset Device Setup</Text>
@@ -478,7 +476,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
         <View style={styles.choiceCard}>
           <Text style={styles.questionTitle}>{session.title}</Text>
           <Text style={styles.choiceInstructionText}>
-            Tap an answer, then practise saying it.
+            Tap an answer first.
           </Text>
 
           <View style={styles.choiceList}>
@@ -512,19 +510,6 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
                   </Text>
                 </View>
               ) : null}
-              <View style={styles.speechSupportBoard}>
-                {session.options.map((option) => (
-                  <View
-                    key={option.id}
-                    style={[
-                      styles.speechSupportChip,
-                      option.id === selectedOptionId && styles.speechSupportChipSelected,
-                    ]}
-                  >
-                    <Text style={styles.speechSupportChipText}>{option.label}</Text>
-                  </View>
-                ))}
-              </View>
               <TouchableOpacity
                 style={[
                   styles.speechListenButton,
@@ -597,6 +582,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
               <OptionCard
                 key={option.id}
                 option={option}
+                compact
                 selected={option.id === selectedOptionId}
                 onPress={() => {
                   autoListenEnabledRef.current = false;
@@ -629,7 +615,7 @@ export default function ChildModeScreen({ roomId, onResetSetup }: ChildModeScree
             <Text style={styles.selectedAnswerLabel}>Selected answer</Text>
             <Text style={styles.selectedAnswerText}>
               {selectedOption
-                ? `${selectedOption.label} is selected. Press Send Answer when ready.`
+                ? `Selected: ${selectedOption.label}`
                 : "Say or tap an answer first"}
             </Text>
           </View>

@@ -11,6 +11,7 @@ This release is intended for controlled pilot/demo use.
 - Parent sends a structured message from the hosted web app.
 - Android child receives a native overlay alert.
 - Child opens the message from the overlay directly into the active question screen when child setup is complete.
+- If the child leaves an opened unanswered question, the app can send a data-only native overlay reminder to return.
 - Child answers by tapping a visual option.
 - Child answers using Guided Speech Practice for the selected option.
 - Parent receives the child answer in realtime.
@@ -34,6 +35,7 @@ This release is intended for controlled pilot/demo use.
 - Background activity/app settings shortcut for Android battery reliability.
 - Tap-to-answer visual option flow.
 - Compact child choice screen for Android phone testing.
+- Exit-before-answer tracking and reminder overlay for opened unanswered questions.
 - Guided Speech Practice after the child taps an option.
 - Generated practice phrases from the parent speech pattern, with fallback to `I want {option}`.
 - Ordered word progress with high-contrast word chips and a clear feedback card.
@@ -67,7 +69,7 @@ Required Android settings for reliable alert behavior:
 
 Android/OEM long-idle FCM delivery can vary by device battery and background restrictions. On the tested OnePlus device, alerts worked after the required permissions and background settings were enabled.
 
-The current alert path keeps data-only FCM because adding a notification payload broke the native overlay delivery path. Future hardening may revisit notification fallback behavior without weakening the overlay flow.
+The current alert and exit-reminder paths keep data-only FCM because adding a notification payload broke the native overlay delivery path. Future hardening may revisit notification fallback behavior without weakening the overlay flow.
 
 ## Debugging
 

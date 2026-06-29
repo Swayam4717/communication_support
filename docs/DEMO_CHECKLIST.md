@@ -45,6 +45,17 @@ The app cannot fully verify every OnePlus/OEM background setting automatically. 
 10. Tap Open message on the overlay.
 11. Confirm the child opens directly to the active question/options screen if child setup is already complete.
 
+## Child Exit Reminder Flow
+
+1. Send a question to the child.
+2. Open the question from the overlay.
+3. Before answering, press Home or background the app.
+4. Confirm the session remains unanswered.
+5. Confirm another native overlay reminder appears asking the child to return.
+6. Open the reminder and answer normally.
+
+The reminder uses the same data-only FCM/native overlay path as the original parent alert. It should send once for that exit event and stop once the child sends an answer.
+
 ## Child Tap-To-Answer Flow
 
 1. On the child phone, tap one answer option.

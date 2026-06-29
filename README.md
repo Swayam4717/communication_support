@@ -21,6 +21,7 @@ The current validated attention path is the native Android overlay. Android/OEM 
   - parent sends a session,
   - Android attention overlay appears on an active/unlocked child device,
   - child opens the message directly from the overlay into the active question screen,
+  - if the child leaves the active question before answering, a data-only FCM overlay reminder can ask them to return,
   - child answers by tapping an option or using Guided Speech Practice,
   - child manually presses Send Answer,
   - parent receives the answer in realtime,
@@ -62,9 +63,10 @@ The tested demo path is:
 3. Parent sends a session from the web app.
 4. Android child receives the native overlay alert.
 5. Child opens the message from the overlay and lands directly on the active question screen when child setup is already complete.
-6. Child answers by tapping an option or using Guided Speech Practice.
-7. Child manually presses Send Answer.
-8. Parent receives the response in realtime.
+6. If the child leaves the unanswered active question, Focus-Test can send a reminder overlay using the same data-only native alert path.
+7. Child answers by tapping an option or using Guided Speech Practice.
+8. Child manually presses Send Answer.
+9. Parent receives the response in realtime.
 
 # Required Android/OnePlus Settings
 
@@ -132,6 +134,7 @@ Android overlay reliability can vary by device/OEM battery settings. On the test
 - Visual option cards with image, emoji, or text fallback.
 - Child manually presses Send Answer.
 - Visible feedback if child answer submission fails.
+- Exit-before-answer tracking: if the child backgrounds/leaves an opened active question before sending, Firestore marks the session and Cloud Functions sends a return-to-question overlay reminder.
 - Confirmation state after answer submission.
 
 ## Visual Generation
@@ -227,7 +230,7 @@ Key responsibilities:
 - `communicationHelpers.ts`: Firebase app, Firestore, Storage, session/history helpers.
 - `communicationCommon.tsx`: shared styles.
 - `communicationUI.tsx`: shared UI components.
-- `functions/index.js`: FCM alert function and visual-generation pipeline.
+- `functions/index.js`: data-only FCM alerts for new sessions and exit-before-answer reminders, plus the visual-generation pipeline.
 - `modules/focus-alert/`: local Android native module for attention alerts.
 
 ---

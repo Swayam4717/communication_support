@@ -29,12 +29,13 @@
 1. Parent sends a question with options.
 2. Child receives the attention overlay.
 3. Child taps Open message and should land directly on the active question/options screen if setup is complete.
-4. Child answers by tapping an option or using Guided Speech Practice.
-5. Child presses Send Answer.
-6. Parent receives the answer in realtime.
-7. Parent checks History.
-8. Parent can tap Use again to reload a previous question/options into Create.
-9. Parent can tap Save as template to keep a previous question/options in the Templates tab.
+4. Optional reminder check: child presses Home or leaves the app before answering. The app marks the unanswered session and should send another native overlay reminder asking the child to return.
+5. Child answers by tapping an option or using Guided Speech Practice.
+6. Child presses Send Answer.
+7. Parent receives the answer in realtime.
+8. Parent checks History.
+9. Parent can tap Use again to reload a previous question/options into Create.
+10. Parent can tap Save as template to keep a previous question/options in the Templates tab.
 
 Guided Speech Practice notes:
 
@@ -61,6 +62,7 @@ Validated flows:
 - Parent sends after 2-minute and 5-minute lock tests.
 - Child opens the message from the overlay.
 - Overlay Open message should skip the intermediate child message screen and open the active question when child setup is already complete.
+- If the child leaves the opened active question before answering, a data-only FCM overlay reminder can ask them to return.
 - Child answers by tapping an option.
 - Child answers using Guided Speech Practice.
 - Parent receives child responses in realtime.
@@ -102,6 +104,7 @@ Android overlay reliability can vary by device/OEM battery settings. On the test
 ## Notes
 
 - Locked-device notification behavior is future work.
+- Exit-before-answer reminders use the same data-only native overlay path as parent alerts. They are sent when the child leaves an opened unanswered question and stop once the answer is sent.
 - Guided Speech Practice validates the selected option's generated phrase and does not auto-send.
 - Guided Speech Practice restarts the full sentence after a spoken mismatch and keeps listening through short pauses.
 - Speech sentence patterns are parent-controlled. If no pattern is saved, the app falls back to `I want {option}`.

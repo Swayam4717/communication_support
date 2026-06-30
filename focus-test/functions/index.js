@@ -954,12 +954,12 @@ exports.generateOptionVisuals = onCall(
         "optionLabels must be an array of strings"
       );
     }
-    const MAX_OPTIONS = 4;
+    const MAX_VISUAL_OPTIONS = 10;
     const MAX_LABEL_LENGTH = 60;
     const parsedLabels = optionLabels
       .map((label) => parseOptionLabelForVisual(label))
       .filter((label) => label.displayLabel)
-      .slice(0, MAX_OPTIONS);
+      .slice(0, MAX_VISUAL_OPTIONS);
     const displayLabels = parsedLabels.map((label) => label.displayLabel);
     const visualKeywords = parsedLabels.map((label) => label.visualKeyword);
 

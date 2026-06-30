@@ -1250,14 +1250,6 @@ export default function ParentModeScreen({
                   </TouchableOpacity>
                 </View>
 
-              <Text style={styles.parentOptionsHint}>
-                Add images only when needed. Visuals can also be generated
-                automatically.
-              </Text>
-              <Text style={styles.parentOptionsHint}>
-                Tip: put the picture word in [brackets], e.g. play [soccer].
-              </Text>
-
                 <View style={styles.parentOptionsList}>
                   {optionLabels.map((label, index) => {
                     const visualRemoved = removedVisualIndexes.has(index);
@@ -1355,6 +1347,11 @@ export default function ParentModeScreen({
                     Add option
                   </Text>
                 </TouchableOpacity>
+
+                <Text style={styles.parentOptionsHint}>
+                  Optional: add or change images here. For generated visuals,
+                  put the picture word in [brackets], e.g. play [soccer].
+                </Text>
               </View>
 
               <View style={styles.parentPreviewToggle}>

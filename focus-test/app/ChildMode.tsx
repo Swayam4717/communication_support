@@ -656,7 +656,6 @@ export default function ChildModeScreen({
                   />
                 </>
               ) : null}
-              <Text style={styles.speechPracticeMessage}>{speechMessage}</Text>
             </View>
 
             {session.options.map((option) => (

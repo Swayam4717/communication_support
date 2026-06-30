@@ -556,13 +556,9 @@ export default function ChildModeScreen({
       {session && stage === "choice" ? (
         <View style={styles.choiceCard}>
           <Text style={styles.questionTitle}>{session.title}</Text>
-          <Text style={styles.choiceInstructionText}>
-            Tap an answer first.
-          </Text>
 
           <View style={styles.choiceList}>
             <View style={styles.speechPracticeCard}>
-              <Text style={styles.speechPracticeTitle}>Try saying your answer</Text>
               <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={handlePracticePhrasePress}

@@ -1255,7 +1255,7 @@ export default function ParentModeScreen({
                 automatically.
               </Text>
               <Text style={styles.parentOptionsHint}>
-                Tip: put the picture word in brackets, e.g. play [soccer].
+                Tip: put the picture word in [brackets], e.g. play [soccer].
               </Text>
 
                 <View style={styles.parentOptionsList}>

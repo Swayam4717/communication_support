@@ -7,7 +7,9 @@
 3. Create a room.
 4. Share the room code with the child device.
 5. Use the History tab after answered sessions to reuse previous questions or save them as templates.
-6. Optional: choose a Speech sentence pattern before sending, such as `I want {option}`, `I feel {option}`, or `{option}`.
+6. Add or remove answer options as needed. Keep at least two options.
+7. Optional: choose a Speech sentence pattern before sending, such as `I want {option}`, `I feel {option}`, or `{option}`.
+8. Optional: put the picture word in square brackets for better visuals, such as `play [soccer]`. The child sees `play soccer`, while visual generation searches for `soccer`.
 
 ## Child Android App
 
@@ -41,6 +43,7 @@ Guided Speech Practice notes:
 
 - The child taps an option first.
 - The app shows a generated phrase, such as `Say this: I want rice`.
+- Speech patterns are always applied to the cleaned option label. For example, `I want to {option}` plus `play [soccer]` becomes `I want to play soccer`.
 - Start speaking validates that selected option's phrase word by word.
 - The app keeps listening through short pauses after Start speaking, until the child stops or the phrase is complete.
 - The app shows high-contrast word progress and a clear feedback card such as `Let's try again / Start again: I want rice` or `Good / Ready to send`.
@@ -108,6 +111,7 @@ Android overlay reliability can vary by device/OEM battery settings. On the test
 - Guided Speech Practice validates the selected option's generated phrase and does not auto-send.
 - Guided Speech Practice restarts the full sentence after a spoken mismatch and keeps listening through short pauses.
 - Speech sentence patterns are parent-controlled. If no pattern is saved, the app falls back to `I want {option}`.
+- Bracketed picture keywords affect visual lookup only. The child-facing label and speech practice use the cleaned label without brackets.
 - Visual generation may use fallback/simple visuals; testers can keep them, remove them, or upload their own image.
 - Saved templates are local to the parent browser/device and are not room-specific.
 - Uploaded personal/sensitive images should be avoided for pilot testing.

@@ -39,11 +39,13 @@ The app cannot fully verify every OnePlus/OEM background setting automatically. 
 4. Open the installed Android child app.
 5. Select Child Device and join the same room.
 6. From Parent Mode, create a question with answer options.
-7. Optional: set the Speech sentence pattern, such as `I want {option}` or `I feel {option}`.
-8. Send the question to the child.
-9. Confirm the native Android overlay appears on the child phone.
-10. Tap Open message on the overlay.
-11. Confirm the child opens directly to the active question/options screen if child setup is already complete.
+7. Optional: add/remove answer options. Keep at least two options.
+8. Optional: use square brackets to guide visual lookup, such as `play [soccer]`. The child should see `play soccer`.
+9. Optional: set the Speech sentence pattern, such as `I want {option}` or `I feel {option}`.
+10. Send the question to the child.
+11. Confirm the native Android overlay appears on the child phone.
+12. Tap Open message on the overlay.
+13. Confirm the child opens directly to the active question/options screen if child setup is already complete.
 
 ## Child Exit Reminder Flow
 
@@ -68,13 +70,14 @@ The reminder uses the same data-only FCM/native overlay path as the original par
 1. Send a question with clear answer options.
 2. On the child phone, tap the option the child wants to answer with.
 3. Confirm the practice phrase appears, such as `Say this: I want rice`.
-4. Tap Start speaking.
-5. Say the practice phrase word by word.
-6. Confirm the high-contrast word chips highlight completed/current/pending words.
-7. Pause briefly and confirm listening resumes without pressing Start again.
-8. Say a mismatched word and confirm progress returns to the first word with calm wording such as `Let's try again / Start again: I want rice`.
-9. Say the full sentence correctly and confirm the feedback card shows `Good / Ready to send`.
-10. Tap Send Answer manually.
+4. If the parent used a bracketed label such as `play [soccer]`, confirm the speech phrase uses the cleaned label, such as `I want to play soccer`.
+5. Tap Start speaking.
+6. Say the practice phrase word by word.
+7. Confirm the high-contrast word chips highlight completed/current/pending words.
+8. Pause briefly and confirm listening resumes without pressing Start again.
+9. Say a mismatched word and confirm progress returns to the first word with calm wording such as `Let's try again / Start again: I want rice`.
+10. Say the full sentence correctly and confirm the feedback card shows `Good / Ready to send`.
+11. Tap Send Answer manually.
 
 Speech validates the selected option's phrase but does not auto-submit or change the selected option.
 
@@ -89,6 +92,7 @@ Safety check: tap one option, then say or type a phrase for a different option. 
 - Confirm new answered history items can show the generated speech practice phrase when speech-pattern data is available.
 - Optional: use Use again from History to reload the question/options.
 - Optional: use Save as template from History to keep the question/options.
+- Optional: save and reuse a question with more than four options to confirm dynamic options are preserved.
 
 ## Known Limitation
 

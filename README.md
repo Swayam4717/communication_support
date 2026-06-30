@@ -106,7 +106,9 @@ Android overlay reliability can vary by device/OEM battery settings. On the test
 - Parent-child room pairing with human-readable room codes.
 - Parent Mode with Create, History, and Templates tabs.
 - Session creation with a question and answer options.
+- Dynamic answer options: parents can add or remove choices while keeping at least two options.
 - Optional speech sentence pattern for child practice, such as `I want {option}`, `I feel {option}`, or `{option}`.
+- Square-bracket visual keywords for longer option labels. For example, `play [soccer]` shows as `play soccer` to the child, but visual generation searches for `soccer`.
 - Visual answer options with generated visuals, uploaded images, emoji fallback, and text fallback.
 - Manual image upload from camera/gallery.
 - Remove visual option when a generated/uploaded visual is unsuitable.
@@ -151,6 +153,8 @@ Firestore visualCache
 
 OpenSymbols search avoids weak connector/preposition matches for multi-word labels such as `after bed` and `before bed`, so weak words like `after` or `before` are not accepted as the main visual concept.
 
+Parents can guide visual lookup by putting the intended picture word or phrase in square brackets. For example, `go to [toilet]` displays as `go to toilet`, while the visual pipeline searches for `toilet`.
+
 If the pipeline uses a simpler fallback visual, the parent UI treats it as usable but reviewable. Parents can keep the fallback, remove it, or upload their own image before sending.
 
 API keys stay in Firebase backend secrets, not frontend code.
@@ -161,7 +165,7 @@ API keys stay in Firebase backend secrets, not frontend code.
 - Real Android speech recognition has been verified.
 - The child taps an option first, then practises the generated speech phrase for that selected option.
 - Speech phrases are generated from the parent speech pattern, such as `I want {option}` or `I feel {option}`. If no pattern exists, the app falls back to `I want {option}`.
-- Simple option labels such as `Rice` become phrases like `I want rice`; complete phrases such as `I need help`, `Stop`, `Yes`, and `No` are used as-is.
+- The speech pattern is always applied to the cleaned option label. For example, pattern `I want to {option}` plus option `play [soccer]` becomes `I want to play soccer`.
 - Speech recognition validates the selected option's practice phrase only. It no longer chooses between all options.
 - The app tracks phrase progress in order, word by word. Later words are not accepted until earlier words are completed.
 - Speech practice keeps listening through short pauses after the child taps Start Speaking, until the child stops, the phrase completes, the selected option/session changes, or the screen unmounts.
@@ -405,18 +409,20 @@ Use this checklist for the deployed parent + installed Android child flow:
 15. Child manually presses Send Answer.
 16. Parent receives the answer in realtime.
 17. Parent sends a second session.
-18. Optional: choose or edit the parent speech sentence pattern before sending, such as `I want {option}`.
-19. Child taps an answer and uses Guided Speech Practice.
-20. Confirm the `Say this: ...` phrase appears for the selected option.
-21. Confirm word progress and the feedback card update as the child speaks each word.
-22. Confirm speech practice keeps listening through short pauses.
-23. Confirm the app calmly restarts the full sentence from the first word if a spoken word is misheard or does not match.
-24. Optional: tap the `Say this: ...` phrase five times to reveal `Tester transcript` and test the same practice flow silently.
-25. Child manually presses Send Answer.
-26. Parent receives the answer in realtime.
-27. Confirm History updates.
-28. In History, use `Use again` to load a previous question/options into Create.
-29. In History, use `Save as template` to save a previous question/options for the Templates tab.
+18. Optional: add/remove answer options. Keep at least two options.
+19. Optional: use brackets to guide visuals, such as `play [soccer]`. Confirm the child sees `play soccer`.
+20. Optional: choose or edit the parent speech sentence pattern before sending, such as `I want {option}` or `I want to {option}`.
+21. Child taps an answer and uses Guided Speech Practice.
+22. Confirm the `Say this: ...` phrase applies the speech pattern to the cleaned option label.
+23. Confirm word progress and the feedback card update as the child speaks each word.
+24. Confirm speech practice keeps listening through short pauses.
+25. Confirm the app calmly restarts the full sentence from the first word if a spoken word is misheard or does not match.
+26. Optional: tap the `Say this: ...` phrase five times to reveal `Tester transcript` and test the same practice flow silently.
+27. Child manually presses Send Answer.
+28. Parent receives the answer in realtime.
+29. Confirm History updates.
+30. In History, use `Use again` to load a previous question/options into Create.
+31. In History, use `Save as template` to save a previous question/options for the Templates tab.
 
 ---
 
@@ -430,6 +436,7 @@ Use this checklist for the deployed parent + installed Android child flow:
 - iOS child attention-capture support is not implemented.
 - Expo Go is not sufficient for child-side testing because the app uses native Android modules and native speech recognition.
 - Speech recognition and word-level practice depend on Android speech service availability, parent speech-pattern wording, and real-world noise conditions.
+- Generated visuals currently process a limited set of options per request. Extra options remain usable as text/emoji/manual-visual choices.
 - Overlay deep links can skip directly to the active question only after child setup has already saved the role and room locally. If setup is missing, the app falls back to setup.
 - This is a controlled-pilot MVP, not a production security model.
 

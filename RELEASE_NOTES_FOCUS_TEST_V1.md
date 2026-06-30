@@ -19,11 +19,13 @@ This release is intended for controlled pilot/demo use.
 ## Parent Features
 
 - Parent Mode with Create, History, and Templates tabs.
+- Dynamic answer options with add/remove controls and a minimum of two choices.
 - Saved templates that can be created, edited, used, and deleted.
 - Optional speech sentence patterns, such as `I want {option}`, `I feel {option}`, or `{option}`.
 - Template cards show their saved speech pattern.
 - History items that can be reused or saved as templates.
 - New history items can show the speech practice phrase when speech-pattern data is available.
+- Square-bracket visual keywords, such as `play [soccer]`, so the child sees `play soccer` while visual generation searches for `soccer`.
 - Visual answer options with generated visuals, manual uploads, remove visual, emoji fallback, and text fallback.
 - Visual generation review messaging so parents know generated visuals are suggestions.
 
@@ -37,7 +39,7 @@ This release is intended for controlled pilot/demo use.
 - Compact child choice screen for Android phone testing.
 - Exit-before-answer tracking and reminder overlay for opened unanswered questions.
 - Guided Speech Practice after the child taps an option.
-- Generated practice phrases from the parent speech pattern, with fallback to `I want {option}`.
+- Generated practice phrases from the parent speech pattern, with fallback to `I want {option}`. The speech pattern is always applied to the cleaned option label.
 - Ordered word progress with high-contrast word chips and a clear feedback card.
 - Speech listening automatically restarts through short pauses during active practice.
 - Spoken mismatches restart the full sentence from the first word with calm feedback.

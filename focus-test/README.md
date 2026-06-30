@@ -51,8 +51,10 @@ Restart Expo after changing environment variables.
 - Child attention alerts and Guided Speech Practice are Android-first.
 - Tapping Open message on the native overlay routes directly to the active child question when child setup is already saved locally.
 - If the child leaves an opened unanswered question, ChildMode marks the session in Firestore and Cloud Functions sends a data-only native overlay reminder to return.
+- Parent Mode supports dynamic answer options with add/remove controls while keeping at least two choices.
+- Parent option labels can use square brackets to guide visual lookup, such as `play [soccer]`. The child sees `play soccer`, visual generation uses `soccer`, and speech practice uses the cleaned label.
 - Guided Speech Practice is selected-option based. The child taps an option first, then practises the generated phrase for that option.
-- Parent sessions can include a speech sentence pattern such as `I want {option}`, `I feel {option}`, or `{option}`. Existing sessions fall back to `I want {option}`.
+- Parent sessions can include a speech sentence pattern such as `I want {option}`, `I feel {option}`, or `{option}`. Existing sessions fall back to `I want {option}`. The speech pattern is always applied to the cleaned option label.
 - Guided Speech Practice tracks ordered word progress with high-contrast word chips and a compact child screen.
 - Speech recognition keeps listening through short pauses during active practice.
 - If a spoken word is misheard or does not match, progress resets to the first word and the child repeats the full sentence.

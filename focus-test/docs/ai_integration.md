@@ -16,11 +16,14 @@ Firestore visualCache
 
 The parent app sends the question and option labels to the Cloud Function. The backend returns visual metadata for each option, and Parent/Child Mode render uploaded images, generated visuals, emoji fallback, or text-only cards as needed.
 
+Parent option labels can include square-bracket visual keywords. For example, `play [soccer]` is displayed to the child as `play soccer`, while the visual-generation lookup uses `soccer`. Multi-word keywords such as `go to [swimming pool]` are also supported. If brackets are missing or malformed, the app falls back to the cleaned full label.
+
 ## Provider Notes
 
 - OpenSymbols is the first external AAC pictogram source.
 - OpenSymbols results are filtered for commercially safer licenses.
 - Phrase-aware OpenSymbols handling avoids weak standalone words such as `after` or `before` for labels like `after bed`.
+- Bracketed visual keywords override the lookup term before the provider pipeline runs, so longer child-facing phrases can still request the intended picture concept.
 - Emoji API is used for simple concepts when OpenSymbols has no suitable result.
 - Runware is used as the AI fallback and uploads generated images to Firebase Storage.
 - Mock fallback keeps the app usable if all external providers fail.

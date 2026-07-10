@@ -463,7 +463,7 @@ export default function DeviceSetupScreen({
             onPress={onConfirm}
           >
             <Text style={styles.setupChecklistActionText}>
-              I've enabled this
+              I&apos;ve enabled this
             </Text>
           </TouchableOpacity>
         </>

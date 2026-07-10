@@ -26,7 +26,7 @@ This release is intended for controlled pilot/demo use.
 - History items that can be reused or saved as templates.
 - New history items can show the speech practice phrase when speech-pattern data is available.
 - Square-bracket visual keywords, such as `play [soccer]`, so the child sees `play soccer` while visual generation searches for `soccer`.
-- Visual answer options with generated visuals, manual uploads, remove visual, emoji fallback, and text fallback.
+- Visual answer options with generated visuals, manual uploads, remove visual, Emoji API results, and text-only fallback when no reliable visual is found.
 - Visual generation review messaging so parents know generated visuals are suggestions.
 
 ## Child Features

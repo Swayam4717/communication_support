@@ -112,6 +112,6 @@ Android overlay reliability can vary by device/OEM battery settings. On the test
 - Guided Speech Practice restarts the full sentence after a spoken mismatch and keeps listening through short pauses.
 - Speech sentence patterns are parent-controlled. If no pattern is saved, the app falls back to `I want {option}`.
 - Bracketed picture keywords affect visual lookup only. The child-facing label and speech practice use the cleaned label without brackets.
-- Visual generation may use fallback/simple visuals; testers can keep them, remove them, or upload their own image.
+- If no reliable generated visual or Emoji API result is found, the option stays text-only. Testers can upload their own image if a visual is needed.
 - Saved templates are local to the parent browser/device and are not room-specific.
 - Uploaded personal/sensitive images should be avoided for pilot testing.

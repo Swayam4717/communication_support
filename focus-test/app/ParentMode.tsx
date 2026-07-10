@@ -773,7 +773,7 @@ export default function ParentModeScreen({
                 option.visualKeyword ??
                 option.label,
               imageUrl: generatedOption.imageUrl ?? option.imageUrl ?? null,
-              emoji: generatedOption.emoji ?? option.emoji ?? null,
+              emoji: generatedOption.emoji ?? null,
               source: generatedOption.source ?? option.source ?? null,
               provider: generatedOption.provider ?? option.provider ?? null,
             }
@@ -796,10 +796,15 @@ export default function ParentModeScreen({
           provider.includes("mock")
         );
       });
+      const hasTextOnlyOptions = mergedOptions.some(
+        (option) => option.source === "none" && !option.imageUrl && !option.emoji,
+      );
 
       showMessage(
         "Visuals ready",
-        hasSimpleFallbackVisuals
+        hasTextOnlyOptions
+          ? "Some options stayed text-only because no reliable visual was found. You can add your own image if needed."
+          : hasSimpleFallbackVisuals
           ? "Some options used simpler fallback visuals. Please check each image before sending. You can keep, change, or remove any visual."
           : "Generated visuals are suggestions. Please check that each image matches the option before sending. You can change or remove any visual.",
       );

@@ -24,8 +24,6 @@ export interface SentSession {
 
 export const DEFAULT_QUESTION = "What would you like to eat?";
 export const DEFAULT_OPTIONS = ["Rice", "Noodles", "Pizza", "Sandwich"];
-export const FALLBACK_EMOJIS = ["🌿", "☁️", "✨", "🫧"];
-
 export function getEmojiForLabel(label: string, index: number) {
   const normalized = label.trim().toLowerCase();
   const emojiMap: Record<string, string> = {
@@ -39,9 +37,7 @@ export function getEmojiForLabel(label: string, index: number) {
     tired: "😴",
   };
 
-  return (
-    emojiMap[normalized] ?? FALLBACK_EMOJIS[index % FALLBACK_EMOJIS.length]
-  );
+  return emojiMap[normalized] ?? null;
 }
 
 export function buildSessionOptions(optionLabels: string[]): SessionOption[] {

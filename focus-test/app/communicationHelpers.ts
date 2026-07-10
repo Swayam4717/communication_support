@@ -108,8 +108,6 @@ const MAX_HISTORY_OPTIONS = 12;
 const MAX_HISTORY_LABEL_LENGTH = 60;
 const MAX_HISTORY_META_LENGTH = 80;
 const MAX_HISTORY_IMAGE_URL_LENGTH = 2048;
-export const FALLBACK_EMOJIS = ["🌿", "☁️", "✨", "🫧"];
-
 export function parseOptionLabelForVisual(input: string) {
   const cleanedInput = String(input || "").replace(/\s+/g, " ").trim();
   const bracketMatch = cleanedInput.match(/^(.*?)\[([^\]]+)\](.*)$/);
@@ -167,7 +165,7 @@ export function getEmojiForLabel(label: string, index: number) {
     tired: "😴",
   };
 
-  return emojiMap[normalized] ?? FALLBACK_EMOJIS[index % FALLBACK_EMOJIS.length];
+  return emojiMap[normalized] ?? null;
 }
 
 export function buildSessionOptions(
@@ -610,7 +608,7 @@ export async function generateOptionVisualsFromCloud(
       label: cleanedLabel,
       imageUrl: image.imageUrl ?? null,
       visualKeyword: image.visualKeyword ?? cleanedLabel,
-      emoji: image.emoji ?? getEmojiForLabel(cleanedLabel, index),
+      emoji: image.emoji ?? null,
       source: image.source ?? null,
       provider: image.provider ?? null,
     };

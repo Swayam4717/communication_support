@@ -1,9 +1,9 @@
 const {GoogleAuth} = require('google-auth-library');
 const axios = require('axios');
 const SERVICE_ACCOUNT_FILE = './service-account.json';
-const DEVICE_TOKEN = 'cD8vGksTQbS3k-OQA3bhtE:APA91bFiuXVtD2_97Qfo7vWBX94LUvEm0dKd76U9WEx90126g8cq8gpJoM8c32ri3OXGZ-XxjKSE3bU0aHrL1ZvrePZLDlCYcUho50adN9rrCnfBjjPhkb4';
+const DEVICE_TOKEN = process.env.FOCUS_TEST_FCM_TOKEN;
 
-// Development-only script for sending a test FCM data message to one device token.
+// Local development only. Set FOCUS_TEST_FCM_TOKEN in your shell before running.
 
 async function getAccessToken() {
     const auth = new GoogleAuth({
@@ -16,6 +16,10 @@ async function getAccessToken() {
 }
 
 async function sendMessage() {
+    if (!DEVICE_TOKEN) {
+        throw new Error('Missing FOCUS_TEST_FCM_TOKEN environment variable.');
+    }
+
     const accessToken = await getAccessToken();
     const message = {
         message: {

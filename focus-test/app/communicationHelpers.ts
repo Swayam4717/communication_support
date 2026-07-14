@@ -55,9 +55,14 @@ export interface CommunicationSession {
   childAppState?: "active" | "backgrounded" | null;
   childExitedBeforeAnswer?: boolean | null;
   childExitedAt?: unknown;
+  childExitReminderRequestId?: string | null;
+  childExitReminderRequestedAt?: unknown;
+  childExitReminderSessionId?: string | null;
   childLastActiveAt?: unknown;
   exitReminderCount?: number | null;
   lastExitReminderAt?: unknown;
+  lastExitReminderRequestId?: string | null;
+  lastExitReminderSessionId?: string | null;
 }
 export interface SessionHistoryItem{
   id: string;
@@ -452,8 +457,13 @@ export function createSession(
     selectedAnswer: null,
     childExitedBeforeAnswer: false,
     childExitedAt: null,
+    childExitReminderRequestId: null,
+    childExitReminderRequestedAt: null,
+    childExitReminderSessionId: null,
     exitReminderCount: 0,
     lastExitReminderAt: null,
+    lastExitReminderRequestId: null,
+    lastExitReminderSessionId: null,
     createdAt: Date.now(),
   } as CommunicationSession;
 }
@@ -473,8 +483,13 @@ export function createSessionWithResolvedOptions(
     selectedAnswer: null,
     childExitedBeforeAnswer: false,
     childExitedAt: null,
+    childExitReminderRequestId: null,
+    childExitReminderRequestedAt: null,
+    childExitReminderSessionId: null,
     exitReminderCount: 0,
     lastExitReminderAt: null,
+    lastExitReminderRequestId: null,
+    lastExitReminderSessionId: null,
     createdAt: Date.now(),
   };
 }
@@ -546,11 +561,18 @@ export async function submitAnswer(selectedAnswerId: string, roomId: string) {
   });
 }
 
-export async function markChildSessionExited(roomId: string) {
+export async function markChildSessionExited(
+  roomId: string,
+  reminderRequestId: string,
+  sessionId: string,
+) {
   await updateDoc(getRoomsDoc(roomId), {
     childAppState: "backgrounded",
     childExitedBeforeAnswer: true,
     childExitedAt: serverTimestamp(),
+    childExitReminderRequestId: reminderRequestId,
+    childExitReminderRequestedAt: serverTimestamp(),
+    childExitReminderSessionId: sessionId,
   });
 }
 

@@ -59,13 +59,66 @@ exports.sendFocusAlertOnSessionUpdate = onDocumentUpdated(
     const roomId = event.params.roomId;
     const isNewSentSession = beforeStatus !== "sent" && afterStatus === "sent";
     const hasAnswer = !!after.selectedAnswer || afterStatus === "answered";
-    const isNewChildExit =
-      before.childExitedBeforeAnswer !== true &&
-      after.childExitedBeforeAnswer === true;
+    const beforeExitReminderRequestId =
+      typeof before.childExitReminderRequestId === "string"
+        ? before.childExitReminderRequestId
+        : "";
+    const afterExitReminderRequestId =
+      typeof after.childExitReminderRequestId === "string"
+        ? after.childExitReminderRequestId
+        : "";
+    const afterExitReminderSessionId =
+      typeof after.childExitReminderSessionId === "string"
+        ? after.childExitReminderSessionId
+        : "";
+    const currentSessionId = typeof after.id === "string" ? after.id : "";
+    const hasNewExitReminderRequest =
+      !!afterExitReminderRequestId &&
+      beforeExitReminderRequestId !== afterExitReminderRequestId;
+    const exitReminderRequestMatchesCurrentSession =
+      !!afterExitReminderSessionId &&
+      !!currentSessionId &&
+      afterExitReminderSessionId === currentSessionId;
     const shouldSendExitReminder =
       afterStatus === "sent" &&
       !hasAnswer &&
-      isNewChildExit;
+      hasNewExitReminderRequest &&
+      exitReminderRequestMatchesCurrentSession;
+
+    if (
+      afterExitReminderRequestId &&
+      beforeExitReminderRequestId === afterExitReminderRequestId
+    ) {
+      console.log("Skipping exit reminder: request id did not change", {
+        roomId,
+        requestId: afterExitReminderRequestId,
+      });
+    }
+
+    if (hasNewExitReminderRequest && afterStatus !== "sent") {
+      console.log("Skipping exit reminder: room status is not sent", {
+        roomId,
+        status: afterStatus,
+        requestId: afterExitReminderRequestId,
+      });
+    }
+
+    if (hasNewExitReminderRequest && hasAnswer) {
+      console.log("Skipping exit reminder: answer already exists", {
+        roomId,
+        status: afterStatus,
+        requestId: afterExitReminderRequestId,
+      });
+    }
+
+    if (hasNewExitReminderRequest && !exitReminderRequestMatchesCurrentSession) {
+      console.log("Skipping exit reminder: request session does not match current session", {
+        roomId,
+        requestSessionId: afterExitReminderSessionId,
+        currentSessionId,
+        requestId: afterExitReminderRequestId,
+      });
+    }
 
     if (!isNewSentSession && !shouldSendExitReminder) {
       return;
@@ -91,6 +144,12 @@ exports.sendFocusAlertOnSessionUpdate = onDocumentUpdated(
 
       if (shouldSendExitReminder) {
         // Keep reminders on the native overlay path: data-only FCM, no notification payload.
+        console.log("Sending exit_reminder overlay", {
+          roomId,
+          requestId: afterExitReminderRequestId,
+          sessionId: afterExitReminderSessionId,
+        });
+
         await sendChildFocusAlert(
           childFcmToken,
           roomId,
@@ -102,6 +161,8 @@ exports.sendFocusAlertOnSessionUpdate = onDocumentUpdated(
         await event.data.after.ref.update({
           exitReminderCount: admin.firestore.FieldValue.increment(1),
           lastExitReminderAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastExitReminderRequestId: afterExitReminderRequestId,
+          lastExitReminderSessionId: afterExitReminderSessionId,
         });
       }
     } catch (error) {

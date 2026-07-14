@@ -16,7 +16,6 @@ import {
 import type { CommunicationSession, SpeechWordFeedback } from "./communicationHelpers";
 import {
   getSpeechPracticePhrase,
-  markChildSessionActive,
   markChildSessionExited,
   splitSpeechWords,
   subscribeToSession,
@@ -80,11 +79,18 @@ export default function ChildModeScreen({
   const sessionRef = React.useRef<CommunicationSession | null>(null);
   const appStateRef = React.useRef<AppStateStatus>(AppState.currentState);
   const answerSubmittedRef = React.useRef(false);
+  const hasInitializedAppStateRef = React.useRef(false);
+  const hasViewedCurrentSessionRef = React.useRef(false);
+  const currentViewedSessionIdRef = React.useRef<string | null>(null);
   const clearRestartListeningTimer = React.useCallback(() => {
     if (restartListeningTimerRef.current) {
       clearTimeout(restartListeningTimerRef.current);
       restartListeningTimerRef.current = null;
     }
+  }, []);
+  const resetExitReminderViewState = React.useCallback(() => {
+    hasViewedCurrentSessionRef.current = false;
+    currentViewedSessionIdRef.current = null;
   }, []);
   const abortSpeechRecognition = React.useCallback(() => {
     try {
@@ -122,14 +128,29 @@ export default function ChildModeScreen({
   }, [stage]);
 
   React.useEffect(() => {
+    if (
+      session?.status === "sent" &&
+      stage === "choice" &&
+      session.id &&
+      !session.selectedAnswer &&
+      !answerSubmittedRef.current
+    ) {
+      hasViewedCurrentSessionRef.current = true;
+      currentViewedSessionIdRef.current = session.id;
+    }
+  }, [session?.id, session?.selectedAnswer, session?.status, stage]);
+
+  React.useEffect(() => {
     sessionRef.current = session;
     if (!session || session.status === "idle") {
       answerSubmittedRef.current = false;
+      resetExitReminderViewState();
     }
     if (session?.status === "answered") {
       answerSubmittedRef.current = true;
+      resetExitReminderViewState();
     }
-  }, [session]);
+  }, [resetExitReminderViewState, session]);
 // Subscribe to session updates for the given roomId and update local state accordingly
  React.useEffect(() => {
   const unsub = subscribeToSession((s) => {
@@ -138,6 +159,7 @@ export default function ChildModeScreen({
 // Handle session status changes to update the UI stage and trigger alerts
     if (!s || s.status === "idle") {
       answerSubmittedRef.current = false;
+      resetExitReminderViewState();
       setStage("idle");
       previousSessionIdRef.current = s?.id ?? null;
       directOpenedSessionIdRef.current = null;
@@ -153,6 +175,7 @@ export default function ChildModeScreen({
     if (s.status === "sent") {
       if (s.id !== previousSessionIdRef.current) {
         answerSubmittedRef.current = false;
+        resetExitReminderViewState();
         autoListenEnabledRef.current = false;
         setIsAutoListenEnabled(false);
         clearRestartListeningTimer();
@@ -179,6 +202,7 @@ export default function ChildModeScreen({
 
     if (s.status === "answered") {
       answerSubmittedRef.current = true;
+      resetExitReminderViewState();
       previousSessionIdRef.current = s.id;
       directOpenedSessionIdRef.current = null;
       autoListenEnabledRef.current = false;
@@ -194,41 +218,65 @@ export default function ChildModeScreen({
   clearRestartListeningTimer,
   onOpenActiveSessionHandled,
   openActiveSessionDirectly,
+  resetExitReminderViewState,
   resetSpeechPracticeState,
   roomId,
 ]);
 
   React.useEffect(() => {
+    appStateRef.current = AppState.currentState;
+    hasInitializedAppStateRef.current = false;
+    const initializationTimer = setTimeout(() => {
+      hasInitializedAppStateRef.current = true;
+    }, 0);
+
     const subscription = AppState.addEventListener("change", (nextState) => {
       const previousState = appStateRef.current;
       appStateRef.current = nextState;
 
-      const currentSession = sessionRef.current;
-      const hasOpenUnansweredQuestion =
-        currentSession?.status === "sent" &&
-        stageRef.current === "choice" &&
-        !currentSession.selectedAnswer &&
-        !answerSubmittedRef.current;
-
-      if (
-        previousState === "active" &&
-        (nextState === "background" || nextState === "inactive") &&
-        hasOpenUnansweredQuestion
-      ) {
-        markChildSessionExited(roomId).catch((error) => {
-          console.warn("markChildSessionExited failed", error);
-        });
+      if (!hasInitializedAppStateRef.current) {
+        hasInitializedAppStateRef.current = true;
         return;
       }
 
-      if (nextState === "active" && hasOpenUnansweredQuestion) {
-        markChildSessionActive(roomId).catch((error) => {
-          console.warn("markChildSessionActive failed", error);
+      const currentSession = sessionRef.current;
+      const currentSessionId = currentSession?.id ?? null;
+      const hasOpenUnansweredQuestion =
+        currentSession?.status === "sent" &&
+        !!currentSessionId &&
+        stageRef.current === "choice" &&
+        !currentSession.selectedAnswer &&
+        !answerSubmittedRef.current &&
+        hasViewedCurrentSessionRef.current &&
+        currentViewedSessionIdRef.current === currentSessionId;
+
+      if (
+        previousState === "active" &&
+        nextState === "background" &&
+        hasOpenUnansweredQuestion
+      ) {
+        const reminderRequestId = [
+          currentSessionId,
+          Date.now(),
+          Math.random().toString(36).slice(2, 8),
+        ].join("-");
+
+        console.log("Requesting child exit reminder", {
+          roomId,
+          sessionId: currentSessionId,
+          reminderRequestId,
+        });
+
+        markChildSessionExited(roomId, reminderRequestId, currentSessionId).catch((error) => {
+          console.warn("markChildSessionExited failed", error);
         });
       }
     });
 
-    return () => subscription.remove();
+    return () => {
+      clearTimeout(initializationTimer);
+      subscription.remove();
+    };
   }, [roomId]);
 
   React.useEffect(() => {
@@ -706,6 +754,7 @@ export default function ChildModeScreen({
               if (!selectedOption) return;
               try {
                 answerSubmittedRef.current = true;
+                resetExitReminderViewState();
                 await submitAnswer(selectedOption.id, roomId);
               } catch (e) {
                 answerSubmittedRef.current = false;

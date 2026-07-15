@@ -82,6 +82,7 @@ export default function ChildModeScreen({
   const hasInitializedAppStateRef = React.useRef(false);
   const hasViewedCurrentSessionRef = React.useRef(false);
   const currentViewedSessionIdRef = React.useRef<string | null>(null);
+  const hasWrittenReminderForCurrentExitRef = React.useRef(false);
   const clearRestartListeningTimer = React.useCallback(() => {
     if (restartListeningTimerRef.current) {
       clearTimeout(restartListeningTimerRef.current);
@@ -91,6 +92,7 @@ export default function ChildModeScreen({
   const resetExitReminderViewState = React.useCallback(() => {
     hasViewedCurrentSessionRef.current = false;
     currentViewedSessionIdRef.current = null;
+    hasWrittenReminderForCurrentExitRef.current = false;
   }, []);
   const abortSpeechRecognition = React.useCallback(() => {
     try {
@@ -131,11 +133,45 @@ export default function ChildModeScreen({
     resetSpeechPracticeState,
   ]);
   const openActiveQuestion = React.useCallback(
-    (activeSession: CommunicationSession) => {
+    (
+      activeSession: CommunicationSession,
+      options: { resetReminderExitLatch?: boolean } = {},
+    ) => {
+      if (
+        stageRef.current === "choice" &&
+        currentViewedSessionIdRef.current === activeSession.id &&
+        hasViewedCurrentSessionRef.current
+      ) {
+        if (options.resetReminderExitLatch) {
+          hasWrittenReminderForCurrentExitRef.current = false;
+          appStateRef.current = "active";
+        }
+
+        console.log("[ExitReminderDebug] openActiveQuestion skipped; session already open", {
+          sessionId: activeSession.id,
+          stageRef: stageRef.current,
+          currentViewedSessionId: currentViewedSessionIdRef.current,
+          hasViewedCurrentSession: hasViewedCurrentSessionRef.current,
+          appStateBaseline: appStateRef.current,
+          resetReminderExitLatch: !!options.resetReminderExitLatch,
+        });
+        return;
+      }
+
+      const previousAppStateBaseline = appStateRef.current;
+      console.log("[ExitReminderDebug] openActiveQuestion start", {
+        sessionId: activeSession.id,
+        status: activeSession.status,
+        hasSelectedAnswer: !!activeSession.selectedAnswer,
+        previousAppStateBaseline,
+      });
+
       clearQuestionLocalState();
       directOpenedSessionIdRef.current = activeSession.id;
       previousSessionIdRef.current = activeSession.id;
       stageRef.current = "choice";
+      appStateRef.current = "active";
+      hasWrittenReminderForCurrentExitRef.current = false;
 
       if (
         activeSession.status === "sent" &&
@@ -146,6 +182,17 @@ export default function ChildModeScreen({
         hasViewedCurrentSessionRef.current = true;
         currentViewedSessionIdRef.current = activeSession.id;
       }
+
+      console.log("[ExitReminderDebug] openActiveQuestion refs set", {
+        sessionId: activeSession.id,
+        stageRef: stageRef.current,
+        hasViewedCurrentSession: hasViewedCurrentSessionRef.current,
+        currentViewedSessionId: currentViewedSessionIdRef.current,
+        answerSubmitted: answerSubmittedRef.current,
+        appStateBaseline: appStateRef.current,
+        hasWrittenReminderForCurrentExit:
+          hasWrittenReminderForCurrentExitRef.current,
+      });
 
       setStage("choice");
     },
@@ -211,7 +258,9 @@ export default function ChildModeScreen({
         openActiveSessionDirectly ||
         directOpenedSessionIdRef.current === s.id
       ) {
-        openActiveQuestion(s);
+        openActiveQuestion(s, {
+          resetReminderExitLatch: openActiveSessionDirectly,
+        });
         if (openActiveSessionDirectly) {
           onOpenActiveSessionHandled?.();
         }
@@ -252,43 +301,123 @@ export default function ChildModeScreen({
     const subscription = AppState.addEventListener("change", (nextState) => {
       const previousState = appStateRef.current;
       appStateRef.current = nextState;
+      const currentSession = sessionRef.current;
+      const currentSessionId = currentSession?.id ?? null;
+      const appStateDebugPayload = {
+        previousState,
+        nextState,
+        stageRef: stageRef.current,
+        currentSessionId,
+        activeSessionId: currentSession?.id ?? null,
+        hasViewedCurrentSession: hasViewedCurrentSessionRef.current,
+        currentViewedSessionId: currentViewedSessionIdRef.current,
+        answerSubmitted: answerSubmittedRef.current,
+        hasWrittenReminderForCurrentExit:
+          hasWrittenReminderForCurrentExitRef.current,
+        hasSelectedAnswer: !!currentSession?.selectedAnswer,
+        currentSessionStatus: currentSession?.status ?? null,
+      };
 
       if (!hasInitializedAppStateRef.current) {
+        console.log("[ExitReminderDebug] AppState initial event ignored", {
+          ...appStateDebugPayload,
+          skipReason: "initial AppState setup event",
+        });
         hasInitializedAppStateRef.current = true;
         return;
       }
 
-      const currentSession = sessionRef.current;
-      const currentSessionId = currentSession?.id ?? null;
+      const reminderGuard = {
+        previousWasActive: previousState === "active",
+        nextIsBackground: nextState === "background",
+        sessionIsSent: currentSession?.status === "sent",
+        hasCurrentSessionId: !!currentSessionId,
+        stageIsChoice: stageRef.current === "choice",
+        noSelectedAnswer: !currentSession?.selectedAnswer,
+        answerNotSubmitted: !answerSubmittedRef.current,
+        hasViewedCurrentSession: hasViewedCurrentSessionRef.current,
+        viewedSessionMatchesCurrent:
+          currentViewedSessionIdRef.current === currentSessionId,
+      };
       const hasOpenUnansweredQuestion =
-        currentSession?.status === "sent" &&
-        !!currentSessionId &&
-        stageRef.current === "choice" &&
-        !currentSession.selectedAnswer &&
-        !answerSubmittedRef.current &&
-        hasViewedCurrentSessionRef.current &&
-        currentViewedSessionIdRef.current === currentSessionId;
+        reminderGuard.sessionIsSent &&
+        reminderGuard.hasCurrentSessionId &&
+        reminderGuard.stageIsChoice &&
+        reminderGuard.noSelectedAnswer &&
+        reminderGuard.answerNotSubmitted &&
+        reminderGuard.hasViewedCurrentSession &&
+        reminderGuard.viewedSessionMatchesCurrent;
+      const shouldWriteReminder =
+        reminderGuard.previousWasActive &&
+        reminderGuard.nextIsBackground &&
+        hasOpenUnansweredQuestion &&
+        !hasWrittenReminderForCurrentExitRef.current;
+      const skippedBecauseReminderAlreadyWritten =
+        reminderGuard.previousWasActive &&
+        reminderGuard.nextIsBackground &&
+        hasOpenUnansweredQuestion &&
+        hasWrittenReminderForCurrentExitRef.current;
+      const skipReasons = [
+        !reminderGuard.previousWasActive ? "previous state was not active" : "",
+        !reminderGuard.nextIsBackground ? "next state was not background" : "",
+        !reminderGuard.sessionIsSent ? "session status is not sent" : "",
+        !reminderGuard.hasCurrentSessionId ? "missing current session id" : "",
+        !reminderGuard.stageIsChoice ? "stage is not choice" : "",
+        !reminderGuard.noSelectedAnswer ? "selectedAnswer exists" : "",
+        !reminderGuard.answerNotSubmitted ? "answerSubmittedRef is true" : "",
+        !reminderGuard.hasViewedCurrentSession
+          ? "current session has not been marked viewed"
+          : "",
+        !reminderGuard.viewedSessionMatchesCurrent
+          ? "viewed session id does not match current session id"
+          : "",
+        hasWrittenReminderForCurrentExitRef.current
+          ? "reminder already written for current background exit"
+          : "",
+      ].filter(Boolean);
 
-      if (
-        previousState === "active" &&
-        nextState === "background" &&
-        hasOpenUnansweredQuestion
-      ) {
+      console.log("[ExitReminderDebug] AppState transition", {
+        ...appStateDebugPayload,
+        reminderGuard,
+        willWriteReminder: shouldWriteReminder,
+        skipReasons,
+      });
+
+      if (skippedBecauseReminderAlreadyWritten) {
+        console.log("[ExitReminderDebug] reminder write skipped; already written for current background exit", {
+          roomId,
+          sessionId: currentSessionId,
+        });
+      }
+
+      if (shouldWriteReminder) {
+        hasWrittenReminderForCurrentExitRef.current = true;
         const reminderRequestId = [
           currentSessionId,
           Date.now(),
           Math.random().toString(36).slice(2, 8),
         ].join("-");
+        const debugMarker = Date.now();
 
-        console.log("Requesting child exit reminder", {
+        console.log("[ExitReminderDebug] writing child exit reminder request", {
           roomId,
-          sessionId: currentSessionId,
-          reminderRequestId,
+          childExitReminderRequestId: reminderRequestId,
+          childExitReminderSessionId: currentSessionId,
+          debugMarker,
         });
 
-        markChildSessionExited(roomId, reminderRequestId, currentSessionId).catch((error) => {
-          console.warn("markChildSessionExited failed", error);
-        });
+        markChildSessionExited(roomId, reminderRequestId, currentSessionId)
+          .then(() => {
+            console.log("[ExitReminderDebug] child exit reminder request written", {
+              roomId,
+              childExitReminderRequestId: reminderRequestId,
+              childExitReminderSessionId: currentSessionId,
+              debugMarker,
+            });
+          })
+          .catch((error) => {
+            console.warn("[ExitReminderDebug] markChildSessionExited failed", error);
+          });
       }
     });
 
@@ -616,7 +745,9 @@ export default function ChildModeScreen({
           <Text style={styles.heroSubtitle}>You can answer when ready</Text>
           <TouchableOpacity
             style={styles.primaryButton}
-            onPress={() => openActiveQuestion(session)}
+            onPress={() =>
+              openActiveQuestion(session, { resetReminderExitLatch: true })
+            }
           >
             <Text style={styles.primaryButtonText}>Start</Text>
           </TouchableOpacity>
@@ -803,7 +934,7 @@ export default function ChildModeScreen({
             style={styles.primaryButton}
             onPress={() => {
               if (session.status === "sent") {
-                openActiveQuestion(session);
+                openActiveQuestion(session, { resetReminderExitLatch: true });
                 return;
               }
 

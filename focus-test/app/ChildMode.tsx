@@ -115,6 +115,42 @@ export default function ChildModeScreen({
     completedPracticeWordCountRef.current = 0;
     selectedOptionIdRef.current = null;
   }, []);
+  const clearQuestionLocalState = React.useCallback(() => {
+    answerSubmittedRef.current = false;
+    resetExitReminderViewState();
+    autoListenEnabledRef.current = false;
+    setIsAutoListenEnabled(false);
+    clearRestartListeningTimer();
+    abortSpeechRecognition();
+    setIsListening(false);
+    resetSpeechPracticeState();
+  }, [
+    abortSpeechRecognition,
+    clearRestartListeningTimer,
+    resetExitReminderViewState,
+    resetSpeechPracticeState,
+  ]);
+  const openActiveQuestion = React.useCallback(
+    (activeSession: CommunicationSession) => {
+      clearQuestionLocalState();
+      directOpenedSessionIdRef.current = activeSession.id;
+      previousSessionIdRef.current = activeSession.id;
+      stageRef.current = "choice";
+
+      if (
+        activeSession.status === "sent" &&
+        activeSession.id &&
+        !activeSession.selectedAnswer
+      ) {
+        answerSubmittedRef.current = false;
+        hasViewedCurrentSessionRef.current = true;
+        currentViewedSessionIdRef.current = activeSession.id;
+      }
+
+      setStage("choice");
+    },
+    [clearQuestionLocalState],
+  );
   React.useEffect(() => {
     selectedOptionIdRef.current = selectedOptionId;
   }, [selectedOptionId]);
@@ -158,30 +194,16 @@ export default function ChildModeScreen({
 // Update the child stage based on the current room status.
 // Handle session status changes to update the UI stage and trigger alerts
     if (!s || s.status === "idle") {
-      answerSubmittedRef.current = false;
-      resetExitReminderViewState();
+      clearQuestionLocalState();
       setStage("idle");
       previousSessionIdRef.current = s?.id ?? null;
       directOpenedSessionIdRef.current = null;
-      autoListenEnabledRef.current = false;
-      setIsAutoListenEnabled(false);
-      clearRestartListeningTimer();
-      abortSpeechRecognition();
-      setIsListening(false);
-      resetSpeechPracticeState();
       return;
     }
 
     if (s.status === "sent") {
       if (s.id !== previousSessionIdRef.current) {
-        answerSubmittedRef.current = false;
-        resetExitReminderViewState();
-        autoListenEnabledRef.current = false;
-        setIsAutoListenEnabled(false);
-        clearRestartListeningTimer();
-        abortSpeechRecognition();
-        setIsListening(false);
-        resetSpeechPracticeState();
+        clearQuestionLocalState();
       }
 
       previousSessionIdRef.current = s.id;
@@ -189,8 +211,7 @@ export default function ChildModeScreen({
         openActiveSessionDirectly ||
         directOpenedSessionIdRef.current === s.id
       ) {
-        directOpenedSessionIdRef.current = s.id;
-        setStage("choice");
+        openActiveQuestion(s);
         if (openActiveSessionDirectly) {
           onOpenActiveSessionHandled?.();
         }
@@ -214,12 +235,10 @@ export default function ChildModeScreen({
 
   return () => unsub();
 }, [
-  abortSpeechRecognition,
-  clearRestartListeningTimer,
+  clearQuestionLocalState,
   onOpenActiveSessionHandled,
+  openActiveQuestion,
   openActiveSessionDirectly,
-  resetExitReminderViewState,
-  resetSpeechPracticeState,
   roomId,
 ]);
 
@@ -595,7 +614,10 @@ export default function ChildModeScreen({
           <Text style={styles.heroEmoji}>📩</Text>
           <Text style={styles.heroTitle}>New message</Text>
           <Text style={styles.heroSubtitle}>You can answer when ready</Text>
-          <TouchableOpacity style={styles.primaryButton} onPress={() => setStage("choice")}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={() => openActiveQuestion(session)}
+          >
             <Text style={styles.primaryButtonText}>Start</Text>
           </TouchableOpacity>
         </View>
@@ -777,8 +799,20 @@ export default function ChildModeScreen({
           </Text>
           <Text style={styles.confirmationEmoji}>{session?.options.find((o) => o.id === session.selectedAnswer)?.emoji ?? selectedOption?.emoji}</Text>
 
-          <TouchableOpacity style={styles.primaryButton} onPress={() => setStage("idle")}>
-            <Text style={styles.primaryButtonText}>Done</Text>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={() => {
+              if (session.status === "sent") {
+                openActiveQuestion(session);
+                return;
+              }
+
+              setStage("idle");
+            }}
+          >
+            <Text style={styles.primaryButtonText}>
+              {session.status === "sent" ? "Take me to question" : "Done"}
+            </Text>
           </TouchableOpacity>
         </View>
       ) : null}

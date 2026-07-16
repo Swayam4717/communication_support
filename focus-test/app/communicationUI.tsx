@@ -1,7 +1,7 @@
 import React from "react";
-import { Image, Platform, Text, TouchableOpacity, View } from "react-native";
+import { Image, Platform, Text, TouchableOpacity, View, type StyleProp, type TextStyle } from "react-native";
 import { WebView } from "react-native-webview";
-import type { SessionOption } from "./communicationHelpers";
+import { parseBoldTextSegments, type SessionOption } from "./communicationHelpers";
 import { styles } from "./communicationCommon";
 
 interface OptionCardProps {
@@ -25,7 +25,7 @@ function SvgImageView({
   compact?: boolean;
   onError: () => void;
 }) {
-  const size = compact ? 40 : 58;
+  const size = compact ? 44 : 60;
 
   const html = `
     <!DOCTYPE html>
@@ -117,11 +117,7 @@ function OptionVisual({
     >
       {shouldShowImage ? (
         isSvg && Platform.OS !== "web" ? (
-          <SvgImageView
-            uri={option.imageUrl as string}
-            compact={compact}
-            onError={() => setImageFailed(true)}
-          />
+          <SvgImageView uri={option.imageUrl as string} compact={compact} onError={() => setImageFailed(true)} />
         ) : (
           <Image
             source={{ uri: option.imageUrl as string }}
@@ -136,6 +132,28 @@ function OptionVisual({
         </Text>
       )}
     </View>
+  );
+}
+
+export function FormattedQuestionText({
+  text,
+  style,
+  boldStyle,
+  numberOfLines,
+}: {
+  text: string;
+  style: StyleProp<TextStyle>;
+  boldStyle: StyleProp<TextStyle>;
+  numberOfLines?: number;
+}) {
+  return (
+    <Text style={style} numberOfLines={numberOfLines}>
+      {parseBoldTextSegments(text).map((segment, index) => (
+        <Text key={`${segment.bold ? "bold" : "text"}-${index}`} style={segment.bold ? boldStyle : undefined}>
+          {segment.text}
+        </Text>
+      ))}
+    </Text>
   );
 }
 
@@ -160,12 +178,12 @@ export function OptionCard({
       <OptionVisual option={option} compact={compact} />
 
       <View style={styles.optionTextWrap}>
-        <Text
+        <FormattedQuestionText
+          text={option.label}
           style={[styles.optionLabel, compact && styles.optionLabelCompact]}
+          boldStyle={styles.optionLabelBold}
           numberOfLines={compact ? 2 : 3}
-        >
-          {option.label}
-        </Text>
+        />
       </View>
 
       {selected ? (

@@ -242,6 +242,7 @@ function normalizeVisualSearchText(value){
 function parseOptionLabelForVisual(input){
   const cleanedInput = String(input || "").replace(/\s+/g, " ").trim();
   const bracketMatch = cleanedInput.match(/^(.*?)\[([^\]]+)\](.*)$/);
+  const stripBoldMarkers = (value) => String(value || "").replace(/\*/g, "");
 
   if(!cleanedInput){
     return {
@@ -258,7 +259,7 @@ function parseOptionLabelForVisual(input){
 
     return {
       displayLabel: fallbackLabel,
-      visualKeyword: fallbackLabel,
+      visualKeyword: stripBoldMarkers(fallbackLabel).trim(),
     };
   }
 
@@ -273,13 +274,13 @@ function parseOptionLabelForVisual(input){
   if(!keyword){
     return {
       displayLabel: fallbackLabel,
-      visualKeyword: fallbackLabel,
+      visualKeyword: stripBoldMarkers(fallbackLabel).trim(),
     };
   }
 
   return {
-    displayLabel: [before, keyword, after].filter(Boolean).join(" "),
-    visualKeyword: keyword,
+    displayLabel: fallbackLabel || [before, keyword, after].filter(Boolean).join(" "),
+    visualKeyword: stripBoldMarkers(keyword).trim() || keyword,
   };
 }
 
@@ -987,7 +988,7 @@ exports.generateOptionVisuals = onCall(
     });
 
     const visualContext = getVisualContext(question, visualKeywords);
-    
+
     const images = await Promise.all(
       parsedLabels.map(async (label, index) => {
         const visual = await resolveVisualForLabel(

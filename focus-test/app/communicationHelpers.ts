@@ -47,6 +47,8 @@ export interface CommunicationSession {
   subtitle?: string;
   options: SessionOption[];
   speechTemplate?: string | null;
+  visualOnlyMode?: boolean | null;
+  speechAssistantEnabled?: boolean | null;
   status: SessionStatus;
   selectedAnswer?: string | null;
   createdAt: number;
@@ -69,6 +71,8 @@ export interface SessionHistoryItem{
   question: string;
   options?: SessionOption[];
   speechTemplate?: string | null;
+  visualOnlyMode?: boolean | null;
+  speechAssistantEnabled?: boolean | null;
   answer: string;
   answerEmoji?: string;
   createdAt: number;
@@ -109,10 +113,59 @@ export interface BestSpeechOptionMatch {
 export const DEFAULT_QUESTION = "What would you like to eat?";
 export const DEFAULT_OPTIONS = ["Rice", "Noodles", "Pizza", "Sandwich"];
 export const DEFAULT_SPEECH_TEMPLATE = "I want {option}";
+export const DEFAULT_VISUAL_ONLY_MODE = false;
+export const DEFAULT_SPEECH_ASSISTANT_ENABLED = true;
 const MAX_HISTORY_OPTIONS = 12;
 const MAX_HISTORY_LABEL_LENGTH = 60;
 const MAX_HISTORY_META_LENGTH = 80;
 const MAX_HISTORY_IMAGE_URL_LENGTH = 2048;
+
+export function parseBoldTextSegments(text: string): Array<{ text: string; bold: boolean }> {
+  const value = String(text || "");
+  const segments: Array<{ text: string; bold: boolean }> = [];
+  let index = 0;
+
+  while (index < value.length) {
+    const openIndex = value.indexOf("*", index);
+
+    if (openIndex === -1) {
+      const normalText = value.slice(index);
+      if (normalText) {
+        segments.push({ text: normalText, bold: false });
+      }
+      break;
+    }
+
+    if (openIndex > index) {
+      segments.push({ text: value.slice(index, openIndex), bold: false });
+    }
+
+    const closeIndex = value.indexOf("*", openIndex + 1);
+
+    if (closeIndex === -1) {
+      const normalText = value.slice(openIndex).replace(/\*/g, "");
+      if (normalText) {
+        segments.push({ text: normalText, bold: false });
+      }
+      break;
+    }
+
+    const boldText = value.slice(openIndex + 1, closeIndex);
+    if (boldText) {
+      segments.push({ text: boldText, bold: true });
+    }
+    index = closeIndex + 1;
+  }
+
+  return segments.length > 0 ? segments : [{ text: value, bold: false }];
+}
+
+export function stripBoldMarkers(text: string): string {
+  return parseBoldTextSegments(text)
+    .map((segment) => segment.text)
+    .join("");
+}
+
 export function parseOptionLabelForVisual(input: string) {
   const cleanedInput = String(input || "").replace(/\s+/g, " ").trim();
   const bracketMatch = cleanedInput.match(/^(.*?)\[([^\]]+)\](.*)$/);
@@ -129,10 +182,11 @@ export function parseOptionLabelForVisual(input: string) {
       .replace(/[\[\]]/g, "")
       .replace(/\s+/g, " ")
       .trim();
+    const visualKeyword = stripBoldMarkers(fallbackLabel).trim();
 
     return {
       displayLabel: fallbackLabel,
-      visualKeyword: fallbackLabel,
+      visualKeyword,
     };
   }
 
@@ -152,8 +206,8 @@ export function parseOptionLabelForVisual(input: string) {
   }
 
   return {
-    displayLabel: [before, keyword, after].filter(Boolean).join(" "),
-    visualKeyword: keyword,
+    displayLabel: fallbackLabel || [before, keyword, after].filter(Boolean).join(" "),
+    visualKeyword: stripBoldMarkers(keyword).trim() || keyword,
   };
 }
 
@@ -215,16 +269,17 @@ export function getSpeechPracticePhrase(
   speechTemplate = DEFAULT_SPEECH_TEMPLATE,
 ): string {
   const cleanedLabel = optionLabel.trim();
-  const normalizedLabel = normalizeSpeechText(cleanedLabel);
+  const plainLabel = stripBoldMarkers(cleanedLabel).trim();
+  const normalizedLabel = normalizeSpeechText(plainLabel);
   const cleanedTemplate = speechTemplate.trim() || DEFAULT_SPEECH_TEMPLATE;
 
-  if (!cleanedLabel || !normalizedLabel) {
+  if (!plainLabel || !normalizedLabel) {
     return "";
   }
 
   return cleanedTemplate.includes("{option}")
-    ? cleanedTemplate.replace(/\{option\}/g, normalizedLabel)
-    : `${cleanedTemplate} ${normalizedLabel}`.trim();
+    ? cleanedTemplate.replace(/\{option\}/g, cleanedLabel)
+    : `${cleanedTemplate} ${cleanedLabel}`.trim();
 }
 
 export function compareTranscriptToOption(
@@ -446,6 +501,8 @@ export function createSession(
   optionLabels: string[],
   optionImageUrls: string[] = [],
   speechTemplate: string = DEFAULT_SPEECH_TEMPLATE,
+  visualOnlyMode: boolean = DEFAULT_VISUAL_ONLY_MODE,
+  speechAssistantEnabled: boolean = DEFAULT_SPEECH_ASSISTANT_ENABLED,
 ): CommunicationSession {
   return {
     id: String(Date.now()),
@@ -453,6 +510,8 @@ export function createSession(
     title: question.trim() || DEFAULT_QUESTION,
     options: buildSessionOptions(optionLabels, optionImageUrls),
     speechTemplate: speechTemplate.trim() || DEFAULT_SPEECH_TEMPLATE,
+    visualOnlyMode,
+    speechAssistantEnabled,
     status: "sent",
     selectedAnswer: null,
     childExitedBeforeAnswer: false,
@@ -472,6 +531,8 @@ export function createSessionWithResolvedOptions(
   question: string,
   options: SessionOption[],
   speechTemplate: string = DEFAULT_SPEECH_TEMPLATE,
+  visualOnlyMode: boolean = DEFAULT_VISUAL_ONLY_MODE,
+  speechAssistantEnabled: boolean = DEFAULT_SPEECH_ASSISTANT_ENABLED,
 ): CommunicationSession {
   return {
     id: String(Date.now()),
@@ -479,6 +540,8 @@ export function createSessionWithResolvedOptions(
     title: question.trim() || DEFAULT_QUESTION,
     options,
     speechTemplate: speechTemplate.trim() || DEFAULT_SPEECH_TEMPLATE,
+    visualOnlyMode,
+    speechAssistantEnabled,
     status: "sent",
     selectedAnswer: null,
     childExitedBeforeAnswer: false,
@@ -657,6 +720,9 @@ export async function saveSessionHistory(
     question: session.title,
     options: sanitizeHistoryOptions(session.options),
     speechTemplate: session.speechTemplate ?? null,
+    visualOnlyMode: session.visualOnlyMode ?? DEFAULT_VISUAL_ONLY_MODE,
+    speechAssistantEnabled:
+      session.speechAssistantEnabled ?? DEFAULT_SPEECH_ASSISTANT_ENABLED,
     answer: selectedOption.label,
     answerEmoji: selectedOption.emoji ?? undefined,
     createdAt: Date.now(),

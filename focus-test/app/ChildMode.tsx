@@ -9,18 +9,22 @@ import {
   View,
   type AppStateStatus,
 } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from "expo-speech-recognition";
 import type { CommunicationSession, SpeechWordFeedback } from "./communicationHelpers";
 import {
+  DEFAULT_SPEECH_ASSISTANT_ENABLED,
+  DEFAULT_VISUAL_ONLY_MODE,
   getSpeechPracticePhrase,
   splitSpeechWords,
+  stripBoldMarkers,
   subscribeToSession,
   submitAnswer,
 } from "./communicationHelpers";
-import { OptionCard } from "./communicationUI";
+import { FormattedQuestionText, OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
 import FocusAlertModule from "../modules/focus-alert";
 
@@ -31,13 +35,8 @@ interface ChildModeScreenProps {
   onResetSetup: () => void;
 }
 
-type SpeechFeedbackCard = {
-  tone: "good" | "try";
-  mainText: string;
-  secondaryText: string;
-};
-
 const WEAK_STARTER_WORDS = new Set(["i"]);
+const PARENT_SETTINGS_PASSWORD = "parent";
 
 function splitSpeechUnits(phrase: string) {
   return phrase
@@ -100,6 +99,16 @@ function matchSpeechUnit(
   };
 }
 
+function getDisplaySpeechUnit(unit: string) {
+  const cleanedUnit = stripBoldMarkers(unit).trim();
+
+  if (!cleanedUnit) {
+    return "";
+  }
+
+  return cleanedUnit.charAt(0).toUpperCase() + cleanedUnit.slice(1);
+}
+
 /**
  * ChildModeScreen - Simulates the child's experience
  * Listens for incoming sessions and updates UI based on session status
@@ -124,14 +133,16 @@ export default function ChildModeScreen({
   const [isListening, setIsListening] = React.useState(false);
   const [, setIsAutoListenEnabled] = React.useState(false);
   const [, setLiveTranscript] = React.useState("");
-  const [speechFeedbackTranscript, setSpeechFeedbackTranscript] = React.useState("");
+  const [, setSpeechFeedbackTranscript] = React.useState("");
   const [, setSpeechError] = React.useState<string | null>(null);
-  const [speechMessage, setSpeechMessage] = React.useState("Tap an answer, then practise saying it.");
-  const [speechFeedbackCard, setSpeechFeedbackCard] =
-    React.useState<SpeechFeedbackCard | null>(null);
+  const [, setSpeechMessage] = React.useState("Tap an answer, then practise saying it.");
+  const [, setSpeechFeedbackCard] = React.useState<null>(null);
   const [completedPracticeWordCount, setCompletedPracticeWordCount] = React.useState(0);
   const [isTesterModeEnabled, setIsTesterModeEnabled] = React.useState(false);
   const [practicePhraseTapCount, setPracticePhraseTapCount] = React.useState(0);
+  const [isParentSettingsOpen, setIsParentSettingsOpen] = React.useState(false);
+  const [parentSettingsPassword, setParentSettingsPassword] = React.useState("");
+  const [parentSettingsError, setParentSettingsError] = React.useState("");
   const previousSessionIdRef = React.useRef<string | null>(null);
   const autoListenEnabledRef = React.useRef(false);
   const isSpeechStartingRef = React.useRef(false);
@@ -141,6 +152,7 @@ export default function ChildModeScreen({
   const selectedOptionIdRef = React.useRef<string | null>(null);
   const autoStartedSpeechKeyRef = React.useRef<string | null>(null);
   const readySoundKeyRef = React.useRef<string | null>(null);
+  const hasPlayedTrySoundForCurrentAttemptRef = React.useRef(false);
   const successSoundKeyRef = React.useRef<string | null>(null);
   const directOpenedSessionIdRef = React.useRef<string | null>(null);
   const stageRef = React.useRef(stage);
@@ -179,6 +191,7 @@ export default function ChildModeScreen({
     selectedOptionIdRef.current = null;
     autoStartedSpeechKeyRef.current = null;
     readySoundKeyRef.current = null;
+    hasPlayedTrySoundForCurrentAttemptRef.current = false;
     successSoundKeyRef.current = null;
   }, []);
   const clearQuestionLocalState = React.useCallback(() => {
@@ -373,6 +386,9 @@ export default function ChildModeScreen({
   }, [abortSpeechRecognition, clearRestartListeningTimer, isListening, stage]);
 
   const selectedOption = session?.options.find((o) => o.id === selectedOptionId) ?? null;
+  const isVisualOnlyMode = session?.visualOnlyMode ?? DEFAULT_VISUAL_ONLY_MODE;
+  const isSpeechAssistantEnabled =
+    session?.speechAssistantEnabled ?? DEFAULT_SPEECH_ASSISTANT_ENABLED;
   const speechPracticePhrase = selectedOption
     ? getSpeechPracticePhrase(selectedOption.label, session?.speechTemplate ?? undefined)
     : "";
@@ -380,6 +396,31 @@ export default function ChildModeScreen({
     () => splitSpeechUnits(speechPracticePhrase),
     [speechPracticePhrase],
   );
+  const submitSelectedAnswer = React.useCallback(async () => {
+    if (!selectedOption || answerSubmittedRef.current) {
+      return;
+    }
+
+    try {
+      answerSubmittedRef.current = true;
+      autoListenEnabledRef.current = false;
+      isSpeechStartingRef.current = false;
+      setIsAutoListenEnabled(false);
+      clearRestartListeningTimer();
+      abortSpeechRecognition();
+      setIsListening(false);
+      await submitAnswer(selectedOption.id, roomId);
+    } catch (e) {
+      answerSubmittedRef.current = false;
+      console.warn("submitAnswer failed", e);
+      Alert.alert("Could not send", "Please try again.");
+    }
+  }, [
+    abortSpeechRecognition,
+    clearRestartListeningTimer,
+    roomId,
+    selectedOption,
+  ]);
   const startRecognitionSession = React.useCallback(() => {
     ExpoSpeechRecognitionModule.start({
       lang: "en-US",
@@ -395,6 +436,7 @@ export default function ChildModeScreen({
 
     if (
       !autoListenEnabledRef.current ||
+      isVisualOnlyMode ||
       stageRef.current !== "choice" ||
       !selectedOptionIdRef.current ||
       completedPracticeWordCountRef.current >= speechPracticeWords.length
@@ -415,6 +457,7 @@ export default function ChildModeScreen({
 
       if (
         !autoListenEnabledRef.current ||
+        isVisualOnlyMode ||
         stageRef.current !== "choice" ||
         !selectedOptionIdRef.current ||
         completedPracticeWordCountRef.current >= speechPracticeWords.length
@@ -435,6 +478,7 @@ export default function ChildModeScreen({
     }, 600);
   }, [
     clearRestartListeningTimer,
+    isVisualOnlyMode,
     speechPracticeWords,
     startRecognitionSession,
   ]);
@@ -496,12 +540,16 @@ export default function ChildModeScreen({
       if (!unitMatch.matched) {
         setCompletedPracticeWordCount(0);
         completedPracticeWordCountRef.current = 0;
-        setSpeechMessage(`Let's try the sentence again: ${practicePhrase}`);
-        setSpeechFeedbackCard({
-          tone: "try",
-          mainText: "Let's try again",
-          secondaryText: `Start again: ${practicePhrase}`,
-        });
+        if (!hasPlayedTrySoundForCurrentAttemptRef.current) {
+          hasPlayedTrySoundForCurrentAttemptRef.current = true;
+          try {
+            FocusAlertModule.playPracticeSound("try");
+          } catch {
+            // Sound feedback is optional; speech practice should keep working.
+          }
+        }
+        setSpeechMessage("");
+        setSpeechFeedbackCard(null);
         return;
       }
 
@@ -528,22 +576,26 @@ export default function ChildModeScreen({
           // Sound feedback is optional; speech practice should keep working.
         }
       }
-      setSpeechMessage("Good. Ready to send.");
-      setSpeechFeedbackCard({
-        tone: "good",
-        mainText: "Good",
-        secondaryText: "Ready to send",
-      });
+      setSpeechMessage("");
+      setSpeechFeedbackCard(null);
+      if (!isVisualOnlyMode) {
+        void submitSelectedAnswer();
+      }
       return;
     }
 
-    setSpeechMessage(`Good. Now say: ${targetUnits[nextTargetIndex]}`);
-    setSpeechFeedbackCard({
-      tone: "good",
-      mainText: "Good",
-      secondaryText: `Now say: ${targetUnits[nextTargetIndex]}`,
-    });
-  }, [abortSpeechRecognition, clearRestartListeningTimer, completedPracticeWordCount, selectedOptionId, selectionSource, session]);
+    setSpeechMessage("");
+    setSpeechFeedbackCard(null);
+  }, [
+    abortSpeechRecognition,
+    clearRestartListeningTimer,
+    completedPracticeWordCount,
+    isVisualOnlyMode,
+    selectedOptionId,
+    selectionSource,
+    session,
+    submitSelectedAnswer,
+  ]);
 
   useSpeechRecognitionEvent("result", (event) => {
     const transcript = event.results[0]?.transcript?.trim();
@@ -561,12 +613,14 @@ export default function ChildModeScreen({
   useSpeechRecognitionEvent("end", () => {
     setIsListening(false);
     isSpeechStartingRef.current = false;
+    hasPlayedTrySoundForCurrentAttemptRef.current = false;
     scheduleListeningRestart();
   });
 
   useSpeechRecognitionEvent("error", () => {
     setIsListening(false);
     isSpeechStartingRef.current = false;
+    hasPlayedTrySoundForCurrentAttemptRef.current = false;
     if (autoListenEnabledRef.current) {
       scheduleListeningRestart();
       return;
@@ -604,6 +658,7 @@ export default function ChildModeScreen({
       setSpeechFeedbackTranscript("");
       setSpeechError(null);
       setSpeechFeedbackCard(null);
+      hasPlayedTrySoundForCurrentAttemptRef.current = false;
       if (!selectedOptionId) {
         autoListenEnabledRef.current = false;
         setIsAutoListenEnabled(false);
@@ -627,7 +682,7 @@ export default function ChildModeScreen({
   }, [clearRestartListeningTimer, selectedOptionId, startRecognitionSession]);
 
   React.useEffect(() => {
-    if (stage !== "choice" || !session?.id || !selectedOptionId) {
+    if (stage !== "choice" || !session?.id || !selectedOptionId || isVisualOnlyMode) {
       return;
     }
 
@@ -647,7 +702,20 @@ export default function ChildModeScreen({
       }
     }
     void startListening();
-  }, [selectedOptionId, session?.id, stage, startListening]);
+  }, [isVisualOnlyMode, selectedOptionId, session?.id, stage, startListening]);
+
+  React.useEffect(() => {
+    if (!isVisualOnlyMode) {
+      return;
+    }
+
+    autoListenEnabledRef.current = false;
+    isSpeechStartingRef.current = false;
+    setIsAutoListenEnabled(false);
+    clearRestartListeningTimer();
+    abortSpeechRecognition();
+    setIsListening(false);
+  }, [abortSpeechRecognition, clearRestartListeningTimer, isVisualOnlyMode]);
 
   const handleMockTranscriptChange = (value: string) => {
     setMockTranscript(value);
@@ -672,11 +740,6 @@ export default function ChildModeScreen({
     });
   };
 
-  const liveSpeechFeedbackMessage = speechFeedbackTranscript.trim()
-    ? speechMessage
-    : selectedOption
-      ? "Listening will start when ready."
-      : "Tap an answer first.";
   const speechFeedbackWords = React.useMemo<SpeechWordFeedback[]>(() => {
     return speechPracticeWords.map((word, index) => ({
       targetWord: word,
@@ -696,9 +759,64 @@ export default function ChildModeScreen({
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.settingsButton}>
-        <TouchableOpacity style={styles.resetButton} onPress={onResetSetup}>
-          <Text style={styles.resetButtonText}>Reset Device Setup</Text>
+        <TouchableOpacity
+          accessibilityLabel="Parent settings"
+          style={styles.childSettingsIconButton}
+          onPress={() => {
+            setIsParentSettingsOpen((isOpen) => !isOpen);
+            setParentSettingsPassword("");
+            setParentSettingsError("");
+          }}
+        >
+          <MaterialCommunityIcons name="wrench-outline" size={18} color="#8A7566" />
         </TouchableOpacity>
+        {isParentSettingsOpen ? (
+          <View style={styles.childSettingsPanel}>
+            <Text style={styles.childSettingsLabel}>Parent settings</Text>
+            <TextInput
+              value={parentSettingsPassword}
+              onChangeText={(value) => {
+                setParentSettingsPassword(value);
+                setParentSettingsError("");
+              }}
+              secureTextEntry
+              placeholder="Password"
+              placeholderTextColor="#A8978B"
+              style={styles.childSettingsInput}
+            />
+            {parentSettingsError ? (
+              <Text style={styles.childSettingsError}>{parentSettingsError}</Text>
+            ) : null}
+            <View style={styles.childSettingsActions}>
+              <TouchableOpacity
+                style={styles.childSettingsCancelButton}
+                onPress={() => {
+                  setIsParentSettingsOpen(false);
+                  setParentSettingsPassword("");
+                  setParentSettingsError("");
+                }}
+              >
+                <Text style={styles.childSettingsCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.childSettingsResetButton}
+                onPress={() => {
+                  if (parentSettingsPassword.trim() !== PARENT_SETTINGS_PASSWORD) {
+                    setParentSettingsError("Password not accepted.");
+                    return;
+                  }
+
+                  setIsParentSettingsOpen(false);
+                  setParentSettingsPassword("");
+                  setParentSettingsError("");
+                  onResetSetup();
+                }}
+              >
+                <Text style={styles.childSettingsResetText}>Reset setup</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
       </View>
 
       {!session || stage === "idle" ? (
@@ -728,41 +846,68 @@ export default function ChildModeScreen({
       ) : null}
 
       {session && stage === "choice" ? (
-        <View style={styles.choiceCard}>
-          <Text style={styles.questionTitle}>{session.title}</Text>
+        <>
+          <View style={styles.choiceCard}>
+            <FormattedQuestionText
+              text={session.title}
+              style={styles.questionTitle}
+              boldStyle={styles.questionTitleBold}
+            />
 
-          <View style={styles.choiceList}>
+            <View style={styles.choiceList}>
+              {session.options.map((option) => (
+                <OptionCard
+                  key={option.id}
+                  option={option}
+                  compact
+                  selected={option.id === selectedOptionId}
+                  onPress={() => {
+                    autoListenEnabledRef.current = false;
+                    isSpeechStartingRef.current = false;
+                    setIsAutoListenEnabled(false);
+                    clearRestartListeningTimer();
+                    abortSpeechRecognition();
+                    setIsListening(false);
+                    selectedOptionIdRef.current = option.id;
+                    completedPracticeWordCountRef.current = 0;
+                    hasPlayedTrySoundForCurrentAttemptRef.current = false;
+                    setSelectedOptionId(option.id);
+                    setSelectionSource("tap");
+                    setMockTranscript("");
+                    setLiveTranscript("");
+                    setSpeechFeedbackTranscript("");
+                    setSpeechError(null);
+                    setCompletedPracticeWordCount(0);
+                    setSpeechFeedbackCard(null);
+                    setSpeechMessage("");
+                  }}
+                />
+              ))}
+            </View>
+
+            <View style={styles.childSectionDivider} />
+
+          {!isVisualOnlyMode && selectedOption ? (
             <View style={styles.speechPracticeCard}>
               <TouchableOpacity
                 activeOpacity={0.9}
                 onPress={handlePracticePhrasePress}
               >
-                <Text style={styles.speechPracticeHint}>
-                  {selectedOption
-                    ? `Say this: ${speechPracticePhrase}`
-                  : "Tap a card first. You can still send by tapping only."}
-                </Text>
-              </TouchableOpacity>
-              {selectedOption && speechFeedbackCard ? (
-                <View
-                  style={[
-                    styles.speechFeedbackCard,
-                    speechFeedbackCard.tone === "good" &&
-                      styles.speechFeedbackCardGood,
-                    speechFeedbackCard.tone === "try" &&
-                      styles.speechFeedbackCardTry,
-                  ]}
-                >
-                  <Text style={styles.speechFeedbackCardMain}>
-                    {speechFeedbackCard.mainText}
-                  </Text>
-                  <Text style={styles.speechFeedbackCardSecondary}>
-                    {speechFeedbackCard.secondaryText}
-                  </Text>
+                <View style={styles.speechTargetPhraseRow}>
+                  <MaterialCommunityIcons
+                    name="account-voice"
+                    size={20}
+                    color="#7F1F1A"
+                  />
+                  <FormattedQuestionText
+                    text={speechPracticePhrase}
+                    style={styles.speechTargetPhraseText}
+                    boldStyle={styles.speechTargetPhraseTextBold}
+                  />
                 </View>
-              ) : null}
-              <View style={styles.liveSpeechFeedbackBox}>
-                {speechFeedbackWords.length > 0 ? (
+              </TouchableOpacity>
+              {isSpeechAssistantEnabled ? (
+                speechFeedbackWords.length > 0 ? (
                   <View style={styles.liveSpeechWordRow}>
                     {speechFeedbackWords.map((word, index) => (
                       <View
@@ -783,16 +928,13 @@ export default function ChildModeScreen({
                           ]}
                         >
                           {word.status === "matched" ? "✓ " : ""}
-                          {word.targetWord}
+                          {getDisplaySpeechUnit(word.targetWord)}
                         </Text>
                       </View>
                     ))}
                   </View>
-                ) : null}
-                <Text style={styles.liveSpeechFeedbackText}>
-                  {liveSpeechFeedbackMessage}
-                </Text>
-              </View>
+                ) : null
+              ) : null}
               {isTesterModeEnabled ? (
                 <>
                   <Text style={styles.speechFallbackLabel}>
@@ -811,86 +953,39 @@ export default function ChildModeScreen({
                 </>
               ) : null}
             </View>
+          ) : null}
 
-            {session.options.map((option) => (
-              <OptionCard
-                key={option.id}
-                option={option}
-                compact
-                selected={option.id === selectedOptionId}
-                onPress={() => {
-                  autoListenEnabledRef.current = false;
-                  isSpeechStartingRef.current = false;
-                  setIsAutoListenEnabled(false);
-                  clearRestartListeningTimer();
-                  abortSpeechRecognition();
-                  setIsListening(false);
-                  selectedOptionIdRef.current = option.id;
-                  completedPracticeWordCountRef.current = 0;
-                  setSelectedOptionId(option.id);
-                  setSelectionSource("tap");
-                  setMockTranscript("");
-                  setLiveTranscript("");
-                  setSpeechFeedbackTranscript("");
-                  setSpeechError(null);
-                  setCompletedPracticeWordCount(0);
-                  setSpeechFeedbackCard(null);
-                  setSpeechMessage("Listening will start when ready.");
-                }}
-              />
-            ))}
           </View>
 
-          <View
-            style={[
-              styles.selectedAnswerPanel,
-              !selectedOption && styles.selectedAnswerPanelEmpty,
-            ]}
-          >
-            <Text style={styles.selectedAnswerLabel}>Selected answer</Text>
-            <Text style={styles.selectedAnswerText}>
-              {selectedOption
-                ? `Selected: ${selectedOption.label}`
-                : "Say or tap an answer first"}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            disabled={!selectedOption}
-            style={[
-              styles.primaryButton,
-              !selectedOption && styles.primaryButtonDisabled,
-            ]}
-            onPress={async () => {
-              if (!selectedOption) return;
-              try {
-                answerSubmittedRef.current = true;
-                autoListenEnabledRef.current = false;
-                isSpeechStartingRef.current = false;
-                setIsAutoListenEnabled(false);
-                clearRestartListeningTimer();
-                abortSpeechRecognition();
-                setIsListening(false);
-                await submitAnswer(selectedOption.id, roomId);
-              } catch (e) {
-                answerSubmittedRef.current = false;
-                console.warn("submitAnswer failed", e);
-                Alert.alert("Could not send", "Please try again.");
-              }
-            }}
-          >
-            <Text style={styles.primaryButtonText}>Send Answer</Text>
-          </TouchableOpacity>
-        </View>
+          {isVisualOnlyMode ? (
+            <TouchableOpacity
+              disabled={!selectedOption}
+              style={[
+                styles.primaryButton,
+                styles.childSendButtonBottom,
+                !selectedOption && styles.primaryButtonDisabled,
+              ]}
+              onPress={submitSelectedAnswer}
+            >
+              <Text style={styles.primaryButtonText}>Send Answer</Text>
+            </TouchableOpacity>
+          ) : null}
+        </>
       ) : null}
 
       {session && stage === "confirmation" && (session.selectedAnswer || selectedOption) ? (
         <View style={styles.heroCard}>
           <Text style={styles.heroEmoji}>✓</Text>
           <Text style={styles.heroTitle}>Sent to Mum</Text>
-          <Text style={styles.heroSubtitle}>
-            You chose {session?.options.find((o) => o.id === session.selectedAnswer)?.label ?? selectedOption?.label}
-          </Text>
+          <FormattedQuestionText
+            text={`You chose ${
+              session?.options.find((o) => o.id === session.selectedAnswer)?.label ??
+              selectedOption?.label ??
+              ""
+            }`}
+            style={styles.heroSubtitle}
+            boldStyle={styles.optionLabelBold}
+          />
           <Text style={styles.confirmationEmoji}>{session?.options.find((o) => o.id === session.selectedAnswer)?.emoji ?? selectedOption?.emoji}</Text>
 
           <TouchableOpacity

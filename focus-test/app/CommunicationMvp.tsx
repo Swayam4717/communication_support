@@ -19,6 +19,8 @@ import {
   CommunicationSession,
   DEFAULT_ROOM_ID,
   DEFAULT_SPEECH_TEMPLATE,
+  DEFAULT_SPEECH_ASSISTANT_ENABLED,
+  DEFAULT_VISUAL_ONLY_MODE,
   db,
 } from "./communicationHelpers";
 import { styles } from "./communicationCommon";
@@ -31,6 +33,8 @@ type savedSessionTemplate = {
   question: string;
   options: string[];
   speechTemplate?: string;
+  visualOnlyMode?: boolean;
+  speechAssistantEnabled?: boolean;
   createdAt: number;
 };
 
@@ -76,6 +80,12 @@ export default function CommunicationMvpApp() {
   const [draftOptions, setDraftOptions] = useState<string[]>(DEFAULT_OPTIONS);
   const [draftSpeechTemplate, setDraftSpeechTemplate] = useState(
     DEFAULT_SPEECH_TEMPLATE,
+  );
+  const [draftVisualOnlyMode, setDraftVisualOnlyMode] = useState(
+    DEFAULT_VISUAL_ONLY_MODE,
+  );
+  const [draftSpeechAssistantEnabled, setDraftSpeechAssistantEnabled] = useState(
+    DEFAULT_SPEECH_ASSISTANT_ENABLED,
   );
   const [showPreview, setShowPreview] = useState(false);
   const [sentSession, setSentSession] = useState<CommunicationSession | null>(
@@ -237,6 +247,8 @@ export default function CommunicationMvpApp() {
       setDraftQuestion(DEFAULT_QUESTION);
       setDraftOptions(DEFAULT_OPTIONS);
       setDraftSpeechTemplate(DEFAULT_SPEECH_TEMPLATE);
+      setDraftVisualOnlyMode(DEFAULT_VISUAL_ONLY_MODE);
+      setDraftSpeechAssistantEnabled(DEFAULT_SPEECH_ASSISTANT_ENABLED);
       setShowPreview(false);
       setEditingTemplateId(null);
       setTemplateVersion((value) => value + 1);
@@ -248,6 +260,10 @@ export default function CommunicationMvpApp() {
   const handleQuestionChange = (value: string) => setDraftQuestion(value);
   const handleSpeechTemplateChange = (value: string) =>
     setDraftSpeechTemplate(value);
+  const handleVisualOnlyModeChange = (value: boolean) =>
+    setDraftVisualOnlyMode(value);
+  const handleSpeechAssistantEnabledChange = (value: boolean) =>
+    setDraftSpeechAssistantEnabled(value);
 
   const handleOptionLabelChange = (index: number, value: string) => {
     setDraftOptions((currentOptions) => {
@@ -281,6 +297,8 @@ export default function CommunicationMvpApp() {
     setDraftQuestion(template.question);
     setDraftOptions(template.options);
     setDraftSpeechTemplate(template.speechTemplate);
+    setDraftVisualOnlyMode(DEFAULT_VISUAL_ONLY_MODE);
+    setDraftSpeechAssistantEnabled(DEFAULT_SPEECH_ASSISTANT_ENABLED);
     setSentSession(null);
     setShowPreview(false);
     setEditingTemplateId(null);
@@ -301,6 +319,8 @@ export default function CommunicationMvpApp() {
     question,
     options,
     speechTemplate,
+    visualOnlyMode,
+    speechAssistantEnabled,
     templateName,
     editingTemplateIdToUse,
     showSuccessAlert,
@@ -308,6 +328,8 @@ export default function CommunicationMvpApp() {
     question: string;
     options: string[];
     speechTemplate?: string;
+    visualOnlyMode?: boolean;
+    speechAssistantEnabled?: boolean;
     templateName?: string;
     editingTemplateIdToUse?: string | null;
     showSuccessAlert: boolean;
@@ -361,6 +383,9 @@ export default function CommunicationMvpApp() {
       question: cleanedQuestion,
       options: cleanedOptions,
       speechTemplate: cleanedSpeechTemplate,
+      visualOnlyMode: visualOnlyMode ?? DEFAULT_VISUAL_ONLY_MODE,
+      speechAssistantEnabled:
+        speechAssistantEnabled ?? DEFAULT_SPEECH_ASSISTANT_ENABLED,
       createdAt:
         editingTemplate?.createdAt ?? existingTemplate?.createdAt ?? Date.now(),
     };
@@ -399,6 +424,8 @@ export default function CommunicationMvpApp() {
       question: draftQuestion,
       options: draftOptions,
       speechTemplate: draftSpeechTemplate,
+      visualOnlyMode: draftVisualOnlyMode,
+      speechAssistantEnabled: draftSpeechAssistantEnabled,
       templateName,
       editingTemplateIdToUse: editingTemplateId,
       showSuccessAlert: true,
@@ -408,11 +435,16 @@ export default function CommunicationMvpApp() {
     historyQuestion: string,
     historyOptions: string[],
     historySpeechTemplate?: string | null,
+    historyVisualOnlyMode?: boolean | null,
+    historySpeechAssistantEnabled?: boolean | null,
   ) =>
     saveTemplateFromValues({
       question: historyQuestion,
       options: historyOptions,
       speechTemplate: historySpeechTemplate ?? draftSpeechTemplate,
+      visualOnlyMode: historyVisualOnlyMode ?? DEFAULT_VISUAL_ONLY_MODE,
+      speechAssistantEnabled:
+        historySpeechAssistantEnabled ?? DEFAULT_SPEECH_ASSISTANT_ENABLED,
       editingTemplateIdToUse: null,
       showSuccessAlert: false,
     });
@@ -423,6 +455,10 @@ export default function CommunicationMvpApp() {
     setDraftQuestion(template.question);
     setDraftOptions(template.options);
     setDraftSpeechTemplate(template.speechTemplate ?? DEFAULT_SPEECH_TEMPLATE);
+    setDraftVisualOnlyMode(template.visualOnlyMode ?? DEFAULT_VISUAL_ONLY_MODE);
+    setDraftSpeechAssistantEnabled(
+      template.speechAssistantEnabled ?? DEFAULT_SPEECH_ASSISTANT_ENABLED,
+    );
     setSentSession(null);
     setShowPreview(false);
     setEditingTemplateId(null);
@@ -446,6 +482,10 @@ export default function CommunicationMvpApp() {
     setDraftQuestion(template.question);
     setDraftOptions(template.options);
     setDraftSpeechTemplate(template.speechTemplate ?? DEFAULT_SPEECH_TEMPLATE);
+    setDraftVisualOnlyMode(template.visualOnlyMode ?? DEFAULT_VISUAL_ONLY_MODE);
+    setDraftSpeechAssistantEnabled(
+      template.speechAssistantEnabled ?? DEFAULT_SPEECH_ASSISTANT_ENABLED,
+    );
     setSentSession(null);
     setShowPreview(false);
     setEditingTemplateId(template.id);
@@ -479,6 +519,8 @@ export default function CommunicationMvpApp() {
       draftOptions.map((option) => option.trim()).filter(Boolean),
       [],
       draftSpeechTemplate,
+      draftVisualOnlyMode,
+      draftSpeechAssistantEnabled,
     );
     setSentSession(nextSession);
     setShowPreview(false);
@@ -515,6 +557,8 @@ export default function CommunicationMvpApp() {
           question={draftQuestion}
           optionLabels={draftOptions}
           speechTemplate={draftSpeechTemplate}
+          visualOnlyMode={draftVisualOnlyMode}
+          speechAssistantEnabled={draftSpeechAssistantEnabled}
           sentSession={sentSession}
           showPreview={showPreview}
           roomId={roomId}
@@ -530,6 +574,8 @@ export default function CommunicationMvpApp() {
           onAddOption={handleAddOption}
           onRemoveOption={handleRemoveOption}
           onSpeechTemplateChange={handleSpeechTemplateChange}
+          onVisualOnlyModeChange={handleVisualOnlyModeChange}
+          onSpeechAssistantEnabledChange={handleSpeechAssistantEnabledChange}
           onApplyTemplate={handleApplyTemplate}
           onSaveCurrentTemplate={handleSaveCurrentTemplate}
           onApplySavedTemplate={handleApplySavedTemplate}

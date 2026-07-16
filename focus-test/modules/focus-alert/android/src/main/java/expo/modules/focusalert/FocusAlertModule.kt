@@ -249,9 +249,16 @@ class FocusAlertModule : Module() {
 
   private fun playPracticeTone(kind: String) {
     try {
-      val toneType =
-        if (kind == "success") ToneGenerator.TONE_PROP_ACK else ToneGenerator.TONE_PROP_BEEP
-      val durationMs = if (kind == "success") 180 else 120
+      val toneType = when (kind) {
+        "success" -> ToneGenerator.TONE_PROP_ACK
+        "try" -> ToneGenerator.TONE_PROP_NACK
+        else -> ToneGenerator.TONE_PROP_BEEP
+      }
+      val durationMs = when (kind) {
+        "success" -> 180
+        "try" -> 160
+        else -> 120
+      }
       val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 60)
       toneGenerator.startTone(toneType, durationMs)
       Handler(Looper.getMainLooper()).postDelayed({

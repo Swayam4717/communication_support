@@ -19,7 +19,9 @@ import type {
 import {
   createSession,
   createSessionWithResolvedOptions,
+  DEFAULT_SPEECH_ASSISTANT_ENABLED,
   DEFAULT_SPEECH_TEMPLATE,
+  DEFAULT_VISUAL_ONLY_MODE,
   getSpeechPracticePhrase,
   parseOptionLabelForVisual,
   resetSession,
@@ -31,7 +33,7 @@ import {
   saveSessionHistory,
   subscribeToSessionHistory,
 } from "./communicationHelpers";
-import { OptionCard } from "./communicationUI";
+import { FormattedQuestionText, OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
 
 type sessionTemplateId = "food" | "feelings" | "activities" | "yesNo";
@@ -41,6 +43,8 @@ type savedSessionTemplate = {
   question: string;
   options: string[];
   speechTemplate?: string;
+  visualOnlyMode?: boolean;
+  speechAssistantEnabled?: boolean;
   createdAt: number;
 };
 
@@ -54,6 +58,8 @@ interface ParentModeScreenProps {
   question: string;
   optionLabels: string[];
   speechTemplate: string;
+  visualOnlyMode: boolean;
+  speechAssistantEnabled: boolean;
   sentSession: CommunicationSession | null;
   showPreview: boolean;
   roomId: string;
@@ -66,6 +72,8 @@ interface ParentModeScreenProps {
   onAddOption: () => void;
   onRemoveOption: (index: number) => void;
   onSpeechTemplateChange: (value: string) => void;
+  onVisualOnlyModeChange: (value: boolean) => void;
+  onSpeechAssistantEnabledChange: (value: boolean) => void;
   onPreviewToggle: () => void;
   onSendToChild: () => void;
   onResetSetup: () => void;
@@ -78,6 +86,8 @@ interface ParentModeScreenProps {
     question: string,
     options: string[],
     speechTemplate?: string | null,
+    visualOnlyMode?: boolean | null,
+    speechAssistantEnabled?: boolean | null,
   ) => Promise<boolean>;
   onDeleteSavedTemplate: (templateId: string) => void;
   onClearSession: () => void;
@@ -189,7 +199,6 @@ const getReusableHistoryOptions = (item: SessionHistoryItem) => {
         option?.provider,
         MAX_REUSABLE_HISTORY_META_LENGTH,
       );
-
       safeOptions.push({
         id:
           getSafeHistoryActionText(
@@ -225,6 +234,8 @@ export default function ParentModeScreen({
   question,
   optionLabels,
   speechTemplate,
+  visualOnlyMode,
+  speechAssistantEnabled,
   sentSession,
   showPreview,
   roomId,
@@ -237,6 +248,8 @@ export default function ParentModeScreen({
   onAddOption,
   onRemoveOption,
   onSpeechTemplateChange,
+  onVisualOnlyModeChange,
+  onSpeechAssistantEnabledChange,
   onPreviewToggle,
   onSendToChild,
   onResetSetup,
@@ -366,25 +379,32 @@ export default function ParentModeScreen({
     const baseSession = resolvedOptions
       ? createSessionWithResolvedOptions(
           question,
-          resolvedOptions.map((option, index) => ({
-            ...option,
-            id: String(index + 1),
-            label:
-              parseOptionLabelForVisual(cleanedOptionLabels[index] || option.label)
-                .displayLabel || option.label,
-            visualKeyword:
-              parseOptionLabelForVisual(cleanedOptionLabels[index] || option.label)
-                .visualKeyword ||
-              option.visualKeyword ||
-              option.label,
-          })),
+          resolvedOptions.map((option, index) => {
+            const parsedLabel = parseOptionLabelForVisual(
+              cleanedOptionLabels[index] || option.label,
+            );
+
+            return {
+              ...option,
+              id: String(index + 1),
+              label: parsedLabel.displayLabel || option.label,
+              visualKeyword:
+                parsedLabel.visualKeyword ||
+                option.visualKeyword ||
+                option.label,
+            };
+          }),
           speechTemplate,
+          visualOnlyMode,
+          speechAssistantEnabled,
         )
       : createSession(
           question,
           cleanedOptionLabels,
           optionImageUrls,
           speechTemplate,
+          visualOnlyMode,
+          speechAssistantEnabled,
         );
 
     return applyRemovedVisuals(baseSession);
@@ -602,6 +622,10 @@ export default function ParentModeScreen({
     if (item.speechTemplate) {
       onSpeechTemplateChange(item.speechTemplate);
     }
+    onVisualOnlyModeChange(item.visualOnlyMode ?? DEFAULT_VISUAL_ONLY_MODE);
+    onSpeechAssistantEnabledChange(
+      item.speechAssistantEnabled ?? DEFAULT_SPEECH_ASSISTANT_ENABLED,
+    );
     onOptionLabelsReplace(historyOptions.map((option) => option.label));
     setResolvedOptions(historyOptions);
     setRemovedVisualIndexes(new Set());
@@ -626,6 +650,8 @@ export default function ParentModeScreen({
       item.question,
       historyOptions.map((option) => option.label),
       item.speechTemplate,
+      item.visualOnlyMode,
+      item.speechAssistantEnabled,
     );
 
     if (saved) {
@@ -761,6 +787,8 @@ export default function ParentModeScreen({
         cleanedLabels,
         optionImageUrls,
         speechTemplate,
+        visualOnlyMode,
+        speechAssistantEnabled,
       ).options;
       const mergedOptions = textOptions.map((option, index) => {
         const generatedOption = generatedOptions[index];
@@ -797,7 +825,10 @@ export default function ParentModeScreen({
         );
       });
       const hasTextOnlyOptions = mergedOptions.some(
-        (option) => option.source === "none" && !option.imageUrl && !option.emoji,
+        (option) =>
+          option.source === "none" &&
+          !option.imageUrl &&
+          !option.emoji,
       );
 
       showMessage(
@@ -1241,6 +1272,72 @@ export default function ParentModeScreen({
               </View>
 
               <View style={styles.parentInputGroup}>
+                <Text style={styles.parentInputLabel}>Child response mode</Text>
+
+                <TouchableOpacity
+                  style={styles.parentToggleRow}
+                  activeOpacity={0.85}
+                  onPress={() => onVisualOnlyModeChange(!visualOnlyMode)}
+                >
+                  <View style={styles.parentToggleTextBlock}>
+                    <Text style={styles.parentToggleTitle}>Visual only</Text>
+                    <Text style={styles.parentToggleHelp}>
+                      Child taps an option and presses Send Answer.
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.parentToggleSwitch,
+                      visualOnlyMode && styles.parentToggleSwitchOn,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.parentToggleKnob,
+                        visualOnlyMode && styles.parentToggleKnobOn,
+                      ]}
+                    />
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.parentToggleRow,
+                    visualOnlyMode && styles.parentToggleRowDisabled,
+                  ]}
+                  activeOpacity={visualOnlyMode ? 1 : 0.85}
+                  disabled={visualOnlyMode}
+                  onPress={() =>
+                    onSpeechAssistantEnabledChange(!speechAssistantEnabled)
+                  }
+                >
+                  <View style={styles.parentToggleTextBlock}>
+                    <Text style={styles.parentToggleTitle}>Speech assistant</Text>
+                    <Text style={styles.parentToggleHelp}>
+                      Show word bubbles while speech mode listens.
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.parentToggleSwitch,
+                      !visualOnlyMode &&
+                        speechAssistantEnabled &&
+                        styles.parentToggleSwitchOn,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.parentToggleKnob,
+                        !visualOnlyMode &&
+                          speechAssistantEnabled &&
+                          styles.parentToggleKnobOn,
+                      ]}
+                    />
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.parentInputGroup}>
                 <View style={styles.answerOptionsHeaderRow}>
                   <Text style={styles.parentInputLabel}>Answer options</Text>
 
@@ -1372,9 +1469,11 @@ export default function ParentModeScreen({
 
               {showPreview ? (
                 <View style={styles.parentPreviewBox}>
-                  <Text style={styles.parentPreviewTitle}>
-                    {previewSession.title || "Your question"}
-                  </Text>
+                  <FormattedQuestionText
+                    text={previewSession.title || "Your question"}
+                    style={styles.parentPreviewTitle}
+                    boldStyle={styles.parentPreviewTitleBold}
+                  />
 
                   <View style={styles.parentPreviewGrid}>
                     {previewSession.options.map((option) => (

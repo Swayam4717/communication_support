@@ -200,6 +200,7 @@ export const styles = StyleSheet.create({
     lineHeight: 21,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 16,
     paddingTop: Platform.OS === "android" ? 20 : 18,
     paddingBottom: 20,
@@ -388,6 +389,9 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
+  childSendButtonBottom: {
+    marginTop: 16,
+  },
   previewCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
@@ -455,11 +459,14 @@ export const styles = StyleSheet.create({
     elevation: 1,
   },
   questionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 17,
+    fontWeight: "500",
     color: "#2B1D18",
-    lineHeight: 27,
-    marginBottom: 4,
+    lineHeight: 23,
+    marginBottom: 8,
+  },
+  questionTitleBold: {
+    fontWeight: "900",
   },
   choiceInstructionText: {
     color: "#7E6F67",
@@ -470,7 +477,14 @@ export const styles = StyleSheet.create({
   },
   choiceList: {
     gap: 7,
-    marginBottom: 9,
+    marginBottom: 8,
+  },
+  childSectionDivider: {
+    height: 2,
+    backgroundColor: "#CBB8AA",
+    borderRadius: 999,
+    marginTop: 2,
+    marginBottom: 10,
   },
   speechPracticeCard: {
     backgroundColor: "#FBF9F6",
@@ -492,6 +506,27 @@ export const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "800",
     lineHeight: 15,
+  },
+  speechTargetPhraseRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    backgroundColor: "#FBF9F6",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#DCCABE",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  speechTargetPhraseText: {
+    flex: 1,
+    color: "#2B1D18",
+    fontSize: 15,
+    fontWeight: "500",
+    lineHeight: 20,
+  },
+  speechTargetPhraseTextBold: {
+    fontWeight: "900",
   },
   speechFeedbackCard: {
     borderRadius: 12,
@@ -604,7 +639,7 @@ export const styles = StyleSheet.create({
   liveSpeechWordText: {
     color: "#5E5149",
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "500",
   },
   liveSpeechWordTextMatched: {
     color: "#214D18",
@@ -710,10 +745,10 @@ export const styles = StyleSheet.create({
     marginLeft: 12,
   },
   optionVisualBox: {
-    width: 56,
-    height: 56,
-    minWidth: 56,
-    maxWidth: 56,
+    width: 60,
+    height: 60,
+    minWidth: 60,
+    maxWidth: 60,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -721,29 +756,29 @@ export const styles = StyleSheet.create({
     resizeMode: "contain",
   },
   optionVisualBoxCompact: {
-    width: 42,
-    height: 42,
-    minWidth: 42,
-    maxWidth: 42,
+    width: 46,
+    height: 46,
+    minWidth: 46,
+    maxWidth: 46,
     marginRight: 9,
     resizeMode: "contain",
   },
   optionImage: {
-    width: 48,
-    height: 48,
+    width: 52,
+    height: 52,
     resizeMode: "contain",
   },
   optionImageCompact: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     resizeMode: "contain",
   },
   optionEmoji: {
-    fontSize: 30,
+    fontSize: 32,
     textAlign: "center",
   },
   optionEmojiCompact: {
-    fontSize: 24,
+    fontSize: 26,
   },
   optionTextWrap: {
     flex: 1,
@@ -751,13 +786,16 @@ export const styles = StyleSheet.create({
   },
   optionLabel: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "500",
     color: "#2B1D18",
     flexShrink: 1,
     lineHeight: 21,
   },
   optionLabelCompact: {
     fontSize: 15,
+  },
+  optionLabelBold: {
+    fontWeight: "900",
   },
   selectedBadge: {
     width: 24,
@@ -919,6 +957,78 @@ export const styles = StyleSheet.create({
   settingsButton: {
     alignItems: "flex-end",
     marginBottom: 2,
+  },
+  childSettingsIconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FBF9F6",
+    borderWidth: 1,
+    borderColor: "#E4D8CC",
+  },
+  childSettingsPanel: {
+    width: "100%",
+    marginTop: 8,
+    backgroundColor: "#FFFDFC",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E4D8CC",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  childSettingsLabel: {
+    color: "#6F5D52",
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  childSettingsInput: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E3D8CE",
+    borderRadius: 12,
+    color: "#2B1D18",
+    fontSize: 14,
+    fontWeight: "700",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  childSettingsError: {
+    color: "#9B5E3E",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  childSettingsActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
+  childSettingsCancelButton: {
+    borderRadius: 999,
+    backgroundColor: "#F5EEE8",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  childSettingsCancelText: {
+    color: "#7D6E66",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  childSettingsResetButton: {
+    borderRadius: 999,
+    backgroundColor: "#FFF0E8",
+    borderWidth: 1,
+    borderColor: "#E7C8B8",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  childSettingsResetText: {
+    color: "#9B5E3E",
+    fontSize: 12,
+    fontWeight: "900",
   },
   resetButton: {
     borderWidth: 1,
@@ -1096,6 +1206,56 @@ export const styles = StyleSheet.create({
   },
   parentInputGroup: {
     marginBottom: 22,
+  },
+  parentToggleRow: {
+    backgroundColor: "#FBF9F6",
+    borderWidth: 1,
+    borderColor: "#E4D8CC",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 8,
+  },
+  parentToggleRowDisabled: {
+    opacity: 0.55,
+  },
+  parentToggleTextBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  parentToggleTitle: {
+    color: "#2B1D18",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  parentToggleHelp: {
+    color: "#806B5E",
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  parentToggleSwitch: {
+    width: 44,
+    height: 24,
+    borderRadius: 999,
+    backgroundColor: "#DCCABE",
+    padding: 3,
+    justifyContent: "center",
+  },
+  parentToggleSwitchOn: {
+    backgroundColor: "#B9824F",
+  },
+  parentToggleKnob: {
+    width: 18,
+    height: 18,
+    borderRadius: 999,
+    backgroundColor: "#FFFFFF",
+  },
+  parentToggleKnobOn: {
+    alignSelf: "flex-end",
   },
   parentInputLabel: {
     fontSize: 15,
@@ -1353,8 +1513,11 @@ export const styles = StyleSheet.create({
   },
   parentPreviewTitle: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "500",
     color: "#2B1D18",
+  },
+  parentPreviewTitleBold: {
+    fontWeight: "900",
   },
   parentPreviewGrid: {
     gap: 10,

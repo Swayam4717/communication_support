@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -33,8 +34,9 @@ import {
   saveSessionHistory,
   subscribeToSessionHistory,
 } from "./communicationHelpers";
-import { FormattedQuestionText, OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
+import { FormattedQuestionText, OptionCard } from "./communicationUI";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 type sessionTemplateId = "food" | "feelings" | "activities" | "yesNo";
 type savedSessionTemplate = {
@@ -42,6 +44,7 @@ type savedSessionTemplate = {
   name: string;
   question: string;
   options: string[];
+  optionDetails?: SessionOption[];
   speechTemplate?: string;
   visualOnlyMode?: boolean;
   speechAssistantEnabled?: boolean;
@@ -53,15 +56,18 @@ const MAX_REUSABLE_HISTORY_OPTIONS = 12;
 const MAX_REUSABLE_HISTORY_LABEL_LENGTH = 60;
 const MAX_REUSABLE_HISTORY_META_LENGTH = 80;
 const MAX_REUSABLE_HISTORY_IMAGE_URL_LENGTH = 2048;
+type ParentResponseMode =
+  | "onlyImages"
+  | "speechVerification"
+  | "assistedSpeechVerification";
 
 interface ParentModeScreenProps {
   question: string;
   optionLabels: string[];
   speechTemplate: string;
+  initialOptionDetails?: SessionOption[] | null;
   visualOnlyMode: boolean;
   speechAssistantEnabled: boolean;
-  sentSession: CommunicationSession | null;
-  showPreview: boolean;
   roomId: string;
   templateVersion: number;
   savedTemplates: savedSessionTemplate[];
@@ -74,17 +80,19 @@ interface ParentModeScreenProps {
   onSpeechTemplateChange: (value: string) => void;
   onVisualOnlyModeChange: (value: boolean) => void;
   onSpeechAssistantEnabledChange: (value: boolean) => void;
-  onPreviewToggle: () => void;
-  onSendToChild: () => void;
   onResetSetup: () => void;
   onApplyTemplate: (templateId: sessionTemplateId) => void;
   onApplySavedTemplate: (templateId: string) => void;
   onEditSavedTemplate: (templateId: string) => void;
   onCancelTemplateEdit: () => void;
-  onSaveCurrentTemplate: (templateName?: string) => Promise<boolean>;
+  onSaveCurrentTemplate: (
+    templateName?: string,
+    optionDetails?: SessionOption[] | null,
+  ) => Promise<boolean>;
   onSaveHistoryTemplate: (
     question: string,
     options: string[],
+    optionDetails?: SessionOption[] | null,
     speechTemplate?: string | null,
     visualOnlyMode?: boolean | null,
     speechAssistantEnabled?: boolean | null,
@@ -234,10 +242,9 @@ export default function ParentModeScreen({
   question,
   optionLabels,
   speechTemplate,
+  initialOptionDetails,
   visualOnlyMode,
   speechAssistantEnabled,
-  sentSession,
-  showPreview,
   roomId,
   templateVersion,
   savedTemplates,
@@ -250,8 +257,6 @@ export default function ParentModeScreen({
   onSpeechTemplateChange,
   onVisualOnlyModeChange,
   onSpeechAssistantEnabledChange,
-  onPreviewToggle,
-  onSendToChild,
   onResetSetup,
   onApplyTemplate,
   onApplySavedTemplate,
@@ -284,16 +289,25 @@ export default function ParentModeScreen({
   const [removedVisualIndexes, setRemovedVisualIndexes] = useState<Set<number>>(
     new Set(),
   );
+  const [manualImageIndexes, setManualImageIndexes] = useState<Set<number>>(
+    new Set(),
+  );
+  const [lastGeneratedOptionLabels, setLastGeneratedOptionLabels] = useState<
+    string[]
+  >(optionLabels.map(() => ""));
 
   const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(
     null,
   );
 
-  const [isGeneratingVisuals, setIsGeneratingVisuals] = useState(false);
-  const isGeneratingVisualsRef = useRef(false);
+  const [generatingVisualIndexes, setGeneratingVisualIndexes] = useState<
+    Set<number>
+  >(new Set());
   const [activeParentTab, setActiveParentTab] = useState<
     "create" | "history" | "templates"
   >("create");
+  const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
+  const [isPreviewVisible, setIsPreviewVisible] = useState(false);
 
   const [isSavedTemplateModalVisible, setIsSavedTemplateModalVisible] =
     useState(false);
@@ -341,15 +355,89 @@ export default function ParentModeScreen({
     setOptionImageUrls((currentUrls) =>
       optionLabels.map((_, index) => currentUrls[index] ?? ""),
     );
-    setResolvedOptions(null);
-    setRemovedVisualIndexes(new Set());
+    setLastGeneratedOptionLabels((currentLabels) =>
+      optionLabels.map((_, index) => currentLabels[index] ?? ""),
+    );
+    setResolvedOptions((currentOptions) =>
+      currentOptions
+        ? optionLabels.map((label, index) => {
+            const existingOption = currentOptions[index];
+            const parsedLabel = parseOptionLabelForVisual(label);
+            const displayLabel =
+              parsedLabel.displayLabel || existingOption?.label || label.trim();
+
+            return existingOption
+              ? {
+                  ...existingOption,
+                  id: String(index + 1),
+                  label: displayLabel,
+                  visualKeyword:
+                    parsedLabel.visualKeyword ||
+                    existingOption.visualKeyword ||
+                    displayLabel,
+                }
+              : {
+                  id: String(index + 1),
+                  label: displayLabel,
+                  visualKeyword: parsedLabel.visualKeyword || displayLabel,
+                };
+          })
+        : currentOptions,
+    );
   }, [optionLabels]);
 
   React.useEffect(() => {
-    setOptionImageUrls(optionLabels.map(() => ""));
-    setResolvedOptions(null);
+    const nextInitialOptions = initialOptionDetails?.length
+      ? optionLabels.map((label, index) => {
+          const initialOption = initialOptionDetails[index];
+          const parsedLabel = parseOptionLabelForVisual(
+            label || initialOption?.label || "",
+          );
+          const displayLabel =
+            parsedLabel.displayLabel ||
+            initialOption?.label ||
+            label.trim() ||
+            `Option ${index + 1}`;
+
+          return initialOption
+            ? {
+                ...initialOption,
+                id: String(index + 1),
+                label: displayLabel,
+                visualKeyword:
+                  parsedLabel.visualKeyword ||
+                  initialOption.visualKeyword ||
+                  displayLabel,
+              }
+            : {
+                id: String(index + 1),
+                label: displayLabel,
+                visualKeyword: parsedLabel.visualKeyword || displayLabel,
+              };
+        })
+      : null;
+
+    setOptionImageUrls(
+      optionLabels.map((_, index) => nextInitialOptions?.[index]?.imageUrl ?? ""),
+    );
+    setLastGeneratedOptionLabels(
+      optionLabels.map((label, index) =>
+        nextInitialOptions?.[index]?.source === "default" ? label.trim() : "",
+      ),
+    );
+    setResolvedOptions(nextInitialOptions);
     setRemovedVisualIndexes(new Set());
-  }, [templateVersion, optionLabels]);
+    setManualImageIndexes(
+      new Set(
+        nextInitialOptions
+          ?.map((option, index) =>
+            option.imageUrl && option.source === "manual" ? index : -1,
+          )
+          .filter((index) => index >= 0) ?? [],
+      ),
+    );
+    setGeneratingVisualIndexes(new Set());
+  }, [templateVersion]);
 
   const applyRemovedVisuals = (
     session: CommunicationSession,
@@ -410,16 +498,65 @@ export default function ParentModeScreen({
     return applyRemovedVisuals(baseSession);
   };
 
-  const draftSession = buildDraftSession();
-  const currentSession = fireSession ?? sentSession ?? draftSession;
-  const previewSession = draftSession;
-
-  const selectedAnswer =
-    currentSession && fireSession?.selectedAnswer
-      ? (currentSession.options.find(
-          (o) => o.id === fireSession.selectedAnswer,
-        ) ?? null)
+  const selectedResponseMode: ParentResponseMode = visualOnlyMode
+    ? "onlyImages"
+    : speechAssistantEnabled
+      ? "assistedSpeechVerification"
+      : "speechVerification";
+  const responseModeOptions: Array<{
+    id: ParentResponseMode;
+    label: string;
+    description: string;
+  }> = [
+    {
+      id: "assistedSpeechVerification",
+      label: "Pictures With Guided Speech",
+      description: "Child gets word-by-word help while saying the sentence.",
+    },
+    {
+      id: "speechVerification",
+      label: "Pictures With Speech",
+      description: "Child says the sentence to send the answer.",
+    },
+    {
+      id: "onlyImages",
+      label: "Pictures Only",
+      description: "Child selects a picture and sends the answer.",
+    },
+  ];
+  const selectedResponseModeOption =
+    responseModeOptions.find((mode) => mode.id === selectedResponseMode) ??
+    responseModeOptions[0];
+  const draftPreviewSession = buildDraftSession();
+  const previewOptions = draftPreviewSession.options.map((option, index) => {
+    const visualRemoved = removedVisualIndexes.has(index);
+    const resolvedOption = resolvedOptions?.[index];
+    const imageUrl = !visualRemoved
+      ? optionImageUrls[index] || option.imageUrl || resolvedOption?.imageUrl || null
       : null;
+    return {
+      ...option,
+      imageUrl,
+      emoji: null,
+    };
+  });
+  const previewSpeechPhrase =
+    !visualOnlyMode
+      ? speechTemplate.trim() || DEFAULT_SPEECH_TEMPLATE
+      : "";
+
+  const setResponseMode = (mode: ParentResponseMode) => {
+    setIsModeMenuOpen(false);
+
+    if (mode === "onlyImages") {
+      onVisualOnlyModeChange(true);
+      onSpeechAssistantEnabledChange(false);
+      return;
+    }
+
+    onVisualOnlyModeChange(false);
+    onSpeechAssistantEnabledChange(mode === "assistedSpeechVerification");
+  };
 
   React.useEffect(() => {
     if (
@@ -438,9 +575,11 @@ export default function ParentModeScreen({
 
   const areAttentionAlertsReady = !!fireSession?.childFcmToken;
 
-  const setOptionImageUrl = (index: number, imageUrl: string) => {
-    setResolvedOptions(null);
-
+  const setOptionImageUrl = (
+    index: number,
+    imageUrl: string,
+    source: "manual" | "default" = "manual",
+  ) => {
     setRemovedVisualIndexes((currentIndexes) => {
       const nextIndexes = new Set(currentIndexes);
       nextIndexes.delete(index);
@@ -452,6 +591,32 @@ export default function ParentModeScreen({
       nextUrls[index] = imageUrl;
       return nextUrls;
     });
+
+    setManualImageIndexes((currentIndexes) => {
+      const nextIndexes = new Set(currentIndexes);
+      if (source === "manual") {
+        nextIndexes.add(index);
+      } else {
+        nextIndexes.delete(index);
+      }
+      return nextIndexes;
+    });
+
+    setResolvedOptions((currentOptions) =>
+      currentOptions
+        ? currentOptions.map((option, optionIndex) =>
+            optionIndex === index
+              ? {
+                  ...option,
+                  imageUrl,
+                  emoji: null,
+                  source,
+                  provider: source,
+                }
+              : option,
+          )
+        : currentOptions,
+    );
   };
 
   const uploadPickedAsset = async (
@@ -467,7 +632,7 @@ export default function ParentModeScreen({
       asset.mimeType,
     );
 
-    setOptionImageUrl(index, downloadUrl);
+    setOptionImageUrl(index, downloadUrl, "manual");
   };
 
   const handleChooseFromGallery = async (index: number) => {
@@ -544,7 +709,7 @@ export default function ParentModeScreen({
     if (cleanedLabels.length < 2 || cleanedLabels.some((label) => !label)) {
       Alert.alert(
         "Check answer options",
-        "Please keep at least two options and fill in every option before saving a template.",
+        "Please keep at least two options and fill in every option before saving.",
       );
       return;
     }
@@ -559,7 +724,10 @@ export default function ParentModeScreen({
     setIsSavedTemplateModalVisible(true);
   };
   const handleConfirmSaveTemplate = async () => {
-    const saved = await onSaveCurrentTemplate(templateNameInput);
+    const saved = await onSaveCurrentTemplate(
+      templateNameInput,
+      buildDraftSession().options,
+    );
     if (!saved) {
       return;
     }
@@ -633,7 +801,7 @@ export default function ParentModeScreen({
       historyOptions.map((option) => option.imageUrl ?? ""),
     );
     setActiveParentTab("create");
-    showHistoryNotice("Loaded from history. You can edit before sending.");
+    showHistoryNotice("Loaded from responses. You can edit before sending.");
   };
 
   const handleSaveHistoryTemplate = async (item: SessionHistoryItem) => {
@@ -641,7 +809,7 @@ export default function ParentModeScreen({
 
     if (historyOptions.length < MIN_REUSABLE_HISTORY_OPTIONS) {
       showHistoryNotice(
-        "This older history item cannot be saved as a template because its full options were not saved.",
+        "This older response cannot be saved because its full options were not saved.",
       );
       return;
     }
@@ -649,17 +817,24 @@ export default function ParentModeScreen({
     const saved = await onSaveHistoryTemplate(
       item.question,
       historyOptions.map((option) => option.label),
+      historyOptions,
       item.speechTemplate,
       item.visualOnlyMode,
       item.speechAssistantEnabled,
     );
 
     if (saved) {
-      showHistoryNotice("Saved as template.");
+      showHistoryNotice("Saved for future use.");
     }
   };
 
   const handleRemoveVisual = (index: number) => {
+    setManualImageIndexes((currentIndexes) => {
+      const nextIndexes = new Set(currentIndexes);
+      nextIndexes.delete(index);
+      return nextIndexes;
+    });
+
     setRemovedVisualIndexes((currentIndexes) => {
       const nextIndexes = new Set(currentIndexes);
       nextIndexes.add(index);
@@ -690,17 +865,16 @@ export default function ParentModeScreen({
   };
 
   const handleAddOption = () => {
-    setResolvedOptions(null);
-    setRemovedVisualIndexes(new Set());
     setOptionImageUrls((currentUrls) => [...currentUrls, ""]);
+    setLastGeneratedOptionLabels((currentLabels) => [...currentLabels, ""]);
     onAddOption();
   };
 
   const handleRemoveOption = (index: number) => {
-    if (optionLabels.length <= 2) {
+    if (optionLabels.length <= 1) {
       showMessage(
-        "Keep two options",
-        "Please keep at least two answer options.",
+        "Keep one option",
+        "Please keep at least one answer option.",
       );
       return;
     }
@@ -713,7 +887,32 @@ export default function ParentModeScreen({
     setOptionImageUrls((currentUrls) =>
       currentUrls.filter((_, optionIndex) => optionIndex !== index),
     );
+    setLastGeneratedOptionLabels((currentLabels) =>
+      currentLabels.filter((_, optionIndex) => optionIndex !== index),
+    );
+    setManualImageIndexes((currentIndexes) => {
+      const nextIndexes = new Set<number>();
+      currentIndexes.forEach((optionIndex) => {
+        if (optionIndex < index) {
+          nextIndexes.add(optionIndex);
+        } else if (optionIndex > index) {
+          nextIndexes.add(optionIndex - 1);
+        }
+      });
+      return nextIndexes;
+    });
     setRemovedVisualIndexes((currentIndexes) => {
+      const nextIndexes = new Set<number>();
+      currentIndexes.forEach((optionIndex) => {
+        if (optionIndex < index) {
+          nextIndexes.add(optionIndex);
+        } else if (optionIndex > index) {
+          nextIndexes.add(optionIndex - 1);
+        }
+      });
+      return nextIndexes;
+    });
+    setGeneratingVisualIndexes((currentIndexes) => {
       const nextIndexes = new Set<number>();
       currentIndexes.forEach((optionIndex) => {
         if (optionIndex < index) {
@@ -728,7 +927,9 @@ export default function ParentModeScreen({
   };
 
   const isUploadingImage = uploadingImageIndex !== null;
-  const isImageWorkInProgress = isUploadingImage || isGeneratingVisuals;
+  const isGeneratingAnyOptionVisual = generatingVisualIndexes.size > 0;
+  const isImageWorkInProgress =
+    isUploadingImage || isGeneratingAnyOptionVisual;
   const showMessage = (title: string, message: string) => {
     if (Platform.OS === "web" && typeof window !== "undefined") {
       window.alert(`${title}\n\n${message}`);
@@ -737,118 +938,135 @@ export default function ParentModeScreen({
     Alert.alert(title, message);
   };
 
-  const handleGenerateVisuals = async () => {
-    if (isImageWorkInProgress || isGeneratingVisualsRef.current) {
-      if (isGeneratingVisualsRef.current) {
-        showMessage(
-          "Visuals are still loading",
-          "Please wait for the current visuals to finish before trying again.",
-        );
+  const handleGenerateOptionVisual = async (
+    index: number,
+    options: { force?: boolean } = {},
+  ) => {
+    if (uploadingImageIndex !== null || generatingVisualIndexes.has(index)) {
+      return;
+    }
+
+    const rawLabel = optionLabels[index] ?? "";
+    const cleanedLabel = rawLabel.trim();
+
+    if (!cleanedLabel) {
+      return;
+    }
+
+    if (!options.force) {
+      if (manualImageIndexes.has(index)) {
+        return;
       }
-      return;
-    }
-    const cleanedLabels = optionLabels
-      .map((label) => label.trim())
-      .filter(Boolean);
-    if (cleanedLabels.length < 2) {
-      showMessage(
-        "Add options first",
-        "Please enter at least two options before generating visuals.",
-      );
-      return;
+
+      if (lastGeneratedOptionLabels[index] === cleanedLabel) {
+        return;
+      }
     }
 
-    if (cleanedLabels.length !== optionLabels.length) {
-      showMessage(
-        "Fill or remove blank options",
-        "Please fill in every option label, or remove blank option rows, before generating visuals.",
-      );
-      return;
-    }
-
-    const tooLongLabel = cleanedLabels.find((label) => label.length > 60);
-    if (tooLongLabel) {
-      showMessage(
-        "Option too long",
-        "Please keep each option under 60 characters for clear visuals.",
-      );
-      return;
-    }
-    isGeneratingVisualsRef.current = true;
-    setIsGeneratingVisuals(true);
+    setGeneratingVisualIndexes((currentIndexes) => {
+      const nextIndexes = new Set(currentIndexes);
+      nextIndexes.add(index);
+      return nextIndexes;
+    });
 
     try {
-      const generatedOptions = await generateOptionVisualsFromCloud(
-        question,
-        cleanedLabels,
-      );
-      const textOptions = createSession(
-        question,
-        cleanedLabels,
-        optionImageUrls,
-        speechTemplate,
-        visualOnlyMode,
-        speechAssistantEnabled,
-      ).options;
-      const mergedOptions = textOptions.map((option, index) => {
-        const generatedOption = generatedOptions[index];
+      const [generatedOption] = await generateOptionVisualsFromCloud(question, [
+        cleanedLabel,
+      ]);
+      const parsedLabel = parseOptionLabelForVisual(cleanedLabel);
+      const baseOption: SessionOption = {
+        id: String(index + 1),
+        label: parsedLabel.displayLabel || cleanedLabel,
+        visualKeyword: parsedLabel.visualKeyword || cleanedLabel,
+      };
+      const nextOption: SessionOption = generatedOption
+        ? {
+            ...baseOption,
+            visualKeyword:
+              generatedOption.visualKeyword ??
+              baseOption.visualKeyword ??
+              baseOption.label,
+            imageUrl: generatedOption.imageUrl ?? null,
+            emoji: generatedOption.emoji ?? null,
+            source: generatedOption.source ?? null,
+            provider: generatedOption.provider ?? null,
+          }
+        : {
+            ...baseOption,
+            imageUrl: null,
+            emoji: null,
+            source: "none",
+            provider: "manual",
+          };
 
-        return generatedOption
-          ? {
-              ...option,
-              visualKeyword:
-                generatedOption.visualKeyword ??
-                option.visualKeyword ??
-                option.label,
-              imageUrl: generatedOption.imageUrl ?? option.imageUrl ?? null,
-              emoji: generatedOption.emoji ?? null,
-              source: generatedOption.source ?? option.source ?? null,
-              provider: generatedOption.provider ?? option.provider ?? null,
-            }
-          : option;
+      setResolvedOptions((currentOptions) => {
+        const textOptions = createSession(
+          question,
+          optionLabels,
+          optionImageUrls,
+          speechTemplate,
+          visualOnlyMode,
+          speechAssistantEnabled,
+        ).options;
+        const nextOptions = optionLabels.map((optionLabel, optionIndex) => {
+          const existingOption = currentOptions?.[optionIndex];
+          const textOption = textOptions[optionIndex];
+
+          if (existingOption) {
+            return existingOption;
+          }
+
+          if (textOption) {
+            return textOption;
+          }
+
+          const parsedLabel = parseOptionLabelForVisual(optionLabel);
+          const fallbackLabel =
+            parsedLabel.displayLabel || optionLabel.trim() || `Option ${optionIndex + 1}`;
+
+          return {
+            id: String(optionIndex + 1),
+            label: fallbackLabel,
+            visualKeyword: parsedLabel.visualKeyword || fallbackLabel,
+          };
+        });
+        nextOptions[index] = nextOption;
+        return nextOptions;
       });
-
-      setResolvedOptions(mergedOptions);
-      setRemovedVisualIndexes(new Set());
-
-      setOptionImageUrls(
-        mergedOptions.map((option) => option.imageUrl ?? ""),
-      );
-
-      const hasSimpleFallbackVisuals = mergedOptions.some((option) => {
-        const source = option.source?.toLowerCase() ?? "";
-        const provider = option.provider?.toLowerCase() ?? "";
-        return (
-          source.includes("fallback") ||
-          source.includes("emoji") ||
-          provider.includes("mock")
-        );
+      setOptionImageUrls((currentUrls) => {
+        const nextUrls = [...currentUrls];
+        nextUrls[index] = nextOption.imageUrl ?? "";
+        return nextUrls;
       });
-      const hasTextOnlyOptions = mergedOptions.some(
-        (option) =>
-          option.source === "none" &&
-          !option.imageUrl &&
-          !option.emoji,
-      );
-
-      showMessage(
-        "Visuals ready",
-        hasTextOnlyOptions
-          ? "Some options stayed text-only because no reliable visual was found. You can add your own image if needed."
-          : hasSimpleFallbackVisuals
-          ? "Some options used simpler fallback visuals. Please check each image before sending. You can keep, change, or remove any visual."
-          : "Generated visuals are suggestions. Please check that each image matches the option before sending. You can change or remove any visual.",
-      );
+      setManualImageIndexes((currentIndexes) => {
+        const nextIndexes = new Set(currentIndexes);
+        nextIndexes.delete(index);
+        return nextIndexes;
+      });
+      setLastGeneratedOptionLabels((currentLabels) => {
+        const nextLabels = [...currentLabels];
+        nextLabels[index] = cleanedLabel;
+        return nextLabels;
+      });
+      setRemovedVisualIndexes((currentIndexes) => {
+        const nextIndexes = new Set(currentIndexes);
+        if (nextOption.imageUrl || nextOption.emoji) {
+          nextIndexes.delete(index);
+        }
+        return nextIndexes;
+      });
     } catch (error) {
-      console.error("Failed to generate visuals:", error);
-
+      console.warn("Failed to generate option visual", error);
       showMessage(
-        "Could not generate visuals",
-        "Visuals could not be generated right now. You can still send with text, use emoji, or add your own images.",
+        "Could not get default image",
+        "No reliable default image could be loaded right now. You can keep this option text-only or pick an image.",
       );
     } finally {
-      isGeneratingVisualsRef.current = false;
-      setIsGeneratingVisuals(false);
+      setGeneratingVisualIndexes((currentIndexes) => {
+        const nextIndexes = new Set(currentIndexes);
+        nextIndexes.delete(index);
+        return nextIndexes;
+      });
     }
   };
 
@@ -900,6 +1118,9 @@ export default function ParentModeScreen({
           ],
     );
   };
+  const visibleSessionHistory = sessionHistory.filter(
+    (item) => !(fireSession?.status === "sent" && item.id === fireSession.id),
+  );
 
   const handleSend = async () => {
     if (isImageWorkInProgress) {
@@ -933,6 +1154,7 @@ export default function ParentModeScreen({
       }
 
       await sendSession(session, roomId);
+      await saveSessionHistory(session, roomId);
 
       try {
         const latestSession = await getCurrentSession(roomId);
@@ -954,7 +1176,7 @@ export default function ParentModeScreen({
         setSendNoticeMessage("");
         sendNoticeTimeoutRef.current = null;
       }, 3500);
-      onSendToChild?.();
+      setActiveParentTab("history");
     } catch (e) {
       console.warn("sendSession failed", e);
       Alert.alert(
@@ -1021,7 +1243,7 @@ export default function ParentModeScreen({
                   styles.parentTabButtonTextActive,
               ]}
             >
-              Create
+              Engage
             </Text>
           </TouchableOpacity>
 
@@ -1039,7 +1261,7 @@ export default function ParentModeScreen({
                   styles.parentTabButtonTextActive,
               ]}
             >
-              History
+              Responses
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -1056,53 +1278,59 @@ export default function ParentModeScreen({
                   styles.parentTabButtonTextActive,
               ]}
             >
-              Templates
+              Saved
             </Text>
           </TouchableOpacity>
         </View>
         {activeParentTab === "create" ? (
           <>
-            <View style={styles.parentStatusSection}>
-              <Text style={styles.parentStatusLabel}>
-                Child&apos;s response
+            <View style={styles.parentModeSection}>
+              <Text style={styles.parentInputLabel}>Engage With</Text>
+
+              <TouchableOpacity
+                style={styles.parentModeDropdownButton}
+                activeOpacity={0.85}
+                onPress={() => setIsModeMenuOpen((isOpen) => !isOpen)}
+              >
+                <Text style={styles.parentModeDropdownText}>
+                  {selectedResponseModeOption.label}
+                </Text>
+                <Text style={styles.parentModeDropdownIcon}>
+                  {isModeMenuOpen ? "^" : "v"}
+                </Text>
+              </TouchableOpacity>
+
+              {isModeMenuOpen ? (
+                <View style={styles.parentModeDropdownMenu}>
+                  {responseModeOptions.map((mode) => (
+                    <TouchableOpacity
+                      key={mode.id}
+                      style={[
+                        styles.parentModeDropdownItem,
+                        selectedResponseMode === mode.id &&
+                          styles.parentModeDropdownItemSelected,
+                      ]}
+                      onPress={() => setResponseMode(mode.id)}
+                    >
+                      <Text style={styles.parentModeDropdownItemText}>
+                        {mode.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : null}
+
+              <Text style={styles.parentModeDescription}>
+                {selectedResponseModeOption.description}
               </Text>
-
-              {selectedAnswer ? (
-                <View style={styles.parentStatusActive}>
-                  <Text style={styles.parentStatusEmoji}>
-                    {selectedAnswer.emoji ?? ""}
-                  </Text>
-
-                  <View style={styles.parentStatusContent}>
-                    <Text style={styles.parentStatusValue}>
-                      {selectedAnswer.label}
-                    </Text>
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.parentStatusInactive}>
-                  <Text style={styles.parentStatusPlaceholder}>
-                    Waiting for response...
-                  </Text>
-                </View>
-              )}
             </View>
 
             <View style={styles.parentBuildSection}>
-              <View style={styles.parentSectionHeader}>
-                <Text style={styles.parentSectionTitle}>
-                  {isEditingTemplate ? "Edit template" : "Create a session"}
-                </Text>
-                {sentSession && (
-                  <Text style={styles.parentSectionBadge}>Live</Text>
-                )}
-              </View>
-
               {isEditingTemplate ? (
                 <View style={styles.editTemplateNotice}>
                   <View style={styles.editTemplateNoticeTextWrap}>
                     <Text style={styles.editTemplateNoticeLabel}>
-                      Editing template
+                      Editing saved item
                     </Text>
                     <Text
                       style={styles.editTemplateNoticeName}
@@ -1116,7 +1344,7 @@ export default function ParentModeScreen({
                     style={styles.editTemplateCancelButton}
                     onPress={onCancelTemplateEdit}
                   >
-                    <Text style={styles.editTemplateCancelText}>Stop Editing</Text>
+                    <Text style={styles.editTemplateCancelText}>Stop editing</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -1127,7 +1355,7 @@ export default function ParentModeScreen({
                     <Text style={styles.templateAddedIconText}>✓</Text>
                   </View>
                   <Text style={styles.templateAddedText}>
-                    Template added. You can edit it before sending.
+                    Saved item added. You can edit it before sending.
                   </Text>
                 </View>
               ) : null}
@@ -1141,105 +1369,12 @@ export default function ParentModeScreen({
               ) : null}
 
               <View style={styles.parentInputGroup}>
-                <Text style={styles.parentInputLabel}>Quick templates</Text>
-
-                <View style={styles.templateChipRow}>
-                  <TouchableOpacity
-                    style={styles.previewToggleButton}
-                    onPress={() => applyBuiltInTemplate("food")}
-                  >
-                    <Text style={styles.previewToggleText}>Food</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.previewToggleButton}
-                    onPress={() => applyBuiltInTemplate("feelings")}
-                  >
-                    <Text style={styles.previewToggleText}>Feelings</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.previewToggleButton}
-                    onPress={() => applyBuiltInTemplate("activities")}
-                  >
-                    <Text style={styles.previewToggleText}>Activities</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.previewToggleButton}
-                    onPress={() => applyBuiltInTemplate("yesNo")}
-                  >
-                    <Text style={styles.previewToggleText}>Yes / No</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.savedTemplateSection}>
-                  <View style={styles.savedTemplateMiniHeaderRow}>
-                    <Text style={styles.savedTemplateTitle}>My templates</Text>
-
-                    {savedTemplates.length > 3 ? (
-                      <TouchableOpacity onPress = {() => setActiveParentTab("templates")}>
-                        <Text style={styles.savedTemplateViewAllText}>View all</Text>
-                      </TouchableOpacity>
-                    ): null}
-                  </View>
-
-                  {savedTemplates.length > 0 ? (
-                    <View style={styles.templateChipRow}>
-                      {savedTemplates.slice(0, 3).map((template) => (
-                        <TouchableOpacity
-                          key={template.id}
-                          style={styles.savedTemplateSimpleChip}
-                          onPress={() => applySavedTemplate(template.id)}
-                        >
-                          <Text
-                            style={styles.savedTemplateSimpleChipText}
-                            numberOfLines={1}
-                          >
-                            {template.name}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  ) : (
-                    <Text style={styles.savedTemplateEmptyText}>
-                      Saved templates will appear here.
-                    </Text>
-                  )}
-                </View>
-                <TouchableOpacity
-                  disabled={isImageWorkInProgress}
-                  style={[
-                    styles.parentGenerateVisualsButton,
-                    isImageWorkInProgress && styles.primaryButtonDisabled,
-                  ]}
-                  onPress={handleGenerateVisuals}
-                >
-                  <Text style={styles.parentGenerateVisualsButtonText}>
-                    {isGeneratingVisuals
-                      ? "Generating visuals..."
-                      : "Generate visuals"}
-                  </Text>
-                </TouchableOpacity>
-
-                <Text style={styles.generateVisualsHint}>
-                  Symbols and Emoji are tried first. AI works better for
-                  concrete objects.
-                </Text>
-
-                {isGeneratingVisuals ? (
-                  <Text style={styles.parentVisualGenerationStatus}>
-                    Finding clear visuals. This can take a moment.
-                  </Text>
-                ) : null}
-              </View>
-
-              <View style={styles.parentInputGroup}>
                 <Text style={styles.parentInputLabel}>Question</Text>
 
                 <TextInput
                   accessibilityLabel="Question text"
                   cursorColor="#A97E57"
-                  placeholder="Ask a calm question..."
+                  placeholder="Anything you would like to communciate such as questions, instructions, choices, reminders or encouragement"
                   placeholderTextColor="#D4C4B8"
                   selectionColor="#D8B48F"
                   style={styles.parentQuestionInput}
@@ -1250,190 +1385,95 @@ export default function ParentModeScreen({
               </View>
 
               <View style={styles.parentInputGroup}>
-                <Text style={styles.parentInputLabel}>
-                  Speech sentence pattern
-                </Text>
-
-                <TextInput
-                  accessibilityLabel="Speech sentence pattern"
-                  cursorColor="#A97E57"
-                  placeholder={DEFAULT_SPEECH_TEMPLATE}
-                  placeholderTextColor="#D4C4B8"
-                  selectionColor="#D8B48F"
-                  style={styles.textInput}
-                  value={speechTemplate}
-                  onChangeText={onSpeechTemplateChange}
-                />
-
-                <Text style={styles.parentOptionsHint}>
-                  Use {"{option}"} where the answer should go, like I feel{" "}
-                  {"{option}"} or I need {"{option}"}.
-                </Text>
-              </View>
-
-              <View style={styles.parentInputGroup}>
-                <Text style={styles.parentInputLabel}>Child response mode</Text>
-
-                <TouchableOpacity
-                  style={styles.parentToggleRow}
-                  activeOpacity={0.85}
-                  onPress={() => onVisualOnlyModeChange(!visualOnlyMode)}
-                >
-                  <View style={styles.parentToggleTextBlock}>
-                    <Text style={styles.parentToggleTitle}>Visual only</Text>
-                    <Text style={styles.parentToggleHelp}>
-                      Child taps an option and presses Send Answer.
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.parentToggleSwitch,
-                      visualOnlyMode && styles.parentToggleSwitchOn,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.parentToggleKnob,
-                        visualOnlyMode && styles.parentToggleKnobOn,
-                      ]}
-                    />
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.parentToggleRow,
-                    visualOnlyMode && styles.parentToggleRowDisabled,
-                  ]}
-                  activeOpacity={visualOnlyMode ? 1 : 0.85}
-                  disabled={visualOnlyMode}
-                  onPress={() =>
-                    onSpeechAssistantEnabledChange(!speechAssistantEnabled)
-                  }
-                >
-                  <View style={styles.parentToggleTextBlock}>
-                    <Text style={styles.parentToggleTitle}>Speech assistant</Text>
-                    <Text style={styles.parentToggleHelp}>
-                      Show word bubbles while speech mode listens.
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.parentToggleSwitch,
-                      !visualOnlyMode &&
-                        speechAssistantEnabled &&
-                        styles.parentToggleSwitchOn,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.parentToggleKnob,
-                        !visualOnlyMode &&
-                          speechAssistantEnabled &&
-                          styles.parentToggleKnobOn,
-                      ]}
-                    />
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.parentInputGroup}>
                 <View style={styles.answerOptionsHeaderRow}>
                   <Text style={styles.parentInputLabel}>Answer options</Text>
-
-                  <TouchableOpacity
-                    style={styles.saveTemplateInlineButton}
-                    onPress={openSaveTemplateModal}
-                    disabled={isImageWorkInProgress}
-                  >
-                    <Text style={styles.saveTemplateInlineButtonText}>
-                      {isEditingTemplate ? "Update template" : "Save template"}
-                    </Text>
-                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.parentOptionsList}>
                   {optionLabels.map((label, index) => {
                     const visualRemoved = removedVisualIndexes.has(index);
-                    const hasImage = !!optionImageUrls[index] && !visualRemoved;
-                    const hasResolvedVisual =
-                      !!resolvedOptions?.[index]?.imageUrl ||
-                      !!resolvedOptions?.[index]?.emoji;
-                    const hasAnyVisual =
-                      !visualRemoved && (hasImage || hasResolvedVisual);
+                    const optionImageUrl =
+                      !visualRemoved
+                        ? optionImageUrls[index] ||
+                          resolvedOptions?.[index]?.imageUrl ||
+                          ""
+                        : "";
                     const isUploading = uploadingImageIndex === index;
+                    const isGeneratingOption =
+                      generatingVisualIndexes.has(index);
 
                     return (
                       <View
                         key={`draft-${index}`}
-                        style={styles.parentOptionCompactRow}
+                        style={styles.parentOptionCard}
                       >
-                        <View style={styles.parentOptionIndexBadge}>
-                          <View style={styles.parentOptionIndexInner}>
-                            <Text style={styles.parentOptionIndexText}>
-                              {index + 1}
+                        <TouchableOpacity
+                          activeOpacity={0.85}
+                          style={styles.parentOptionImagePreview}
+                          onPress={() => showImageSourceMenu(index)}
+                          disabled={isUploading || isGeneratingOption}
+                        >
+                          {optionImageUrl ? (
+                            <Image
+                              source={{ uri: optionImageUrl }}
+                              style={styles.parentOptionPreviewImage}
+                              resizeMode="contain"
+                            />
+                          ) : (
+                            <Text style={styles.parentOptionNoImageText}>
+                              {isUploading ? "Uploading..." : "No image"}
                             </Text>
+                          )}
+                        </TouchableOpacity>
+
+                        <View style={styles.parentOptionEditBlock}>
+                          <View style={styles.parentOptionInputRow}>
+                            <TextInput
+                              accessibilityLabel={`Option ${index + 1} label`}
+                              cursorColor="#A97E57"
+                              placeholder="Option"
+                              placeholderTextColor="#D4C4B8"
+                              selectionColor="#D8B48F"
+                              style={styles.parentOptionCompactInput}
+                              value={label}
+                              returnKeyType="done"
+                              onChangeText={(value) =>
+                                onOptionLabelChange(index, value)
+                              }
+                              onSubmitEditing={() =>
+                                void handleGenerateOptionVisual(index)
+                              }
+                              onBlur={() =>
+                                void handleGenerateOptionVisual(index)
+                              }
+                            />
+
+                            <TouchableOpacity
+                              style={styles.parentOptionIconButton}
+                              onPress={() =>
+                                void handleGenerateOptionVisual(index, {
+                                  force: true,
+                                })
+                              }
+                              disabled={isUploading || isGeneratingOption}
+                            >
+                              <Text style={styles.parentOptionRetryIconText}>
+                                {isGeneratingOption ? "..." : "R"}
+                              </Text>
+                            </TouchableOpacity>
+
+                            {optionLabels.length > 1 ? (
+                              <TouchableOpacity
+                                style={styles.parentOptionRemoveXButton}
+                                onPress={() => handleRemoveOption(index)}
+                                disabled={isUploading || isGeneratingOption}
+                              >
+                                <Text style={styles.parentOptionRemoveXText}>
+                                  X
+                                </Text>
+                              </TouchableOpacity>
+                            ) : null}
                           </View>
-                        </View>
-
-                        <TextInput
-                          accessibilityLabel={`Option ${index + 1} label`}
-                          cursorColor="#A97E57"
-                          placeholder={`Option ${index + 1}`}
-                          placeholderTextColor="#D4C4B8"
-                          selectionColor="#D8B48F"
-                          style={styles.parentOptionCompactInput}
-                          value={label}
-                          onChangeText={(value) =>
-                            onOptionLabelChange(index, value)
-                          }
-                        />
-
-                        <View style={styles.parentOptionCompactActions}>
-                          <TouchableOpacity
-                            style={[
-                              styles.parentMiniImageButton,
-                              hasAnyVisual && styles.parentMiniImageButtonReady,
-                            ]}
-                            onPress={() => showImageSourceMenu(index)}
-                            disabled={isUploading}
-                          >
-                            <Text style={styles.parentMiniImageButtonText}>
-                              {isUploading
-                                ? "..."
-                                : hasAnyVisual
-                                  ? "Change"
-                                  : "Add"}
-                            </Text>
-                          </TouchableOpacity>
-
-                          {hasAnyVisual ? (
-                            <TouchableOpacity
-                              style={styles.parentMiniImageRemoveButton}
-                              onPress={() => handleRemoveVisual(index)}
-                              disabled={isUploading}
-                            >
-                              <Text
-                                style={styles.parentMiniImageRemoveButtonText}
-                              >
-                                Remove
-                              </Text>
-                            </TouchableOpacity>
-                          ) : null}
-
-                          {optionLabels.length > 2 ? (
-                            <TouchableOpacity
-                              style={styles.parentMiniOptionDeleteButton}
-                              onPress={() => handleRemoveOption(index)}
-                              disabled={isUploading}
-                            >
-                              <Text
-                                style={styles.parentMiniOptionDeleteButtonText}
-                              >
-                                Delete
-                              </Text>
-                            </TouchableOpacity>
-                          ) : null}
                         </View>
                       </View>
                     );
@@ -1451,42 +1491,119 @@ export default function ParentModeScreen({
                 </TouchableOpacity>
 
                 <Text style={styles.parentOptionsHint}>
-                  Optional: add or change images here. For generated visuals,
-                  put the picture word in [brackets], e.g. play [soccer].
+                  Tip: put the picture word in [brackets], e.g. play [soccer].
                 </Text>
               </View>
 
-              <View style={styles.parentPreviewToggle}>
-                <TouchableOpacity
-                  style={styles.previewToggleButton}
-                  onPress={onPreviewToggle}
-                >
-                  <Text style={styles.previewToggleText}>
-                    {showPreview ? "Hide preview" : "Preview"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              {!visualOnlyMode ? (
+                <View style={styles.parentInputGroup}>
+                  <Text style={styles.parentInputLabel}>Speech to Accept</Text>
 
-              {showPreview ? (
-                <View style={styles.parentPreviewBox}>
-                  <FormattedQuestionText
-                    text={previewSession.title || "Your question"}
-                    style={styles.parentPreviewTitle}
-                    boldStyle={styles.parentPreviewTitleBold}
+                  <TextInput
+                    accessibilityLabel="Speech to accept"
+                    cursorColor="#A97E57"
+                    placeholder={DEFAULT_SPEECH_TEMPLATE}
+                    placeholderTextColor="#D4C4B8"
+                    selectionColor="#D8B48F"
+                    style={styles.textInput}
+                    value={speechTemplate}
+                    onChangeText={onSpeechTemplateChange}
                   />
-
-                  <View style={styles.parentPreviewGrid}>
-                    {previewSession.options.map((option) => (
-                      <OptionCard
-                        key={option.id}
-                        option={option}
-                        compact
-                        disabled
-                      />
-                    ))}
-                  </View>
                 </View>
               ) : null}
+
+              <View style={styles.parentInputGroup}>
+                <View style={styles.parentPreviewActionRow}>
+                  <TouchableOpacity
+                    style={styles.parentPreviewToggleButton}
+                    onPress={() =>
+                      setIsPreviewVisible((isVisible) => !isVisible)
+                    }
+                  >
+                    <Text style={styles.parentPreviewToggleButtonText}>
+                      {isPreviewVisible ? "Hide Preview" : "Preview"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.parentPreviewSaveButton}
+                    onPress={openSaveTemplateModal}
+                    disabled={isImageWorkInProgress}
+                  >
+                    <Text style={styles.parentPreviewSaveButtonText}>
+                      {isEditingTemplate
+                        ? "Update saved item"
+                        : "Save for future use"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {isPreviewVisible ? (
+                  <View style={styles.parentPreviewBox}>
+                    <FormattedQuestionText
+                      text={draftPreviewSession.title || "Your question"}
+                      style={styles.parentPreviewTitle}
+                      boldStyle={styles.parentPreviewTitleBold}
+                    />
+
+                    <View style={styles.parentPreviewGrid}>
+                      {previewOptions.map((option) => (
+                        <OptionCard
+                          key={option.id}
+                          option={option}
+                          compact
+                          disabled
+                        />
+                      ))}
+                    </View>
+
+                    {!visualOnlyMode && previewSpeechPhrase ? (
+                      <View
+                        style={[
+                          styles.speechPracticeCard,
+                          styles.parentPreviewSpeechCard,
+                        ]}
+                      >
+                        <Text style={styles.parentPreviewSpeechHeader}>
+                          Speech to Accept
+                        </Text>
+                        <View
+                          style={[
+                            styles.speechTargetPhraseRow,
+                            styles.parentPreviewSpeechTargetRow,
+                          ]}
+                        >
+                          <MaterialCommunityIcons
+                            name="account-voice"
+                            size={18}
+                            color="#7F1F1A"
+                          />
+                          <FormattedQuestionText
+                            text={previewSpeechPhrase}
+                            style={[
+                              styles.speechTargetPhraseText,
+                              styles.parentPreviewSpeechTargetText,
+                            ]}
+                            boldStyle={styles.speechTargetPhraseTextBold}
+                          />
+                        </View>
+                      </View>
+                    ) : null}
+
+                    <TouchableOpacity
+                      style={styles.parentPreviewSaveButton}
+                      onPress={openSaveTemplateModal}
+                      disabled={isImageWorkInProgress}
+                    >
+                      <Text style={styles.parentPreviewSaveButtonText}>
+                        {isEditingTemplate
+                          ? "Update saved item"
+                          : "Save for future use"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+              </View>
             </View>
 
             <View style={styles.parentActionSection}>
@@ -1500,10 +1617,10 @@ export default function ParentModeScreen({
               >
                 <Text style={styles.primaryButtonText}>
                   {isImageWorkInProgress
-                    ? "Generating Visuals..."
+                    ? "Preparing Images..."
                     : isUploadingImage
                       ? "Uploading Image..."
-                      : "Send To Child"}
+                      : "Send to Child"}
                 </Text>
               </TouchableOpacity>
 
@@ -1515,25 +1632,18 @@ export default function ParentModeScreen({
                 </View>
               ) : null}
 
-              {sentSession && (
-                <TouchableOpacity
-                  style={styles.secondaryButton}
-                  onPress={handleReset}
-                >
-                  <Text style={styles.secondaryButtonText}>Clear session</Text>
-                </TouchableOpacity>
-              )}
-
-              <Text style={styles.parentSubtleFooterText}>
-                Generated visuals are suggestions. Check each image before
-                sending. You can change or remove any visual.
-              </Text>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={handleReset}
+              >
+                <Text style={styles.secondaryButtonText}>Clear Session</Text>
+              </TouchableOpacity>
             </View>
           </>
         ) : null}
         {activeParentTab === "history" ? (
           <View style={styles.parentStatusSection}>
-            <Text style={styles.parentStatusLabel}>Recent history</Text>
+            <Text style={styles.parentStatusLabel}>Responses</Text>
 
             {historyNoticeMessage ? (
               <View style={styles.templateAddedNotice}>
@@ -1555,7 +1665,7 @@ export default function ParentModeScreen({
                 <Text style={styles.historyQuestion}>{fireSession.title}</Text>
                 {fireSession.speechTemplate ? (
                   <>
-                    <Text style={styles.historyLabel}>Speech pattern</Text>
+                    <Text style={styles.historyLabel}>Speech to Accept</Text>
                     <Text style={styles.historyQuestion}>
                       {fireSession.speechTemplate}
                     </Text>
@@ -1568,17 +1678,21 @@ export default function ParentModeScreen({
               </View>
             ) : null}
 
-            {sessionHistory.length > 0 ? (
-              sessionHistory.map((item) => {
+            {visibleSessionHistory.length > 0 ? (
+              visibleSessionHistory.map((item) => {
                 const reusableOptions = getReusableHistoryOptions(item);
                 const canUseHistoryActions =
                   reusableOptions.length >= MIN_REUSABLE_HISTORY_OPTIONS;
                 const speechPracticeText = getHistorySpeechPracticeText(item);
+                const isAnsweredHistoryItem =
+                  item.status === "answered" || !!item.answer;
 
                 return (
                 <View key={item.id} style={styles.historyCard}>
                   <View style={styles.historyHeaderRow}>
-                    <Text style={styles.historyStatusText}>Answered</Text>
+                    <Text style={styles.historyStatusText}>
+                      {isAnsweredHistoryItem ? "Answered" : "Sent"}
+                    </Text>
                     <Text style={styles.historyTime}>
                       {formatHistoryTimestamp(item.createdAt)}
                     </Text>
@@ -1588,9 +1702,18 @@ export default function ParentModeScreen({
                   <Text style={styles.historyQuestion}>{item.question}</Text>
 
                   <Text style={styles.historyLabel}>Child answer</Text>
-                  <Text style={styles.historyAnswer}>
-                    {item.answerEmoji ? `${item.answerEmoji} ` : ""}
-                    {item.answer || "No answer recorded"}
+                  <Text
+                    style={
+                      isAnsweredHistoryItem
+                        ? styles.historyAnswer
+                        : styles.historyPendingAnswer
+                    }
+                  >
+                    {isAnsweredHistoryItem
+                      ? `${item.answerEmoji ? `${item.answerEmoji} ` : ""}${
+                          item.answer || "No answer recorded"
+                        }`
+                      : "Not answered yet"}
                   </Text>
 
                   {speechPracticeText ? (
@@ -1609,7 +1732,7 @@ export default function ParentModeScreen({
                         onPress={() => handleUseHistoryItem(item)}
                       >
                         <Text style={styles.historyReuseButtonText}>
-                          Use again
+                          Reuse
                         </Text>
                       </TouchableOpacity>
 
@@ -1618,7 +1741,7 @@ export default function ParentModeScreen({
                         onPress={() => handleSaveHistoryTemplate(item)}
                       >
                         <Text style={styles.historyReuseButtonText}>
-                          Save as template
+                          Save for future use
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -1633,8 +1756,7 @@ export default function ParentModeScreen({
             ) : (
               <View style={styles.historyEmptyCard}>
                 <Text style={styles.historyEmptyText}>
-                  No answered sessions yet. Responses will appear here after
-                  the child sends an answer.
+                  Responses will appear here after you send a question.
                 </Text>
               </View>
             )}
@@ -1644,11 +1766,11 @@ export default function ParentModeScreen({
           <>
             <View style={styles.parentBuildSection}>
               <View style={styles.parentSectionHeader}>
-                <Text style={styles.parentSectionTitle}>Templates</Text>
+                <Text style={styles.parentSectionTitle}>Saved</Text>
               </View>
 
               <View style={styles.parentInputGroup}>
-                <Text style={styles.parentInputLabel}>Built-in templates</Text>
+                <Text style={styles.parentInputLabel}>Built-in saved items</Text>
 
                 <View style={styles.templateChipRow}>
                   <TouchableOpacity
@@ -1694,7 +1816,7 @@ export default function ParentModeScreen({
               </View>
 
               <View style={styles.parentInputGroup}>
-                <Text style={styles.parentInputLabel}>My templates</Text>
+                <Text style={styles.parentInputLabel}>Saved items</Text>
 
                 {savedTemplates.length > 0 ? (
                   <View style={styles.templateCardList}>
@@ -1726,7 +1848,7 @@ export default function ParentModeScreen({
                             style={styles.templateManageMeta}
                             numberOfLines={1}
                           >
-                            Speech pattern:{" "}
+                            Speech to Accept:{" "}
                             {template.speechTemplate?.trim() ||
                               DEFAULT_SPEECH_TEMPLATE}
                           </Text>
@@ -1772,8 +1894,8 @@ export default function ParentModeScreen({
                 ) : (
                   <View style={styles.historyEmptyCard}>
                     <Text style={styles.historyEmptyText}>
-                      Saved templates will appear here after you save one from
-                      the Create tab.
+                      Saved items will appear here after you save one from
+                      Engage.
                     </Text>
                   </View>
                 )}
@@ -1791,12 +1913,12 @@ export default function ParentModeScreen({
         <View style={styles.modalBackdrop}>
           <View style={styles.saveTemplateModalCard}>
             <Text style={styles.saveTemplateModalTitle}>
-              {isEditingTemplate ? "Update template" : "Save template"}
+              {isEditingTemplate ? "Update saved item" : "Save for future use"}
             </Text>
 
             <Text style={styles.saveTemplateModalSubtitle}>
               {isEditingTemplate
-                ? "Update the name, question, and options for this template."
+                ? "Update the name, question, and options for this saved item."
                 : "Give this set of question and options a name."}
             </Text>
 

@@ -1270,7 +1270,7 @@ export const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: "#FFFDFC",
     color: "#2B1D18",
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: "600",
     paddingHorizontal: 18,
     paddingVertical: 14,
@@ -1312,7 +1312,7 @@ export const styles = StyleSheet.create({
     color: "#8A7566",
     fontSize: 12,
     lineHeight: 16,
-    marginTop: -2,
+    marginTop: 8,
   },
 
   parentOptionCompactRow: {
@@ -1328,19 +1328,104 @@ export const styles = StyleSheet.create({
     minHeight: 62,
   },
 
+  parentOptionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    backgroundColor: "#FBF9F6",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E4D8CC",
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+  },
+
+  parentOptionImagePreview: {
+    width: 54,
+    height: 54,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "#E5D8CF",
+    backgroundColor: "#FFFDFC",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+
+  parentOptionPreviewImage: {
+    width: 49,
+    height: 49,
+  },
+
+  parentOptionNoImageText: {
+    color: "#A8978B",
+    fontSize: 10,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+
+  parentOptionEditBlock: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: "center",
+  },
+
+  parentOptionInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
   parentOptionCompactInput: {
     flex: 1,
     minWidth: 0,
     fontSize: 16,
     color: "#2B1D18",
-    fontWeight: "600",
-    paddingVertical: 6,
+    fontWeight: "400",
+    paddingVertical: 2,
+  },
+
+  parentOptionIconButton: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F5EBDD",
+    borderWidth: 1,
+    borderColor: "#E1C8B2",
+  },
+
+  parentOptionRetryIconText: {
+    color: "#8A5E3C",
+    fontSize: 12,
+    fontWeight: "900",
+    lineHeight: 14,
+  },
+
+  parentOptionRemoveXButton: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFDFC",
+    borderWidth: 1,
+    borderColor: "#E5D8CF",
+  },
+
+  parentOptionRemoveXText: {
+    color: "#A65B4B",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 16,
   },
 
   parentOptionCompactActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
+    gap: 6,
   },
 
   parentMiniImageButton: {
@@ -1348,8 +1433,8 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     backgroundColor: "#F1E8DD",
     borderWidth: 1,
     borderColor: "#D4C4B8",
@@ -1362,7 +1447,7 @@ export const styles = StyleSheet.create({
 
   parentMiniImageButtonText: {
     color: "#705642",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
   },
 
@@ -1386,6 +1471,124 @@ export const styles = StyleSheet.create({
     color: "#A65B4B",
     fontSize: 11,
     fontWeight: "800",
+  },
+
+  parentModeChoiceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#FBF9F6",
+    borderWidth: 1,
+    borderColor: "#E4D8CC",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+
+  parentModeChoiceRowSelected: {
+    backgroundColor: "#FFFDFC",
+    borderColor: "#B9824F",
+  },
+
+  parentModeCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#CDB8A8",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+
+  parentModeCheckboxSelected: {
+    backgroundColor: "#B9824F",
+    borderColor: "#B9824F",
+  },
+
+  parentModeCheckboxText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "900",
+    includeFontPadding: false,
+  },
+
+  parentModeChoiceText: {
+    flex: 1,
+    color: "#2B1D18",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  parentModeDropdownButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    backgroundColor: "#FBF9F6",
+    borderWidth: 1,
+    borderColor: "#E4D8CC",
+    borderRadius: 14,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+  },
+
+  parentModeDropdownText: {
+    flex: 1,
+    color: "#2B1D18",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  parentModeDropdownIcon: {
+    color: "#8A7566",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+
+  parentModeDropdownMenu: {
+    marginTop: 6,
+    backgroundColor: "#FFFDFC",
+    borderWidth: 1,
+    borderColor: "#E4D8CC",
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+
+  parentModeDropdownItem: {
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EFE4D8",
+  },
+
+  parentModeDropdownItemSelected: {
+    backgroundColor: "#F5EBDD",
+  },
+
+  parentModeDropdownItemText: {
+    color: "#2B1D18",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  parentModeDescription: {
+    color: "#806B5E",
+    fontSize: 12,
+    fontWeight: "500",
+    lineHeight: 16,
+    marginTop: 6,
+  },
+
+  parentModeSection: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E5D8CF",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 12,
   },
 
   parentAddOptionButton: {
@@ -1503,16 +1706,36 @@ export const styles = StyleSheet.create({
     fontWeight: "800",
   },
   parentPreviewBox: {
-    backgroundColor: "#FBF9F6",
+    backgroundColor: "#F3ECE5",
     borderRadius: 16,
-    padding: 16,
+    padding: 13,
     borderWidth: 1,
-    borderColor: "#E4D8CC",
-    gap: 12,
-    marginTop: 4,
+    borderColor: "#D8C7B8",
+    gap: 9,
+    marginTop: 12,
+  },
+  parentPreviewToggleButton: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#D6C3B4",
+    backgroundColor: "#FFFDFC",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  parentPreviewToggleButtonText: {
+    color: "#705642",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  parentPreviewActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
   },
   parentPreviewTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "500",
     color: "#2B1D18",
   },
@@ -1520,7 +1743,41 @@ export const styles = StyleSheet.create({
     fontWeight: "900",
   },
   parentPreviewGrid: {
-    gap: 10,
+    gap: 7,
+  },
+  parentPreviewSpeechCard: {
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    gap: 5,
+  },
+  parentPreviewSpeechHeader: {
+    color: "#7D6E66",
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  parentPreviewSpeechTargetRow: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    gap: 7,
+  },
+  parentPreviewSpeechTargetText: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  parentPreviewSaveButton: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#D6C3B4",
+    backgroundColor: "#EFE4D8",
+    borderRadius: 999,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+  },
+  parentPreviewSaveButtonText: {
+    color: "#705642",
+    fontSize: 12,
+    fontWeight: "900",
   },
   parentActionSection: {
     marginTop: 10,

@@ -12,6 +12,8 @@ declare class FocusAlertModule extends NativeModule<FocusAlertModuleEvents> {
   openBatterySettings(): boolean;
   showOverlayAlert(): void;
   playPracticeSound(kind: 'ready' | 'try' | 'success'): void;
+  speakPracticePhrase(phrase: string): Promise<boolean>;
+  stopPracticeSpeech(): void;
   triggerFocusAlert(): void;
   getFcmToken(): string;
 }

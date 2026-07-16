@@ -13,10 +13,7 @@ import DeviceSetupScreen from "./DeviceSetup";
 import { doc, setDoc } from "firebase/firestore";
 
 import {
-  DEFAULT_QUESTION,
-  DEFAULT_OPTIONS,
-  createSession,
-  CommunicationSession,
+  SessionOption,
   DEFAULT_ROOM_ID,
   DEFAULT_SPEECH_TEMPLATE,
   DEFAULT_SPEECH_ASSISTANT_ENABLED,
@@ -32,6 +29,7 @@ type savedSessionTemplate = {
   name: string;
   question: string;
   options: string[];
+  optionDetails?: SessionOption[];
   speechTemplate?: string;
   visualOnlyMode?: boolean;
   speechAssistantEnabled?: boolean;
@@ -76,8 +74,11 @@ export default function CommunicationMvpApp() {
   const [appState, setAppState] = useState<AppState>("loading");
   const [deviceRole, setDeviceRole] = useState<"parent" | "child" | null>(null);
   const [roomId, setRoomId] = useState<string>(DEFAULT_ROOM_ID);
-  const [draftQuestion, setDraftQuestion] = useState(DEFAULT_QUESTION);
-  const [draftOptions, setDraftOptions] = useState<string[]>(DEFAULT_OPTIONS);
+  const [draftQuestion, setDraftQuestion] = useState("");
+  const [draftOptions, setDraftOptions] = useState<string[]>([""]);
+  const [draftOptionDetails, setDraftOptionDetails] = useState<
+    SessionOption[] | null
+  >(null);
   const [draftSpeechTemplate, setDraftSpeechTemplate] = useState(
     DEFAULT_SPEECH_TEMPLATE,
   );
@@ -86,10 +87,6 @@ export default function CommunicationMvpApp() {
   );
   const [draftSpeechAssistantEnabled, setDraftSpeechAssistantEnabled] = useState(
     DEFAULT_SPEECH_ASSISTANT_ENABLED,
-  );
-  const [showPreview, setShowPreview] = useState(false);
-  const [sentSession, setSentSession] = useState<CommunicationSession | null>(
-    null,
   );
   const [templateVersion, setTemplateVersion] = useState(0);
   const [savedTemplates, setSavedTemplates] = useState<savedSessionTemplate[]>(
@@ -243,13 +240,12 @@ export default function CommunicationMvpApp() {
       setDeviceRole(null);
       setRoomId(DEFAULT_ROOM_ID);
       setAppState("welcome");
-      setSentSession(null);
-      setDraftQuestion(DEFAULT_QUESTION);
-      setDraftOptions(DEFAULT_OPTIONS);
+      setDraftQuestion("");
+      setDraftOptions([""]);
+      setDraftOptionDetails(null);
       setDraftSpeechTemplate(DEFAULT_SPEECH_TEMPLATE);
       setDraftVisualOnlyMode(DEFAULT_VISUAL_ONLY_MODE);
       setDraftSpeechAssistantEnabled(DEFAULT_SPEECH_ASSISTANT_ENABLED);
-      setShowPreview(false);
       setEditingTemplateId(null);
       setTemplateVersion((value) => value + 1);
     } catch (error) {
@@ -265,30 +261,45 @@ export default function CommunicationMvpApp() {
   const handleSpeechAssistantEnabledChange = (value: boolean) =>
     setDraftSpeechAssistantEnabled(value);
 
+  const resetParentDraft = () => {
+    setDraftQuestion("");
+    setDraftOptions([""]);
+    setDraftOptionDetails(null);
+    setDraftSpeechTemplate(DEFAULT_SPEECH_TEMPLATE);
+    setDraftVisualOnlyMode(DEFAULT_VISUAL_ONLY_MODE);
+    setDraftSpeechAssistantEnabled(DEFAULT_SPEECH_ASSISTANT_ENABLED);
+    setEditingTemplateId(null);
+    setTemplateVersion((value) => value + 1);
+  };
+
   const handleOptionLabelChange = (index: number, value: string) => {
     setDraftOptions((currentOptions) => {
       const nextOptions = [...currentOptions];
       nextOptions[index] = value;
       return nextOptions;
     });
+    setDraftOptionDetails(null);
   };
 
   const handleOptionLabelsReplace = (values: string[]) => {
-    setDraftOptions(values.length >= 2 ? values : DEFAULT_OPTIONS);
+    setDraftOptions(values.length > 0 ? values : [""]);
+    setDraftOptionDetails(null);
   };
 
   const handleAddOption = () => {
     setDraftOptions((currentOptions) => [...currentOptions, ""]);
+    setDraftOptionDetails(null);
   };
 
   const handleRemoveOption = (index: number) => {
     setDraftOptions((currentOptions) => {
-      if (currentOptions.length <= 2) {
+      if (currentOptions.length <= 1) {
         return currentOptions;
       }
 
       return currentOptions.filter((_, optionIndex) => optionIndex !== index);
     });
+    setDraftOptionDetails(null);
   };
 
   const handleApplyTemplate = (templateId: SessionTemplateId) => {
@@ -296,11 +307,10 @@ export default function CommunicationMvpApp() {
 
     setDraftQuestion(template.question);
     setDraftOptions(template.options);
+    setDraftOptionDetails(null);
     setDraftSpeechTemplate(template.speechTemplate);
     setDraftVisualOnlyMode(DEFAULT_VISUAL_ONLY_MODE);
     setDraftSpeechAssistantEnabled(DEFAULT_SPEECH_ASSISTANT_ENABLED);
-    setSentSession(null);
-    setShowPreview(false);
     setEditingTemplateId(null);
 
     // This tells ParentMode to clear any old image selections from the previous draft.
@@ -318,6 +328,7 @@ export default function CommunicationMvpApp() {
   const saveTemplateFromValues = async ({
     question,
     options,
+    optionDetails,
     speechTemplate,
     visualOnlyMode,
     speechAssistantEnabled,
@@ -327,6 +338,7 @@ export default function CommunicationMvpApp() {
   }: {
     question: string;
     options: string[];
+    optionDetails?: SessionOption[] | null;
     speechTemplate?: string;
     visualOnlyMode?: boolean;
     speechAssistantEnabled?: boolean;
@@ -344,7 +356,7 @@ export default function CommunicationMvpApp() {
     if (cleanedOptions.length < 2) {
       Alert.alert(
         "Check answer options",
-        "Please keep at least two options before saving a template.",
+        "Please keep at least two options before saving.",
       );
       return false;
     }
@@ -371,8 +383,8 @@ export default function CommunicationMvpApp() {
 
     if (editingTemplate && existingTemplate) {
       Alert.alert(
-        "Template name already exists",
-        "Please choose a different name before updating this template.",
+        "Name already exists",
+        "Please choose a different name before updating this saved item.",
       );
       return false;
     }
@@ -382,6 +394,14 @@ export default function CommunicationMvpApp() {
       name: finalTemplateName,
       question: cleanedQuestion,
       options: cleanedOptions,
+      ...(optionDetails?.length
+        ? {
+            optionDetails: optionDetails.map((option, index) => ({
+              ...option,
+              id: String(index + 1),
+            })),
+          }
+        : {}),
       speechTemplate: cleanedSpeechTemplate,
       visualOnlyMode: visualOnlyMode ?? DEFAULT_VISUAL_ONLY_MODE,
       speechAssistantEnabled:
@@ -401,28 +421,32 @@ export default function CommunicationMvpApp() {
       if (showSuccessAlert) {
         Alert.alert(
           editingTemplate || existingTemplate
-            ? "Template updated"
-            : "Template saved",
+            ? "Saved item updated"
+            : "Saved for future use",
           editingTemplate || existingTemplate
-            ? "The existing template has been updated and moved to the top"
-            : "You can reuse this question and options from the Templates tab.",
+            ? "The existing saved item has been updated and moved to the top"
+            : "You can reuse this question and options from the Saved tab.",
         );
       }
       return true;
     } catch (error) {
       console.warn("Failed to save template", error);
       Alert.alert(
-        "Could not save template",
-        "Something went wrong while saving this template.",
+        "Could not save",
+        "Something went wrong while saving this item.",
       );
       return false;
     }
   };
 
-  const handleSaveCurrentTemplate = async (templateName?: string) =>
+  const handleSaveCurrentTemplate = async (
+    templateName?: string,
+    optionDetails?: SessionOption[] | null,
+  ) =>
     saveTemplateFromValues({
       question: draftQuestion,
       options: draftOptions,
+      optionDetails,
       speechTemplate: draftSpeechTemplate,
       visualOnlyMode: draftVisualOnlyMode,
       speechAssistantEnabled: draftSpeechAssistantEnabled,
@@ -434,6 +458,7 @@ export default function CommunicationMvpApp() {
   const handleSaveHistoryTemplate = async (
     historyQuestion: string,
     historyOptions: string[],
+    historyOptionDetails?: SessionOption[] | null,
     historySpeechTemplate?: string | null,
     historyVisualOnlyMode?: boolean | null,
     historySpeechAssistantEnabled?: boolean | null,
@@ -441,6 +466,7 @@ export default function CommunicationMvpApp() {
     saveTemplateFromValues({
       question: historyQuestion,
       options: historyOptions,
+      optionDetails: historyOptionDetails,
       speechTemplate: historySpeechTemplate ?? draftSpeechTemplate,
       visualOnlyMode: historyVisualOnlyMode ?? DEFAULT_VISUAL_ONLY_MODE,
       speechAssistantEnabled:
@@ -454,13 +480,12 @@ export default function CommunicationMvpApp() {
     if (!template) return;
     setDraftQuestion(template.question);
     setDraftOptions(template.options);
+    setDraftOptionDetails(template.optionDetails ?? null);
     setDraftSpeechTemplate(template.speechTemplate ?? DEFAULT_SPEECH_TEMPLATE);
     setDraftVisualOnlyMode(template.visualOnlyMode ?? DEFAULT_VISUAL_ONLY_MODE);
     setDraftSpeechAssistantEnabled(
       template.speechAssistantEnabled ?? DEFAULT_SPEECH_ASSISTANT_ENABLED,
     );
-    setSentSession(null);
-    setShowPreview(false);
     setEditingTemplateId(null);
     setTemplateVersion((value) => value + 1);
 
@@ -481,13 +506,12 @@ export default function CommunicationMvpApp() {
 
     setDraftQuestion(template.question);
     setDraftOptions(template.options);
+    setDraftOptionDetails(template.optionDetails ?? null);
     setDraftSpeechTemplate(template.speechTemplate ?? DEFAULT_SPEECH_TEMPLATE);
     setDraftVisualOnlyMode(template.visualOnlyMode ?? DEFAULT_VISUAL_ONLY_MODE);
     setDraftSpeechAssistantEnabled(
       template.speechAssistantEnabled ?? DEFAULT_SPEECH_ASSISTANT_ENABLED,
     );
-    setSentSession(null);
-    setShowPreview(false);
     setEditingTemplateId(template.id);
     setTemplateVersion((value) => value + 1);
   };
@@ -510,24 +534,8 @@ export default function CommunicationMvpApp() {
     }
   };
 
-  const handlePreviewToggle = () => setShowPreview((v) => !v);
-
-  const handleSendToChild = () => {
-    // Build a new session draft and keep it in local state until the parent actually sends it.
-    const nextSession = createSession(
-      draftQuestion,
-      draftOptions.map((option) => option.trim()).filter(Boolean),
-      [],
-      draftSpeechTemplate,
-      draftVisualOnlyMode,
-      draftSpeechAssistantEnabled,
-    );
-    setSentSession(nextSession);
-    setShowPreview(false);
-  };
   const handleClearSession = () => {
-    setSentSession(null);
-    setShowPreview(false);
+    resetParentDraft();
   };
 
   if (appState === "loading") {
@@ -557,10 +565,9 @@ export default function CommunicationMvpApp() {
           question={draftQuestion}
           optionLabels={draftOptions}
           speechTemplate={draftSpeechTemplate}
+          initialOptionDetails={draftOptionDetails}
           visualOnlyMode={draftVisualOnlyMode}
           speechAssistantEnabled={draftSpeechAssistantEnabled}
-          sentSession={sentSession}
-          showPreview={showPreview}
           roomId={roomId}
           templateVersion={templateVersion}
           savedTemplates={savedTemplates}
@@ -583,8 +590,6 @@ export default function CommunicationMvpApp() {
           onCancelTemplateEdit={handleCancelTemplateEdit}
           onDeleteSavedTemplate={handleDeleteSavedTemplate}
           onSaveHistoryTemplate={handleSaveHistoryTemplate}
-          onPreviewToggle={handlePreviewToggle}
-          onSendToChild={handleSendToChild}
           onResetSetup={handleResetSetup}
           onClearSession={handleClearSession}
         />

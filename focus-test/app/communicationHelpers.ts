@@ -73,6 +73,7 @@ export interface SessionHistoryItem{
   speechTemplate?: string | null;
   visualOnlyMode?: boolean | null;
   speechAssistantEnabled?: boolean | null;
+  status?: SessionStatus;
   answer: string;
   answerEmoji?: string;
   createdAt: number;
@@ -466,12 +467,11 @@ function sanitizeHistoryOptions(options: SessionOption[]) {
         return safeOptions;
       }
 
-      const emoji = getSafeHistoryText(option.emoji, MAX_HISTORY_META_LENGTH);
-      const imageUrl = getSafeHistoryImageUrl(option.imageUrl);
       const visualKeyword = getSafeHistoryText(
         option.visualKeyword,
         MAX_HISTORY_LABEL_LENGTH,
       );
+      const imageUrl = getSafeHistoryImageUrl(option.imageUrl);
       const source = getSafeHistoryText(option.source, MAX_HISTORY_META_LENGTH);
       const provider = getSafeHistoryText(
         option.provider,
@@ -484,7 +484,6 @@ function sanitizeHistoryOptions(options: SessionOption[]) {
           String(index + 1),
         label,
         ...(visualKeyword ? { visualKeyword } : {}),
-        ...(emoji ? { emoji } : {}),
         ...(imageUrl ? { imageUrl } : {}),
         ...(source ? { source } : {}),
         ...(provider ? { provider } : {}),
@@ -703,15 +702,11 @@ export async function saveSessionHistory(
   session: CommunicationSession,
   roomId: string,
 ) {
-  if (!session.selectedAnswer) {
-    return;
-  }
-
   const selectedOption = session.options.find(
     (option) => option.id === session.selectedAnswer,
   );
 
-  if (!selectedOption) {
+  if (session.selectedAnswer && !selectedOption) {
     return;
   }
 
@@ -723,9 +718,10 @@ export async function saveSessionHistory(
     visualOnlyMode: session.visualOnlyMode ?? DEFAULT_VISUAL_ONLY_MODE,
     speechAssistantEnabled:
       session.speechAssistantEnabled ?? DEFAULT_SPEECH_ASSISTANT_ENABLED,
-    answer: selectedOption.label,
-    answerEmoji: selectedOption.emoji ?? undefined,
-    createdAt: Date.now(),
+    status: session.status,
+    answer: selectedOption?.label ?? "",
+    ...(selectedOption?.emoji ? { answerEmoji: selectedOption.emoji } : {}),
+    createdAt: session.createdAt || Date.now(),
   };
 
   await setDoc(
@@ -742,7 +738,7 @@ export function subscribeToSessionHistory(
   const q = query(
     getRoomHistoryCollection(roomId),
     orderBy("createdAt", "desc"),
-    limit(10),
+    limit(25),
   );
 
   return onSnapshot(q, (snap) => {

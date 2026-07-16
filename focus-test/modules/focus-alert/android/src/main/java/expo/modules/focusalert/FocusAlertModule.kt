@@ -21,6 +21,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.Button
@@ -31,6 +33,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessaging
 import android.util.Log
+import java.util.Locale
 
 // JS bridge for notifications, overlays, and FCM token access.
 
@@ -40,6 +43,7 @@ class FocusAlertModule : Module() {
   private val debugTag = "FocusAlertDebug"
   private val channelId = "focus_alerts"
   private var activeOverlay: android.view.View? = null
+  private var practiceTts: TextToSpeech? = null
 
   private fun startSettingsIntent(context: Context, intent: Intent): Boolean {
     return try {
@@ -270,6 +274,96 @@ class FocusAlertModule : Module() {
     }
   }
 
+  private fun speakPracticePhrase(context: Context, phrase: String, promise: expo.modules.kotlin.Promise) {
+    val cleanPhrase = phrase.trim()
+
+    if (cleanPhrase.isBlank()) {
+      promise.resolve(false)
+      return
+    }
+
+    Handler(Looper.getMainLooper()).post {
+      var didResolve = false
+
+      fun resolveOnce(value: Boolean) {
+        if (!didResolve) {
+          didResolve = true
+          promise.resolve(value)
+        }
+      }
+
+      fun speakWith(engine: TextToSpeech) {
+        val utteranceId = "focus-practice-${System.currentTimeMillis()}"
+
+        engine.language = Locale.US
+        engine.setSpeechRate(0.75f)
+        engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+          override fun onStart(id: String?) {
+            Log.d(debugTag, "Module practice TTS started")
+          }
+
+          override fun onDone(id: String?) {
+            if (id == utteranceId) {
+              Log.d(debugTag, "Module practice TTS finished")
+              resolveOnce(true)
+            }
+          }
+
+          @Deprecated("Deprecated in Java")
+          override fun onError(id: String?) {
+            if (id == utteranceId) {
+              Log.w(debugTag, "Module practice TTS failed")
+              resolveOnce(false)
+            }
+          }
+
+          override fun onError(id: String?, errorCode: Int) {
+            if (id == utteranceId) {
+              Log.w(debugTag, "Module practice TTS failed: $errorCode")
+              resolveOnce(false)
+            }
+          }
+        })
+
+        engine.stop()
+        val result = engine.speak(cleanPhrase, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+
+        if (result == TextToSpeech.ERROR) {
+          Log.w(debugTag, "Module practice TTS speak returned error")
+          resolveOnce(false)
+        }
+      }
+
+      val existingEngine = practiceTts
+
+      if (existingEngine != null) {
+        speakWith(existingEngine)
+        return@post
+      }
+
+      practiceTts = TextToSpeech(context.applicationContext) { status ->
+        val engine = practiceTts
+
+        if (status != TextToSpeech.SUCCESS || engine == null) {
+          Log.w(debugTag, "Module practice TTS unavailable")
+          resolveOnce(false)
+          return@TextToSpeech
+        }
+
+        speakWith(engine)
+      }
+    }
+  }
+
+  private fun stopPracticeSpeech() {
+    try {
+      practiceTts?.stop()
+      Log.d(debugTag, "Module practice TTS stopped")
+    } catch (error: Exception) {
+      Log.w(debugTag, "Module practice TTS stop failed", error)
+    }
+  }
+
   override fun definition() = ModuleDefinition {
     Name("FocusAlert")
    AsyncFunction("getFcmToken") { promise: expo.modules.kotlin.Promise ->
@@ -358,6 +452,21 @@ class FocusAlertModule : Module() {
 
     Function("playPracticeSound") { kind: String ->
       playPracticeTone(kind)
+      return@Function null
+    }
+
+    AsyncFunction("speakPracticePhrase") { phrase: String, promise: expo.modules.kotlin.Promise ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.resolve(false)
+        return@AsyncFunction
+      }
+      Log.d(debugTag, "Module speakPracticePhrase called")
+      speakPracticePhrase(context, phrase, promise)
+    }
+
+    Function("stopPracticeSpeech") {
+      stopPracticeSpeech()
       return@Function null
     }
 

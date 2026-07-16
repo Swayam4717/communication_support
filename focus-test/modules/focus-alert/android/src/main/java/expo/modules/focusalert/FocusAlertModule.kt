@@ -9,12 +9,16 @@ import android.app.KeyguardManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.PixelFormat
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.view.Gravity
@@ -243,6 +247,22 @@ class FocusAlertModule : Module() {
     }
   }
 
+  private fun playPracticeTone(kind: String) {
+    try {
+      val toneType =
+        if (kind == "success") ToneGenerator.TONE_PROP_ACK else ToneGenerator.TONE_PROP_BEEP
+      val durationMs = if (kind == "success") 180 else 120
+      val toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 60)
+      toneGenerator.startTone(toneType, durationMs)
+      Handler(Looper.getMainLooper()).postDelayed({
+        toneGenerator.release()
+      }, durationMs.toLong() + 80L)
+      Log.d(debugTag, "Module practice sound played: $kind")
+    } catch (error: Exception) {
+      Log.w(debugTag, "Module practice sound failed: $kind", error)
+    }
+  }
+
   override fun definition() = ModuleDefinition {
     Name("FocusAlert")
    AsyncFunction("getFcmToken") { promise: expo.modules.kotlin.Promise ->
@@ -326,6 +346,11 @@ class FocusAlertModule : Module() {
       val context = appContext.reactContext ?: return@Function null
       Log.d(debugTag, "Module showOverlayAlert called")
       showOverlay(context)
+      return@Function null
+    }
+
+    Function("playPracticeSound") { kind: String ->
+      playPracticeTone(kind)
       return@Function null
     }
 

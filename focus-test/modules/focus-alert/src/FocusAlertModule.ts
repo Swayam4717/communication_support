@@ -11,6 +11,7 @@ declare class FocusAlertModule extends NativeModule<FocusAlertModuleEvents> {
   isIgnoringBatteryOptimizations(): boolean;
   openBatterySettings(): boolean;
   showOverlayAlert(): void;
+  playPracticeSound(kind: 'ready' | 'success'): void;
   triggerFocusAlert(): void;
   getFcmToken(): string;
 }

@@ -109,7 +109,7 @@ Android overlay reliability can vary by device/OEM battery settings. On the test
 - Dynamic answer options: parents can add or remove choices while keeping at least two options.
 - Optional speech sentence pattern for child practice, such as `I want {option}`, `I feel {option}`, or `{option}`.
 - Square-bracket visual keywords for longer option labels. For example, `play [soccer]` shows as `play soccer` to the child, but visual generation searches for `soccer`.
-- Visual answer options with generated visuals, uploaded images, Emoji API results, and text-only fallback.
+- Visual answer options with generated visuals, uploaded images, emoji fallback, and text fallback.
 - Manual image upload from camera/gallery.
 - Remove visual option when a generated/uploaded visual is unsuitable.
 - Visual generation gives clearer loading, fallback, and error feedback during testing.
@@ -133,7 +133,7 @@ Android overlay reliability can vary by device/OEM battery settings. On the test
 
 - Child Mode tap-to-answer flow.
 - Compact child choice screen optimized for a typical Android phone.
-- Visual option cards with image, Emoji API result, or text-only fallback.
+- Visual option cards with image, emoji, or text fallback.
 - Child manually presses Send Answer.
 - Visible feedback if child answer submission fails.
 - Exit-before-answer tracking: if the child backgrounds/leaves an opened active question before sending, Firestore marks the session and Cloud Functions sends a return-to-question overlay reminder.
@@ -148,14 +148,14 @@ Firestore visualCache
 -> OpenSymbols
 -> Emoji API
 -> Runware AI
--> text-only option if no reliable visual is found
+-> fallback behavior
 ```
 
 OpenSymbols search avoids weak connector/preposition matches for multi-word labels such as `after bed` and `before bed`, so weak words like `after` or `before` are not accepted as the main visual concept.
 
 Parents can guide visual lookup by putting the intended picture word or phrase in square brackets. For example, `go to [toilet]` displays as `go to toilet`, while the visual pipeline searches for `toilet`.
 
-If OpenSymbols, Emoji API, and Runware do not return a reliable visual, the option stays text-only. This avoids showing generic emojis or loosely related fallback pictures that could confuse the option meaning. Parents can upload their own image before sending.
+If the pipeline uses a simpler fallback visual, the parent UI treats it as usable but reviewable. Parents can keep the fallback, remove it, or upload their own image before sending.
 
 API keys stay in Firebase backend secrets, not frontend code.
 

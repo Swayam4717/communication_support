@@ -16,13 +16,13 @@ import {
 import type { CommunicationSession, SpeechWordFeedback } from "./communicationHelpers";
 import {
   getSpeechPracticePhrase,
-  markChildSessionExited,
   splitSpeechWords,
   subscribeToSession,
   submitAnswer,
 } from "./communicationHelpers";
 import { OptionCard } from "./communicationUI";
 import { styles } from "./communicationCommon";
+import FocusAlertModule from "../modules/focus-alert";
 
 interface ChildModeScreenProps {
   roomId: string;
@@ -36,6 +36,69 @@ type SpeechFeedbackCard = {
   mainText: string;
   secondaryText: string;
 };
+
+const WEAK_STARTER_WORDS = new Set(["i"]);
+
+function splitSpeechUnits(phrase: string) {
+  return phrase
+    .split(/([.!?,;:])/)
+    .reduce<string[]>((units, part, index, parts) => {
+      if (!part || /[.!?,;:]/.test(part)) {
+        return units;
+      }
+
+      const words = splitSpeechWords(part);
+
+      for (let wordIndex = 0; wordIndex < words.length; ) {
+        const isClauseStart =
+          wordIndex === 0 &&
+          (index === 0 || /[.!?,;:]/.test(parts[index - 1] ?? ""));
+        const unitSize = isClauseStart && words.length > 1 ? 2 : 1;
+        units.push(words.slice(wordIndex, wordIndex + unitSize).join(" "));
+        wordIndex += unitSize;
+      }
+
+      return units;
+    }, []);
+}
+
+function matchSpeechUnit(
+  targetUnit: string,
+  transcriptWords: string[],
+  transcriptIndex: number,
+) {
+  const targetWords = splitSpeechWords(targetUnit);
+  const heardWords = transcriptWords.slice(
+    transcriptIndex,
+    transcriptIndex + targetWords.length,
+  );
+  const isExactUnitMatch =
+    targetWords.length > 0 &&
+    targetWords.every((word, index) => heardWords[index] === word);
+
+  if (isExactUnitMatch) {
+    return {
+      matched: true,
+      consumedWordCount: targetWords.length,
+    };
+  }
+
+  if (
+    targetWords.length > 1 &&
+    WEAK_STARTER_WORDS.has(targetWords[0]) &&
+    transcriptWords[transcriptIndex] === targetWords[1]
+  ) {
+    return {
+      matched: true,
+      consumedWordCount: 1,
+    };
+  }
+
+  return {
+    matched: false,
+    consumedWordCount: 0,
+  };
+}
 
 /**
  * ChildModeScreen - Simulates the child's experience
@@ -59,10 +122,10 @@ export default function ChildModeScreen({
   const [selectionSource, setSelectionSource] = React.useState<"tap" | "speech" | "typedPractice" | null>(null);
   const [mockTranscript, setMockTranscript] = React.useState("");
   const [isListening, setIsListening] = React.useState(false);
-  const [isAutoListenEnabled, setIsAutoListenEnabled] = React.useState(false);
-  const [liveTranscript, setLiveTranscript] = React.useState("");
+  const [, setIsAutoListenEnabled] = React.useState(false);
+  const [, setLiveTranscript] = React.useState("");
   const [speechFeedbackTranscript, setSpeechFeedbackTranscript] = React.useState("");
-  const [speechError, setSpeechError] = React.useState<string | null>(null);
+  const [, setSpeechError] = React.useState<string | null>(null);
   const [speechMessage, setSpeechMessage] = React.useState("Tap an answer, then practise saying it.");
   const [speechFeedbackCard, setSpeechFeedbackCard] =
     React.useState<SpeechFeedbackCard | null>(null);
@@ -71,28 +134,26 @@ export default function ChildModeScreen({
   const [practicePhraseTapCount, setPracticePhraseTapCount] = React.useState(0);
   const previousSessionIdRef = React.useRef<string | null>(null);
   const autoListenEnabledRef = React.useRef(false);
+  const isSpeechStartingRef = React.useRef(false);
+  const suppressExitReminderUntilRef = React.useRef(0);
   const restartListeningTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const completedPracticeWordCountRef = React.useRef(0);
   const selectedOptionIdRef = React.useRef<string | null>(null);
+  const autoStartedSpeechKeyRef = React.useRef<string | null>(null);
+  const readySoundKeyRef = React.useRef<string | null>(null);
+  const successSoundKeyRef = React.useRef<string | null>(null);
   const directOpenedSessionIdRef = React.useRef<string | null>(null);
   const stageRef = React.useRef(stage);
   const sessionRef = React.useRef<CommunicationSession | null>(null);
   const appStateRef = React.useRef<AppStateStatus>(AppState.currentState);
-  const answerSubmittedRef = React.useRef(false);
   const hasInitializedAppStateRef = React.useRef(false);
-  const hasViewedCurrentSessionRef = React.useRef(false);
-  const currentViewedSessionIdRef = React.useRef<string | null>(null);
-  const hasWrittenReminderForCurrentExitRef = React.useRef(false);
+  const answerSubmittedRef = React.useRef(false);
+  const hasShownLocalReminderForCurrentExitRef = React.useRef(false);
   const clearRestartListeningTimer = React.useCallback(() => {
     if (restartListeningTimerRef.current) {
       clearTimeout(restartListeningTimerRef.current);
       restartListeningTimerRef.current = null;
     }
-  }, []);
-  const resetExitReminderViewState = React.useCallback(() => {
-    hasViewedCurrentSessionRef.current = false;
-    currentViewedSessionIdRef.current = null;
-    hasWrittenReminderForCurrentExitRef.current = false;
   }, []);
   const abortSpeechRecognition = React.useCallback(() => {
     try {
@@ -116,11 +177,16 @@ export default function ChildModeScreen({
     setIsAutoListenEnabled(false);
     completedPracticeWordCountRef.current = 0;
     selectedOptionIdRef.current = null;
+    autoStartedSpeechKeyRef.current = null;
+    readySoundKeyRef.current = null;
+    successSoundKeyRef.current = null;
   }, []);
   const clearQuestionLocalState = React.useCallback(() => {
     answerSubmittedRef.current = false;
-    resetExitReminderViewState();
+    hasShownLocalReminderForCurrentExitRef.current = false;
     autoListenEnabledRef.current = false;
+    isSpeechStartingRef.current = false;
+    suppressExitReminderUntilRef.current = 0;
     setIsAutoListenEnabled(false);
     clearRestartListeningTimer();
     abortSpeechRecognition();
@@ -129,49 +195,30 @@ export default function ChildModeScreen({
   }, [
     abortSpeechRecognition,
     clearRestartListeningTimer,
-    resetExitReminderViewState,
     resetSpeechPracticeState,
   ]);
   const openActiveQuestion = React.useCallback(
     (
       activeSession: CommunicationSession,
-      options: { resetReminderExitLatch?: boolean } = {},
+      options: { resetLocalReminderLatch?: boolean } = {},
     ) => {
       if (
         stageRef.current === "choice" &&
-        currentViewedSessionIdRef.current === activeSession.id &&
-        hasViewedCurrentSessionRef.current
+        directOpenedSessionIdRef.current === activeSession.id
       ) {
-        if (options.resetReminderExitLatch) {
-          hasWrittenReminderForCurrentExitRef.current = false;
+        if (options.resetLocalReminderLatch) {
+          hasShownLocalReminderForCurrentExitRef.current = false;
           appStateRef.current = "active";
         }
 
-        console.log("[ExitReminderDebug] openActiveQuestion skipped; session already open", {
-          sessionId: activeSession.id,
-          stageRef: stageRef.current,
-          currentViewedSessionId: currentViewedSessionIdRef.current,
-          hasViewedCurrentSession: hasViewedCurrentSessionRef.current,
-          appStateBaseline: appStateRef.current,
-          resetReminderExitLatch: !!options.resetReminderExitLatch,
-        });
         return;
       }
-
-      const previousAppStateBaseline = appStateRef.current;
-      console.log("[ExitReminderDebug] openActiveQuestion start", {
-        sessionId: activeSession.id,
-        status: activeSession.status,
-        hasSelectedAnswer: !!activeSession.selectedAnswer,
-        previousAppStateBaseline,
-      });
 
       clearQuestionLocalState();
       directOpenedSessionIdRef.current = activeSession.id;
       previousSessionIdRef.current = activeSession.id;
       stageRef.current = "choice";
       appStateRef.current = "active";
-      hasWrittenReminderForCurrentExitRef.current = false;
 
       if (
         activeSession.status === "sent" &&
@@ -179,20 +226,7 @@ export default function ChildModeScreen({
         !activeSession.selectedAnswer
       ) {
         answerSubmittedRef.current = false;
-        hasViewedCurrentSessionRef.current = true;
-        currentViewedSessionIdRef.current = activeSession.id;
       }
-
-      console.log("[ExitReminderDebug] openActiveQuestion refs set", {
-        sessionId: activeSession.id,
-        stageRef: stageRef.current,
-        hasViewedCurrentSession: hasViewedCurrentSessionRef.current,
-        currentViewedSessionId: currentViewedSessionIdRef.current,
-        answerSubmitted: answerSubmittedRef.current,
-        appStateBaseline: appStateRef.current,
-        hasWrittenReminderForCurrentExit:
-          hasWrittenReminderForCurrentExitRef.current,
-      });
 
       setStage("choice");
     },
@@ -211,29 +245,17 @@ export default function ChildModeScreen({
   }, [stage]);
 
   React.useEffect(() => {
-    if (
-      session?.status === "sent" &&
-      stage === "choice" &&
-      session.id &&
-      !session.selectedAnswer &&
-      !answerSubmittedRef.current
-    ) {
-      hasViewedCurrentSessionRef.current = true;
-      currentViewedSessionIdRef.current = session.id;
-    }
-  }, [session?.id, session?.selectedAnswer, session?.status, stage]);
-
-  React.useEffect(() => {
     sessionRef.current = session;
+
     if (!session || session.status === "idle") {
       answerSubmittedRef.current = false;
-      resetExitReminderViewState();
+      hasShownLocalReminderForCurrentExitRef.current = false;
     }
     if (session?.status === "answered") {
       answerSubmittedRef.current = true;
-      resetExitReminderViewState();
+      hasShownLocalReminderForCurrentExitRef.current = true;
     }
-  }, [resetExitReminderViewState, session]);
+  }, [session]);
 // Subscribe to session updates for the given roomId and update local state accordingly
  React.useEffect(() => {
   const unsub = subscribeToSession((s) => {
@@ -259,7 +281,7 @@ export default function ChildModeScreen({
         directOpenedSessionIdRef.current === s.id
       ) {
         openActiveQuestion(s, {
-          resetReminderExitLatch: openActiveSessionDirectly,
+          resetLocalReminderLatch: openActiveSessionDirectly,
         });
         if (openActiveSessionDirectly) {
           onOpenActiveSessionHandled?.();
@@ -272,7 +294,6 @@ export default function ChildModeScreen({
 
     if (s.status === "answered") {
       answerSubmittedRef.current = true;
-      resetExitReminderViewState();
       previousSessionIdRef.current = s.id;
       directOpenedSessionIdRef.current = null;
       autoListenEnabledRef.current = false;
@@ -301,123 +322,36 @@ export default function ChildModeScreen({
     const subscription = AppState.addEventListener("change", (nextState) => {
       const previousState = appStateRef.current;
       appStateRef.current = nextState;
-      const currentSession = sessionRef.current;
-      const currentSessionId = currentSession?.id ?? null;
-      const appStateDebugPayload = {
-        previousState,
-        nextState,
-        stageRef: stageRef.current,
-        currentSessionId,
-        activeSessionId: currentSession?.id ?? null,
-        hasViewedCurrentSession: hasViewedCurrentSessionRef.current,
-        currentViewedSessionId: currentViewedSessionIdRef.current,
-        answerSubmitted: answerSubmittedRef.current,
-        hasWrittenReminderForCurrentExit:
-          hasWrittenReminderForCurrentExitRef.current,
-        hasSelectedAnswer: !!currentSession?.selectedAnswer,
-        currentSessionStatus: currentSession?.status ?? null,
-      };
 
       if (!hasInitializedAppStateRef.current) {
-        console.log("[ExitReminderDebug] AppState initial event ignored", {
-          ...appStateDebugPayload,
-          skipReason: "initial AppState setup event",
-        });
         hasInitializedAppStateRef.current = true;
         return;
       }
 
-      const reminderGuard = {
-        previousWasActive: previousState === "active",
-        nextIsBackground: nextState === "background",
-        sessionIsSent: currentSession?.status === "sent",
-        hasCurrentSessionId: !!currentSessionId,
-        stageIsChoice: stageRef.current === "choice",
-        noSelectedAnswer: !currentSession?.selectedAnswer,
-        answerNotSubmitted: !answerSubmittedRef.current,
-        hasViewedCurrentSession: hasViewedCurrentSessionRef.current,
-        viewedSessionMatchesCurrent:
-          currentViewedSessionIdRef.current === currentSessionId,
-      };
-      const hasOpenUnansweredQuestion =
-        reminderGuard.sessionIsSent &&
-        reminderGuard.hasCurrentSessionId &&
-        reminderGuard.stageIsChoice &&
-        reminderGuard.noSelectedAnswer &&
-        reminderGuard.answerNotSubmitted &&
-        reminderGuard.hasViewedCurrentSession &&
-        reminderGuard.viewedSessionMatchesCurrent;
-      const shouldWriteReminder =
-        reminderGuard.previousWasActive &&
-        reminderGuard.nextIsBackground &&
-        hasOpenUnansweredQuestion &&
-        !hasWrittenReminderForCurrentExitRef.current;
-      const skippedBecauseReminderAlreadyWritten =
-        reminderGuard.previousWasActive &&
-        reminderGuard.nextIsBackground &&
-        hasOpenUnansweredQuestion &&
-        hasWrittenReminderForCurrentExitRef.current;
-      const skipReasons = [
-        !reminderGuard.previousWasActive ? "previous state was not active" : "",
-        !reminderGuard.nextIsBackground ? "next state was not background" : "",
-        !reminderGuard.sessionIsSent ? "session status is not sent" : "",
-        !reminderGuard.hasCurrentSessionId ? "missing current session id" : "",
-        !reminderGuard.stageIsChoice ? "stage is not choice" : "",
-        !reminderGuard.noSelectedAnswer ? "selectedAnswer exists" : "",
-        !reminderGuard.answerNotSubmitted ? "answerSubmittedRef is true" : "",
-        !reminderGuard.hasViewedCurrentSession
-          ? "current session has not been marked viewed"
-          : "",
-        !reminderGuard.viewedSessionMatchesCurrent
-          ? "viewed session id does not match current session id"
-          : "",
-        hasWrittenReminderForCurrentExitRef.current
-          ? "reminder already written for current background exit"
-          : "",
-      ].filter(Boolean);
+      const currentSession = sessionRef.current;
+      const isSpeechStartupNoise =
+        isSpeechStartingRef.current || Date.now() < suppressExitReminderUntilRef.current;
+      const shouldShowLocalReminder =
+        previousState === "active" &&
+        nextState === "background" &&
+        stageRef.current === "choice" &&
+        currentSession?.status === "sent" &&
+        !!currentSession.id &&
+        !currentSession.selectedAnswer &&
+        !answerSubmittedRef.current &&
+        !hasShownLocalReminderForCurrentExitRef.current &&
+        !isSpeechStartupNoise;
 
-      console.log("[ExitReminderDebug] AppState transition", {
-        ...appStateDebugPayload,
-        reminderGuard,
-        willWriteReminder: shouldWriteReminder,
-        skipReasons,
-      });
-
-      if (skippedBecauseReminderAlreadyWritten) {
-        console.log("[ExitReminderDebug] reminder write skipped; already written for current background exit", {
-          roomId,
-          sessionId: currentSessionId,
-        });
+      if (!shouldShowLocalReminder) {
+        return;
       }
 
-      if (shouldWriteReminder) {
-        hasWrittenReminderForCurrentExitRef.current = true;
-        const reminderRequestId = [
-          currentSessionId,
-          Date.now(),
-          Math.random().toString(36).slice(2, 8),
-        ].join("-");
-        const debugMarker = Date.now();
+      hasShownLocalReminderForCurrentExitRef.current = true;
 
-        console.log("[ExitReminderDebug] writing child exit reminder request", {
-          roomId,
-          childExitReminderRequestId: reminderRequestId,
-          childExitReminderSessionId: currentSessionId,
-          debugMarker,
-        });
-
-        markChildSessionExited(roomId, reminderRequestId, currentSessionId)
-          .then(() => {
-            console.log("[ExitReminderDebug] child exit reminder request written", {
-              roomId,
-              childExitReminderRequestId: reminderRequestId,
-              childExitReminderSessionId: currentSessionId,
-              debugMarker,
-            });
-          })
-          .catch((error) => {
-            console.warn("[ExitReminderDebug] markChildSessionExited failed", error);
-          });
+      try {
+        FocusAlertModule.showOverlayAlert();
+      } catch (error) {
+        console.warn("Could not show local exit reminder overlay", error);
       }
     });
 
@@ -425,11 +359,12 @@ export default function ChildModeScreen({
       clearTimeout(initializationTimer);
       subscription.remove();
     };
-  }, [roomId]);
+  }, []);
 
   React.useEffect(() => {
     if (stage !== "choice" && isListening) {
       autoListenEnabledRef.current = false;
+      isSpeechStartingRef.current = false;
       setIsAutoListenEnabled(false);
       clearRestartListeningTimer();
       abortSpeechRecognition();
@@ -442,7 +377,7 @@ export default function ChildModeScreen({
     ? getSpeechPracticePhrase(selectedOption.label, session?.speechTemplate ?? undefined)
     : "";
   const speechPracticeWords = React.useMemo(
-    () => splitSpeechWords(speechPracticePhrase),
+    () => splitSpeechUnits(speechPracticePhrase),
     [speechPracticePhrase],
   );
   const startRecognitionSession = React.useCallback(() => {
@@ -452,6 +387,7 @@ export default function ChildModeScreen({
       maxAlternatives: 1,
       contextualStrings: speechPracticePhrase ? [speechPracticePhrase] : [],
     });
+    isSpeechStartingRef.current = false;
     setIsListening(true);
   }, [speechPracticePhrase]);
   const scheduleListeningRestart = React.useCallback(() => {
@@ -489,11 +425,12 @@ export default function ChildModeScreen({
       try {
         startRecognitionSession();
       } catch {
+        isSpeechStartingRef.current = false;
         setIsListening(false);
         autoListenEnabledRef.current = false;
         setIsAutoListenEnabled(false);
         setSpeechError(null);
-        setSpeechMessage("Start speaking when ready.");
+        setSpeechMessage("Listening will start when ready.");
       }
     }, 600);
   }, [
@@ -520,32 +457,43 @@ export default function ChildModeScreen({
       selectedPracticeOption.label,
       session.speechTemplate ?? undefined,
     );
-    const targetWords = splitSpeechWords(practicePhrase);
+    const targetUnits = splitSpeechUnits(practicePhrase);
     const transcriptWords = splitSpeechWords(value);
 
-    if (targetWords.length === 0 || transcriptWords.length === 0) {
+    if (targetUnits.length === 0 || transcriptWords.length === 0) {
       return;
     }
 
     let nextTargetIndex = completedPracticeWordCount;
     let transcriptIndex = 0;
 
-    while (
-      transcriptIndex < nextTargetIndex &&
-      transcriptWords[transcriptIndex] === targetWords[transcriptIndex]
+    for (
+      let completedIndex = 0;
+      completedIndex < nextTargetIndex && transcriptIndex < transcriptWords.length;
+      completedIndex += 1
     ) {
-      transcriptIndex += 1;
+      const completedUnitMatch = matchSpeechUnit(
+        targetUnits[completedIndex],
+        transcriptWords,
+        transcriptIndex,
+      );
+
+      if (!completedUnitMatch.matched) {
+        transcriptIndex = 0;
+        break;
+      }
+
+      transcriptIndex += completedUnitMatch.consumedWordCount;
     }
 
     for (
       let wordIndex = transcriptIndex;
-      wordIndex < transcriptWords.length && nextTargetIndex < targetWords.length;
-      wordIndex += 1
+      wordIndex < transcriptWords.length && nextTargetIndex < targetUnits.length;
     ) {
-      const nextTargetWord = targetWords[nextTargetIndex];
-      const heardWord = transcriptWords[wordIndex];
+      const nextTargetUnit = targetUnits[nextTargetIndex];
+      const unitMatch = matchSpeechUnit(nextTargetUnit, transcriptWords, wordIndex);
 
-      if (heardWord !== nextTargetWord) {
+      if (!unitMatch.matched) {
         setCompletedPracticeWordCount(0);
         completedPracticeWordCountRef.current = 0;
         setSpeechMessage(`Let's try the sentence again: ${practicePhrase}`);
@@ -558,18 +506,28 @@ export default function ChildModeScreen({
       }
 
       nextTargetIndex += 1;
+      wordIndex += unitMatch.consumedWordCount;
     }
 
     setCompletedPracticeWordCount(nextTargetIndex);
     completedPracticeWordCountRef.current = nextTargetIndex;
 
-    if (nextTargetIndex >= targetWords.length) {
+    if (nextTargetIndex >= targetUnits.length) {
       autoListenEnabledRef.current = false;
       setIsAutoListenEnabled(false);
       clearRestartListeningTimer();
       abortSpeechRecognition();
       setIsListening(false);
       setSelectionSource(selectionSource === "tap" ? "tap" : source);
+      const successKey = `${session.id}:${selectedOptionId}`;
+      if (successSoundKeyRef.current !== successKey) {
+        successSoundKeyRef.current = successKey;
+        try {
+          FocusAlertModule.playPracticeSound("success");
+        } catch {
+          // Sound feedback is optional; speech practice should keep working.
+        }
+      }
       setSpeechMessage("Good. Ready to send.");
       setSpeechFeedbackCard({
         tone: "good",
@@ -579,11 +537,11 @@ export default function ChildModeScreen({
       return;
     }
 
-    setSpeechMessage(`Good. Now say: ${targetWords[nextTargetIndex]}`);
+    setSpeechMessage(`Good. Now say: ${targetUnits[nextTargetIndex]}`);
     setSpeechFeedbackCard({
       tone: "good",
       mainText: "Good",
-      secondaryText: `Now say: ${targetWords[nextTargetIndex]}`,
+      secondaryText: `Now say: ${targetUnits[nextTargetIndex]}`,
     });
   }, [abortSpeechRecognition, clearRestartListeningTimer, completedPracticeWordCount, selectedOptionId, selectionSource, session]);
 
@@ -602,37 +560,43 @@ export default function ChildModeScreen({
 
   useSpeechRecognitionEvent("end", () => {
     setIsListening(false);
+    isSpeechStartingRef.current = false;
     scheduleListeningRestart();
   });
 
   useSpeechRecognitionEvent("error", () => {
     setIsListening(false);
+    isSpeechStartingRef.current = false;
     if (autoListenEnabledRef.current) {
       scheduleListeningRestart();
       return;
     }
 
     setSpeechError(null);
-    setSpeechMessage("Start speaking when ready.");
+    setSpeechMessage("Listening will start when ready.");
   });
 
   React.useEffect(() => {
     return () => {
       autoListenEnabledRef.current = false;
+      isSpeechStartingRef.current = false;
       clearRestartListeningTimer();
       ExpoSpeechRecognitionModule.abort();
     };
   }, [clearRestartListeningTimer]);
 
-  const startListening = async () => {
+  const startListening = React.useCallback(async () => {
     try {
+      isSpeechStartingRef.current = true;
+      suppressExitReminderUntilRef.current = Date.now() + 2000;
       const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
 
       if (!permission.granted || !ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+        isSpeechStartingRef.current = false;
         autoListenEnabledRef.current = false;
         setIsAutoListenEnabled(false);
         setSpeechError(null);
-        setSpeechMessage("Start speaking when ready.");
+        setSpeechMessage("You can still send your answer.");
         return;
       }
 
@@ -653,27 +617,37 @@ export default function ChildModeScreen({
       setSpeechMessage("Listening... take your time");
       startRecognitionSession();
     } catch {
+      isSpeechStartingRef.current = false;
       setIsListening(false);
       autoListenEnabledRef.current = false;
       setIsAutoListenEnabled(false);
       setSpeechError(null);
-      setSpeechMessage("Start speaking when ready.");
+      setSpeechMessage("You can still send your answer.");
     }
-  };
+  }, [clearRestartListeningTimer, selectedOptionId, startRecognitionSession]);
 
-  const stopListening = async () => {
-    try {
-      autoListenEnabledRef.current = false;
-      setIsAutoListenEnabled(false);
-      clearRestartListeningTimer();
-      ExpoSpeechRecognitionModule.stop();
-    } catch {
-      setSpeechError(null);
-      setSpeechMessage("Start speaking when ready.");
-    } finally {
-      setIsListening(false);
+  React.useEffect(() => {
+    if (stage !== "choice" || !session?.id || !selectedOptionId) {
+      return;
     }
-  };
+
+    const speechKey = `${session.id}:${selectedOptionId}`;
+
+    if (autoStartedSpeechKeyRef.current === speechKey) {
+      return;
+    }
+
+    autoStartedSpeechKeyRef.current = speechKey;
+    if (readySoundKeyRef.current !== speechKey) {
+      readySoundKeyRef.current = speechKey;
+      try {
+        FocusAlertModule.playPracticeSound("ready");
+      } catch {
+        // Sound feedback is optional; speech practice should keep working.
+      }
+    }
+    void startListening();
+  }, [selectedOptionId, session?.id, stage, startListening]);
 
   const handleMockTranscriptChange = (value: string) => {
     setMockTranscript(value);
@@ -701,9 +675,8 @@ export default function ChildModeScreen({
   const liveSpeechFeedbackMessage = speechFeedbackTranscript.trim()
     ? speechMessage
     : selectedOption
-      ? "Start speaking when ready."
-      : "Tap an answer, then press Start Speaking.";
-  const isSpeechListeningActive = isListening || isAutoListenEnabled;
+      ? "Listening will start when ready."
+      : "Tap an answer first.";
   const speechFeedbackWords = React.useMemo<SpeechWordFeedback[]>(() => {
     return speechPracticeWords.map((word, index) => ({
       targetWord: word,
@@ -746,7 +719,7 @@ export default function ChildModeScreen({
           <TouchableOpacity
             style={styles.primaryButton}
             onPress={() =>
-              openActiveQuestion(session, { resetReminderExitLatch: true })
+              openActiveQuestion(session, { resetLocalReminderLatch: true })
             }
           >
             <Text style={styles.primaryButtonText}>Start</Text>
@@ -787,22 +760,6 @@ export default function ChildModeScreen({
                     {speechFeedbackCard.secondaryText}
                   </Text>
                 </View>
-              ) : null}
-              <TouchableOpacity
-                style={[
-                  styles.speechListenButton,
-                  isSpeechListeningActive && styles.speechListenButtonActive,
-                ]}
-                onPress={isSpeechListeningActive ? stopListening : startListening}
-              >
-                <Text style={styles.speechListenButtonText}>
-                  {isSpeechListeningActive ? "Stop listening" : "Start speaking"}
-                </Text>
-              </TouchableOpacity>
-              {liveTranscript ? (
-                <Text style={styles.speechLiveTranscript}>
-                  Live: {liveTranscript}
-                </Text>
               ) : null}
               <View style={styles.liveSpeechFeedbackBox}>
                 {speechFeedbackWords.length > 0 ? (
@@ -863,6 +820,7 @@ export default function ChildModeScreen({
                 selected={option.id === selectedOptionId}
                 onPress={() => {
                   autoListenEnabledRef.current = false;
+                  isSpeechStartingRef.current = false;
                   setIsAutoListenEnabled(false);
                   clearRestartListeningTimer();
                   abortSpeechRecognition();
@@ -877,7 +835,7 @@ export default function ChildModeScreen({
                   setSpeechError(null);
                   setCompletedPracticeWordCount(0);
                   setSpeechFeedbackCard(null);
-                  setSpeechMessage("Say this phrase when ready.");
+                  setSpeechMessage("Listening will start when ready.");
                 }}
               />
             ))}
@@ -907,7 +865,12 @@ export default function ChildModeScreen({
               if (!selectedOption) return;
               try {
                 answerSubmittedRef.current = true;
-                resetExitReminderViewState();
+                autoListenEnabledRef.current = false;
+                isSpeechStartingRef.current = false;
+                setIsAutoListenEnabled(false);
+                clearRestartListeningTimer();
+                abortSpeechRecognition();
+                setIsListening(false);
                 await submitAnswer(selectedOption.id, roomId);
               } catch (e) {
                 answerSubmittedRef.current = false;
@@ -934,7 +897,7 @@ export default function ChildModeScreen({
             style={styles.primaryButton}
             onPress={() => {
               if (session.status === "sent") {
-                openActiveQuestion(session, { resetReminderExitLatch: true });
+                openActiveQuestion(session, { resetLocalReminderLatch: true });
                 return;
               }
 

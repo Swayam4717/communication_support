@@ -14,6 +14,10 @@ declare class FocusAlertModule extends NativeModule<FocusAlertModuleEvents> {
   playPracticeSound(kind: 'ready' | 'try' | 'success'): void;
   speakPracticePhrase(phrase: string): Promise<boolean>;
   stopPracticeSpeech(): void;
+  startAndroidSpeechRecognition(): Promise<void>;
+  stopAndroidSpeechRecognition(): Promise<void>;
+  cancelAndroidSpeechRecognition(): Promise<void>;
+  destroyAndroidSpeechRecognition(): Promise<void>;
   triggerFocusAlert(): void;
   getFcmToken(): string;
 }

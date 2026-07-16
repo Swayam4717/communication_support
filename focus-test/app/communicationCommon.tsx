@@ -597,6 +597,30 @@ export const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 18,
   },
+  speechTranscriptBox: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E3D8CE",
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    gap: 2,
+  },
+  speechTranscriptHeader: {
+    color: "#7E6F67",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  speechTranscriptText: {
+    color: "#2B1D18",
+    fontSize: 13,
+    fontWeight: "500",
+    lineHeight: 17,
+  },
+  speechTranscriptPlaceholder: {
+    color: "#A8978B",
+    fontStyle: "italic",
+  },
   liveSpeechFeedbackBox: {
     backgroundColor: "#FFFFFF",
     borderWidth: 1,

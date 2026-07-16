@@ -2,6 +2,7 @@ import React from "react";
 import {
   Alert,
   AppState,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -19,7 +20,6 @@ import {
   DEFAULT_SPEECH_ASSISTANT_ENABLED,
   DEFAULT_VISUAL_ONLY_MODE,
   getSpeechPracticePhrase,
-  splitSpeechWords,
   stripBoldMarkers,
   subscribeToSession,
   submitAnswer,
@@ -35,8 +35,99 @@ interface ChildModeScreenProps {
   onResetSetup: () => void;
 }
 
-const WEAK_STARTER_WORDS = new Set(["i"]);
-const PARENT_SETTINGS_PASSWORD = "parent";
+const PARENT_SETTINGS_PASSWORD = "1239";
+const DEBUG_SPEECH_MATCHING = true;
+const HOMOPHONE_GROUPS = [
+  ["to", "too", "two", "2"],
+  ["for", "four", "4"],
+  ["ate", "eight", "8"],
+  ["one", "won", "1"],
+  ["there", "their", "theyre"],
+  ["here", "hear"],
+  ["no", "know"],
+  ["right", "write"],
+  ["see", "sea"],
+  ["be", "bee"],
+  ["by", "buy", "bye"],
+  ["wait", "weight"],
+  ["eye", "i"],
+  ["our", "hour"],
+  ["are", "r"],
+  ["you", "u"],
+  ["your", "youre"],
+  ["where", "wear"],
+  ["whole", "hole"],
+  ["some", "sum"],
+];
+const HOMOPHONE_TOKEN_GROUPS = HOMOPHONE_GROUPS.reduce<Record<string, Set<string>>>(
+  (groups, group) => {
+    const normalizedGroup = new Set(group.map((token) => normalizeSpeechToken(token)));
+
+    normalizedGroup.forEach((token) => {
+      groups[token] = normalizedGroup;
+    });
+
+    return groups;
+  },
+  {},
+);
+
+function normalizeSpeechToken(token: string) {
+  return token
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^\w]/g, "")
+    .trim();
+}
+
+function splitPracticeSpeechTokens(text: string) {
+  return stripBoldMarkers(text)
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .map(normalizeSpeechToken)
+    .filter(Boolean);
+}
+
+function speechTokensMatch(expectedToken: string, transcriptToken: string) {
+  const expected = normalizeSpeechToken(expectedToken);
+  const heard = normalizeSpeechToken(transcriptToken);
+
+  if (!expected || !heard) {
+    return false;
+  }
+
+  if (expected === heard) {
+    return true;
+  }
+
+  return HOMOPHONE_TOKEN_GROUPS[expected]?.has(heard) ?? false;
+}
+
+function groupSpeechTokens(tokens: string[]) {
+  const groups: string[] = [];
+  let remaining = tokens.length;
+  let index = 0;
+
+  while (remaining > 0) {
+    let groupSize = 3;
+
+    if (remaining === 1) {
+      groupSize = 1;
+    } else if (remaining === 2 || remaining === 4) {
+      groupSize = 2;
+    }
+
+    groups.push(tokens.slice(index, index + groupSize).join(" "));
+    index += groupSize;
+    remaining -= groupSize;
+  }
+
+  return groups;
+}
 
 function splitSpeechUnits(phrase: string) {
   return phrase
@@ -46,57 +137,11 @@ function splitSpeechUnits(phrase: string) {
         return units;
       }
 
-      const words = splitSpeechWords(part);
-
-      for (let wordIndex = 0; wordIndex < words.length; ) {
-        const isClauseStart =
-          wordIndex === 0 &&
-          (index === 0 || /[.!?,;:]/.test(parts[index - 1] ?? ""));
-        const unitSize = isClauseStart && words.length > 1 ? 2 : 1;
-        units.push(words.slice(wordIndex, wordIndex + unitSize).join(" "));
-        wordIndex += unitSize;
-      }
+      const words = splitPracticeSpeechTokens(part);
+      units.push(...groupSpeechTokens(words));
 
       return units;
     }, []);
-}
-
-function matchSpeechUnit(
-  targetUnit: string,
-  transcriptWords: string[],
-  transcriptIndex: number,
-) {
-  const targetWords = splitSpeechWords(targetUnit);
-  const heardWords = transcriptWords.slice(
-    transcriptIndex,
-    transcriptIndex + targetWords.length,
-  );
-  const isExactUnitMatch =
-    targetWords.length > 0 &&
-    targetWords.every((word, index) => heardWords[index] === word);
-
-  if (isExactUnitMatch) {
-    return {
-      matched: true,
-      consumedWordCount: targetWords.length,
-    };
-  }
-
-  if (
-    targetWords.length > 1 &&
-    WEAK_STARTER_WORDS.has(targetWords[0]) &&
-    transcriptWords[transcriptIndex] === targetWords[1]
-  ) {
-    return {
-      matched: true,
-      consumedWordCount: 1,
-    };
-  }
-
-  return {
-    matched: false,
-    consumedWordCount: 0,
-  };
 }
 
 function getDisplaySpeechUnit(unit: string) {
@@ -107,6 +152,70 @@ function getDisplaySpeechUnit(unit: string) {
   }
 
   return cleanedUnit.charAt(0).toUpperCase() + cleanedUnit.slice(1);
+}
+
+function isPartialSpeechTokenAttempt(targetToken: string, transcriptTokens: string[]) {
+  if (!targetToken || transcriptTokens.length === 0) {
+    return false;
+  }
+
+  const heardToken = normalizeSpeechToken(transcriptTokens[0] ?? "");
+  const normalizedTarget = normalizeSpeechToken(targetToken);
+  return !!heardToken && (normalizedTarget.startsWith(heardToken) || heardToken.length <= 2);
+}
+
+function logSpeechMatch(message: string, details: Record<string, unknown>) {
+  if (!DEBUG_SPEECH_MATCHING) {
+    return;
+  }
+
+  console.log("[GuidedSpeechDebug]", message, details);
+}
+
+function cleanRecognizedTranscript(transcript: string) {
+  return transcript.replace(/\s+/g, " ").trim();
+}
+
+function mergeRecognizedTranscript(currentTranscript: string, nextTranscript: string) {
+  const current = cleanRecognizedTranscript(currentTranscript);
+  const next = cleanRecognizedTranscript(nextTranscript);
+
+  if (!next) {
+    return current;
+  }
+
+  if (!current) {
+    return next;
+  }
+
+  const currentLower = current.toLowerCase();
+  const nextLower = next.toLowerCase();
+
+  if (nextLower.startsWith(currentLower)) {
+    return next;
+  }
+
+  if (currentLower.endsWith(nextLower)) {
+    return current;
+  }
+
+  const currentWords = current.split(" ");
+  const nextWords = next.split(" ");
+  const maxOverlap = Math.min(currentWords.length, nextWords.length);
+
+  for (let overlapSize = maxOverlap; overlapSize > 0; overlapSize -= 1) {
+    const currentTail = currentWords
+      .slice(currentWords.length - overlapSize)
+      .join(" ")
+      .toLowerCase();
+    const nextHead = nextWords.slice(0, overlapSize).join(" ").toLowerCase();
+
+    if (currentTail === nextHead) {
+      return [...currentWords, ...nextWords.slice(overlapSize)].join(" ");
+    }
+  }
+
+  return `${current} ${next}`;
 }
 
 /**
@@ -132,6 +241,7 @@ export default function ChildModeScreen({
   const [isListening, setIsListening] = React.useState(false);
   const [, setIsAutoListenEnabled] = React.useState(false);
   const [, setLiveTranscript] = React.useState("");
+  const [accumulatedTranscript, setAccumulatedTranscript] = React.useState("");
   const [, setSpeechError] = React.useState<string | null>(null);
   const [, setSpeechMessage] = React.useState("Tap an answer, then practise saying it.");
   const [, setSpeechFeedbackCard] = React.useState<null>(null);
@@ -141,10 +251,12 @@ export default function ChildModeScreen({
   const [parentSettingsError, setParentSettingsError] = React.useState("");
   const previousSessionIdRef = React.useRef<string | null>(null);
   const autoListenEnabledRef = React.useRef(false);
+  const wantsSpeechListeningRef = React.useRef(false);
   const isSpeechStartingRef = React.useRef(false);
   const suppressExitReminderUntilRef = React.useRef(0);
   const restartListeningTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const completedPracticeWordCountRef = React.useRef(0);
+  const accumulatedTranscriptRef = React.useRef("");
   const selectedOptionIdRef = React.useRef<string | null>(null);
   const autoStartedSpeechKeyRef = React.useRef<string | null>(null);
   const readySoundKeyRef = React.useRef<string | null>(null);
@@ -165,18 +277,35 @@ export default function ChildModeScreen({
       restartListeningTimerRef.current = null;
     }
   }, []);
-  const abortSpeechRecognition = React.useCallback(() => {
+  const setWantsSpeechListening = React.useCallback((wantsListening: boolean, reason: string) => {
+    wantsSpeechListeningRef.current = wantsListening;
+    console.log(`Guided speech wantsSpeechListening ${wantsListening}: ${reason}`);
+  }, []);
+  const abortSpeechRecognition = React.useCallback((reason = "recognition stopped") => {
+    setWantsSpeechListening(false, reason);
+    if (Platform.OS === "android") {
+      try {
+        console.log("Android native SpeechRecognizer stop requested from JS");
+        void FocusAlertModule.cancelAndroidSpeechRecognition();
+      } catch {
+        // Speech recognition can already be stopped when session state changes.
+      }
+      return;
+    }
+
     try {
       ExpoSpeechRecognitionModule.abort();
     } catch {
       // Speech recognition can already be stopped when session state changes.
     }
-  }, []);
+  }, [setWantsSpeechListening]);
 
   const resetSpeechPracticeState = React.useCallback(() => {
     setSelectedOptionId(null);
     setSelectionSource(null);
     setLiveTranscript("");
+    setAccumulatedTranscript("");
+    accumulatedTranscriptRef.current = "";
     setSpeechError(null);
     setSpeechMessage("Tap an answer, then practise saying it.");
     setSpeechFeedbackCard(null);
@@ -193,6 +322,7 @@ export default function ChildModeScreen({
     answerSubmittedRef.current = false;
     hasShownLocalReminderForCurrentExitRef.current = false;
     autoListenEnabledRef.current = false;
+    setWantsSpeechListening(false, "question local state cleared");
     isSpeechStartingRef.current = false;
     isSpeakingTargetRef.current = false;
     suppressExitReminderUntilRef.current = 0;
@@ -210,6 +340,7 @@ export default function ChildModeScreen({
     abortSpeechRecognition,
     clearRestartListeningTimer,
     resetSpeechPracticeState,
+    setWantsSpeechListening,
   ]);
   const openActiveQuestion = React.useCallback(
     (
@@ -311,6 +442,7 @@ export default function ChildModeScreen({
       previousSessionIdRef.current = s.id;
       directOpenedSessionIdRef.current = null;
       autoListenEnabledRef.current = false;
+      setWantsSpeechListening(false, "session answered");
       setIsAutoListenEnabled(false);
       clearRestartListeningTimer();
       setStage("confirmation");
@@ -324,6 +456,7 @@ export default function ChildModeScreen({
   openActiveQuestion,
   openActiveSessionDirectly,
   roomId,
+  setWantsSpeechListening,
 ]);
 
   React.useEffect(() => {
@@ -401,8 +534,18 @@ export default function ChildModeScreen({
         .trim(),
     [speechPracticePhrase],
   );
-  const speechPracticeWords = React.useMemo(
-    () => splitSpeechUnits(speechPracticePhrase),
+  const speechPracticeWords = React.useMemo(() => {
+    const units = splitSpeechUnits(speechPracticePhrase);
+
+    logSpeechMatch("speech bubble groups", {
+      phrase: speechPracticePhrase,
+      groups: units,
+    });
+
+    return units;
+  }, [speechPracticePhrase]);
+  const speechPracticeTokens = React.useMemo(
+    () => splitPracticeSpeechTokens(speechPracticePhrase),
     [speechPracticePhrase],
   );
   React.useEffect(() => {
@@ -417,6 +560,7 @@ export default function ChildModeScreen({
     try {
       answerSubmittedRef.current = true;
       autoListenEnabledRef.current = false;
+      setWantsSpeechListening(false, "sentence completed; submitting answer");
       isSpeechStartingRef.current = false;
       isSpeakingTargetRef.current = false;
       setIsAutoListenEnabled(false);
@@ -439,8 +583,30 @@ export default function ChildModeScreen({
     clearRestartListeningTimer,
     roomId,
     selectedOption,
+    setWantsSpeechListening,
   ]);
   const startRecognitionSession = React.useCallback(() => {
+    if (Platform.OS === "android") {
+      console.log("Using Android native SpeechRecognizer");
+      console.log("Android native SpeechRecognizer start requested from JS");
+      void FocusAlertModule.startAndroidSpeechRecognition()
+        .then(() => {
+          isSpeechStartingRef.current = false;
+          setIsListening(true);
+        })
+        .catch((error) => {
+          console.warn("Android native SpeechRecognizer start failed", error);
+          isSpeechStartingRef.current = false;
+          setIsListening(false);
+          autoListenEnabledRef.current = false;
+          setWantsSpeechListening(false, "Android speech start failed");
+          setIsAutoListenEnabled(false);
+          setSpeechError(null);
+          setSpeechMessage("Listening will start when ready.");
+        });
+      return;
+    }
+
     ExpoSpeechRecognitionModule.start({
       lang: "en-US",
       interimResults: true,
@@ -449,7 +615,7 @@ export default function ChildModeScreen({
     });
     isSpeechStartingRef.current = false;
     setIsListening(true);
-  }, [speechPracticePhrase]);
+  }, [setWantsSpeechListening, speechPracticePhrase]);
   const scheduleListeningRestart = React.useCallback(() => {
     clearRestartListeningTimer();
 
@@ -459,7 +625,7 @@ export default function ChildModeScreen({
       isVisualOnlyMode ||
       stageRef.current !== "choice" ||
       !selectedOptionIdRef.current ||
-      completedPracticeWordCountRef.current >= speechPracticeWords.length
+      completedPracticeWordCountRef.current >= speechPracticeTokens.length
     ) {
       return;
     }
@@ -481,7 +647,7 @@ export default function ChildModeScreen({
         isVisualOnlyMode ||
         stageRef.current !== "choice" ||
         !selectedOptionIdRef.current ||
-        completedPracticeWordCountRef.current >= speechPracticeWords.length
+        completedPracticeWordCountRef.current >= speechPracticeTokens.length
       ) {
         return;
       }
@@ -501,6 +667,7 @@ export default function ChildModeScreen({
     clearRestartListeningTimer,
     isVisualOnlyMode,
     speechPracticeWords,
+    speechPracticeTokens.length,
     startRecognitionSession,
   ]);
   const applyTranscriptMatch = React.useCallback((value: string, source: "speech") => {
@@ -522,67 +689,109 @@ export default function ChildModeScreen({
       selectedPracticeOption.label,
       session.speechTemplate ?? undefined,
     );
-    const targetUnits = splitSpeechUnits(practicePhrase);
-    const transcriptWords = splitSpeechWords(value);
+    const targetTokens = splitPracticeSpeechTokens(practicePhrase);
+    const transcriptTokens = splitPracticeSpeechTokens(value);
 
-    if (targetUnits.length === 0 || transcriptWords.length === 0) {
+    if (targetTokens.length === 0 || transcriptTokens.length === 0) {
       return;
     }
 
-    let nextTargetIndex = completedPracticeWordCount;
+    let nextTargetIndex = completedPracticeWordCountRef.current;
     let transcriptIndex = 0;
+    let acceptedAnyToken = false;
+
+    logSpeechMatch("result", {
+      targetTokens,
+      transcriptTokens,
+      currentIndex: nextTargetIndex,
+    });
 
     for (
-      let completedIndex = 0;
-      completedIndex < nextTargetIndex && transcriptIndex < transcriptWords.length;
-      completedIndex += 1
+      ;
+      transcriptIndex < transcriptTokens.length && nextTargetIndex < targetTokens.length;
+      transcriptIndex += 1
     ) {
-      const completedUnitMatch = matchSpeechUnit(
-        targetUnits[completedIndex],
-        transcriptWords,
-        transcriptIndex,
-      );
+      const transcriptToken = transcriptTokens[transcriptIndex];
+      const expectedToken = targetTokens[nextTargetIndex];
 
-      if (!completedUnitMatch.matched) {
-        transcriptIndex = 0;
-        break;
+      if (
+        nextTargetIndex > 0 &&
+        targetTokens
+          .slice(0, nextTargetIndex)
+          .some((targetToken) => speechTokensMatch(targetToken, transcriptToken))
+      ) {
+        logSpeechMatch("ignored repeated accepted token", {
+          transcriptToken,
+          currentIndex: nextTargetIndex,
+        });
+        continue;
       }
 
-      transcriptIndex += completedUnitMatch.consumedWordCount;
-    }
+      if (speechTokensMatch(expectedToken, transcriptToken)) {
+        nextTargetIndex += 1;
+        acceptedAnyToken = true;
+        hasPlayedTrySoundForCurrentAttemptRef.current = false;
+        logSpeechMatch("accepted token", {
+          expectedToken,
+          acceptedToken: transcriptToken,
+          acceptedByHomophone: expectedToken !== transcriptToken,
+          nextIndex: nextTargetIndex,
+        });
+        continue;
+      }
 
-    for (
-      let wordIndex = transcriptIndex;
-      wordIndex < transcriptWords.length && nextTargetIndex < targetUnits.length;
-    ) {
-      const nextTargetUnit = targetUnits[nextTargetIndex];
-      const unitMatch = matchSpeechUnit(nextTargetUnit, transcriptWords, wordIndex);
-
-      if (!unitMatch.matched) {
-        setCompletedPracticeWordCount(0);
-        completedPracticeWordCountRef.current = 0;
-        if (!hasPlayedTrySoundForCurrentAttemptRef.current) {
-          hasPlayedTrySoundForCurrentAttemptRef.current = true;
-          try {
-            FocusAlertModule.playPracticeSound("try");
-          } catch {
-            // Sound feedback is optional; speech practice should keep working.
-          }
-        }
+      if (isPartialSpeechTokenAttempt(expectedToken, [transcriptToken])) {
+        logSpeechMatch("partial token; waiting", {
+          expectedToken,
+          transcriptToken,
+          currentIndex: nextTargetIndex,
+        });
         setSpeechMessage("");
         setSpeechFeedbackCard(null);
         return;
       }
 
-      nextTargetIndex += 1;
-      wordIndex += unitMatch.consumedWordCount;
+      const didResetProgress = nextTargetIndex > 0;
+      logSpeechMatch("reset", {
+        reason: "wrong token",
+        expectedToken,
+        transcriptToken,
+        currentIndex: nextTargetIndex,
+      });
+      setAccumulatedTranscript("");
+      accumulatedTranscriptRef.current = "";
+      setCompletedPracticeWordCount(0);
+      completedPracticeWordCountRef.current = 0;
+      if (
+        didResetProgress &&
+        !hasPlayedTrySoundForCurrentAttemptRef.current &&
+        !isSpeakingTargetRef.current &&
+        !isSpeechStartingRef.current
+      ) {
+        hasPlayedTrySoundForCurrentAttemptRef.current = true;
+        try {
+          FocusAlertModule.playPracticeSound("try");
+        } catch {
+          // Sound feedback is optional; speech practice should keep working.
+        }
+      }
+      setSpeechMessage("");
+      setSpeechFeedbackCard(null);
+      return;
+    }
+
+    if (!acceptedAnyToken) {
+      setSpeechMessage("");
+      setSpeechFeedbackCard(null);
+      return;
     }
 
     setCompletedPracticeWordCount(nextTargetIndex);
     completedPracticeWordCountRef.current = nextTargetIndex;
 
-    if (nextTargetIndex >= targetUnits.length) {
+    if (nextTargetIndex >= targetTokens.length) {
       autoListenEnabledRef.current = false;
+      setWantsSpeechListening(false, "phrase completed");
       setIsAutoListenEnabled(false);
       clearRestartListeningTimer();
       abortSpeechRecognition();
@@ -610,31 +819,126 @@ export default function ChildModeScreen({
   }, [
     abortSpeechRecognition,
     clearRestartListeningTimer,
-    completedPracticeWordCount,
     isVisualOnlyMode,
     selectedOptionId,
     selectionSource,
     session,
+    setWantsSpeechListening,
     submitSelectedAnswer,
   ]);
 
-  useSpeechRecognitionEvent("result", (event) => {
-    if (isSpeakingTargetRef.current) {
+  const handleRecognizedTranscript = React.useCallback((rawTranscript: string) => {
+    if (isSpeakingTargetRef.current || !wantsSpeechListeningRef.current) {
       return;
     }
 
-    const transcript = event.results[0]?.transcript?.trim();
+    const transcript = cleanRecognizedTranscript(rawTranscript);
 
     if (!transcript) {
       return;
     }
 
+    const mergedTranscript = mergeRecognizedTranscript(
+      accumulatedTranscriptRef.current,
+      transcript,
+    );
+
+    accumulatedTranscriptRef.current = mergedTranscript;
     setLiveTranscript(transcript);
+    setAccumulatedTranscript(mergedTranscript);
     setSpeechError(null);
-    applyTranscriptMatch(transcript, "speech");
+    logSpeechMatch("transcript merged", {
+      rawTranscript,
+      accumulatedTranscript: mergedTranscript,
+      tokenProgress: completedPracticeWordCountRef.current,
+    });
+    applyTranscriptMatch(mergedTranscript, "speech");
+  }, [applyTranscriptMatch]);
+
+  React.useEffect(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+
+    const handleAndroidSpeechTranscript = (payload: { transcript?: string }) => {
+      handleRecognizedTranscript(payload.transcript ?? "");
+    };
+
+    const partialSubscription = FocusAlertModule.addListener(
+      "androidSpeechPartialResult",
+      handleAndroidSpeechTranscript,
+    );
+    const finalSubscription = FocusAlertModule.addListener(
+      "androidSpeechFinalResult",
+      handleAndroidSpeechTranscript,
+    );
+    const errorSubscription = FocusAlertModule.addListener(
+      "androidSpeechError",
+      (payload: { message?: string; code?: number }) => {
+        console.warn("Android native SpeechRecognizer error", payload);
+        setIsListening(false);
+        isSpeechStartingRef.current = false;
+
+        if (isSpeakingTargetRef.current) {
+          return;
+        }
+
+        hasPlayedTrySoundForCurrentAttemptRef.current = false;
+      },
+    );
+    const readySubscription = FocusAlertModule.addListener(
+      "androidSpeechReady",
+      () => {
+        setIsListening(true);
+        isSpeechStartingRef.current = false;
+      },
+    );
+    const beginningSubscription = FocusAlertModule.addListener(
+      "androidSpeechBeginning",
+      () => {
+        setIsListening(true);
+        isSpeechStartingRef.current = false;
+      },
+    );
+    const endSubscription = FocusAlertModule.addListener(
+      "androidSpeechEnd",
+      () => {
+        setIsListening(false);
+        isSpeechStartingRef.current = false;
+
+        if (isSpeakingTargetRef.current) {
+          return;
+        }
+
+        hasPlayedTrySoundForCurrentAttemptRef.current = false;
+      },
+    );
+
+    return () => {
+      partialSubscription.remove();
+      finalSubscription.remove();
+      errorSubscription.remove();
+      readySubscription.remove();
+      beginningSubscription.remove();
+      endSubscription.remove();
+    };
+  }, [handleRecognizedTranscript]);
+
+  useSpeechRecognitionEvent("result", (event) => {
+    if (Platform.OS === "android") {
+      return;
+    }
+
+    const transcript = event.results[0]?.transcript?.trim();
+
+    handleRecognizedTranscript(transcript ?? "");
   });
 
   useSpeechRecognitionEvent("end", () => {
+    if (Platform.OS === "android") {
+      return;
+    }
+
     setIsListening(false);
     isSpeechStartingRef.current = false;
     if (isSpeakingTargetRef.current) {
@@ -646,6 +950,10 @@ export default function ChildModeScreen({
   });
 
   useSpeechRecognitionEvent("error", () => {
+    if (Platform.OS === "android") {
+      return;
+    }
+
     setIsListening(false);
     isSpeechStartingRef.current = false;
     if (isSpeakingTargetRef.current) {
@@ -665,17 +973,22 @@ export default function ChildModeScreen({
   React.useEffect(() => {
     return () => {
       autoListenEnabledRef.current = false;
+      setWantsSpeechListening(false, "component unmounted");
       isSpeechStartingRef.current = false;
       isSpeakingTargetRef.current = false;
       clearRestartListeningTimer();
-      ExpoSpeechRecognitionModule.abort();
+      if (Platform.OS === "android") {
+        void FocusAlertModule.destroyAndroidSpeechRecognition();
+      } else {
+        ExpoSpeechRecognitionModule.abort();
+      }
       try {
         FocusAlertModule.stopPracticeSpeech();
       } catch {
         // Target phrase speech is optional; cleanup should keep working.
       }
     };
-  }, [clearRestartListeningTimer]);
+  }, [clearRestartListeningTimer, setWantsSpeechListening]);
 
   const startListening = React.useCallback(async () => {
     if (isSpeakingTargetRef.current) {
@@ -685,15 +998,19 @@ export default function ChildModeScreen({
     try {
       isSpeechStartingRef.current = true;
       suppressExitReminderUntilRef.current = Date.now() + 2000;
-      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
 
-      if (!permission.granted || !ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
-        isSpeechStartingRef.current = false;
-        autoListenEnabledRef.current = false;
-        setIsAutoListenEnabled(false);
-        setSpeechError(null);
-        setSpeechMessage("You can still send your answer.");
-        return;
+      if (Platform.OS !== "android") {
+        const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+
+        if (!permission.granted || !ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+          isSpeechStartingRef.current = false;
+          autoListenEnabledRef.current = false;
+          setWantsSpeechListening(false, "speech permission unavailable");
+          setIsAutoListenEnabled(false);
+          setSpeechError(null);
+          setSpeechMessage("You can still send your answer.");
+          return;
+        }
       }
 
       setLiveTranscript("");
@@ -702,12 +1019,14 @@ export default function ChildModeScreen({
       hasPlayedTrySoundForCurrentAttemptRef.current = false;
       if (!selectedOptionId) {
         autoListenEnabledRef.current = false;
+        setWantsSpeechListening(false, "no selected option");
         setIsAutoListenEnabled(false);
         setSpeechMessage("Choose an answer to practise first.");
         return;
       }
 
       autoListenEnabledRef.current = true;
+      setWantsSpeechListening(true, "speech mode option selected");
       setIsAutoListenEnabled(true);
       clearRestartListeningTimer();
       setSpeechMessage("Listening... take your time");
@@ -716,11 +1035,17 @@ export default function ChildModeScreen({
       isSpeechStartingRef.current = false;
       setIsListening(false);
       autoListenEnabledRef.current = false;
+      setWantsSpeechListening(false, "start listening failed");
       setIsAutoListenEnabled(false);
       setSpeechError(null);
       setSpeechMessage("You can still send your answer.");
     }
-  }, [clearRestartListeningTimer, selectedOptionId, startRecognitionSession]);
+  }, [
+    clearRestartListeningTimer,
+    selectedOptionId,
+    setWantsSpeechListening,
+    startRecognitionSession,
+  ]);
 
   React.useEffect(() => {
     if (stage !== "choice" || !session?.id || !selectedOptionId || isVisualOnlyMode) {
@@ -751,6 +1076,7 @@ export default function ChildModeScreen({
     }
 
     autoListenEnabledRef.current = false;
+    setWantsSpeechListening(false, "visual-only mode active");
     isSpeechStartingRef.current = false;
     isSpeakingTargetRef.current = false;
     setIsAutoListenEnabled(false);
@@ -762,7 +1088,12 @@ export default function ChildModeScreen({
       // Target phrase speech is optional; visual-only mode should keep working.
     }
     setIsListening(false);
-  }, [abortSpeechRecognition, clearRestartListeningTimer, isVisualOnlyMode]);
+  }, [
+    abortSpeechRecognition,
+    clearRestartListeningTimer,
+    isVisualOnlyMode,
+    setWantsSpeechListening,
+  ]);
 
   const handleTargetPhrasePress = React.useCallback(async () => {
     if (
@@ -780,6 +1111,7 @@ export default function ChildModeScreen({
 
     isSpeakingTargetRef.current = true;
     autoListenEnabledRef.current = false;
+    setWantsSpeechListening(false, "TTS target phrase started");
     isSpeechStartingRef.current = false;
     setIsAutoListenEnabled(false);
     clearRestartListeningTimer();
@@ -819,15 +1151,24 @@ export default function ChildModeScreen({
   ]);
 
   const speechFeedbackWords = React.useMemo<SpeechWordFeedback[]>(() => {
-    return speechPracticeWords.map((word, index) => ({
-      targetWord: word,
-      status:
-        index < completedPracticeWordCount
+    let tokenStartIndex = 0;
+
+    return speechPracticeWords.map((word) => {
+      const tokenCount = splitPracticeSpeechTokens(word).length;
+      const tokenEndIndex = tokenStartIndex + tokenCount;
+      const status =
+        completedPracticeWordCount >= tokenEndIndex
           ? "matched" as const
-          : index === completedPracticeWordCount
+          : completedPracticeWordCount >= tokenStartIndex
             ? "current" as const
-            : "pending" as const,
-    }));
+            : "pending" as const;
+      tokenStartIndex = tokenEndIndex;
+
+      return {
+        targetWord: word,
+        status,
+      };
+    });
   }, [completedPracticeWordCount, speechPracticeWords]);
 
   return (
@@ -958,6 +1299,8 @@ export default function ChildModeScreen({
                     setSelectedOptionId(option.id);
                     setSelectionSource("tap");
                     setLiveTranscript("");
+                    setAccumulatedTranscript("");
+                    accumulatedTranscriptRef.current = "";
                     setSpeechError(null);
                     setCompletedPracticeWordCount(0);
                     setSpeechFeedbackCard(null);
@@ -1017,6 +1360,17 @@ export default function ChildModeScreen({
                   </View>
                 ) : null
               ) : null}
+              <View style={styles.speechTranscriptBox}>
+                <Text style={styles.speechTranscriptHeader}>You said</Text>
+                <Text
+                  style={[
+                    styles.speechTranscriptText,
+                    !accumulatedTranscript && styles.speechTranscriptPlaceholder,
+                  ]}
+                >
+                  {accumulatedTranscript || "Listening..."}
+                </Text>
+              </View>
             </View>
           ) : null}
 
